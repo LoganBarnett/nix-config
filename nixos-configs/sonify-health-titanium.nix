@@ -23,7 +23,11 @@
     # relying on ALSA hint enumeration, which routes through dmix.
     # dmix's MMAP mixing loop silently fails on this snd_hda_intel
     # device, resulting in appl_ptr stuck at 0 (silence).
-    audioDevice = "plughw:CARD=0";
+    #
+    # Address the card by name (PCH) rather than positional index;
+    # if a USB audio interface ever boots before the onboard codec,
+    # CARD=0 would shift but CARD=PCH stays bound to snd_hda_intel.
+    audioDevice = "plughw:CARD=PCH";
     patches = {
       reactor-ok = {
         amplitude = 0.115;
