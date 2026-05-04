@@ -24,10 +24,13 @@
     # dmix's MMAP mixing loop silently fails on this snd_hda_intel
     # device, resulting in appl_ptr stuck at 0 (silence).
     #
-    # Address the card by name (PCH) rather than positional index;
-    # if a USB audio interface ever boots before the onboard codec,
-    # CARD=0 would shift but CARD=PCH stays bound to snd_hda_intel.
-    audioDevice = "plughw:CARD=PCH";
+    # The fully-qualified form is the exact id() that cpal's ALSA
+    # backend enumerates for the onboard ALC897 analog PCM, so the
+    # match is unambiguous.  CARD=PCH would be more boot-order
+    # robust, but cpal enumerates plughw: PCMs by integer index;
+    # name resolution would have to live inside sonify-health and
+    # isn't worth it for this fixed-hardware host.
+    audioDevice = "plughw:CARD=0,DEV=0";
     patches = {
       reactor-ok = {
         amplitude = 0.115;
