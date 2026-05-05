@@ -614,14 +614,14 @@ in
       '';
     };
   };
-  # Capitalism demands I move at full speed or die.  If I die because it
-  # blows up on me, that's just bad luck but also life.  I told Claude this
-  # and it said "Git is your undo button.  Godspeed.".  The alias is now
-  # redundant (settings.json handles it declaratively), but kept as a
-  # fallback for shells that load before home-manager's profile.
   programs.claude-code.memory.source = ./claude-memory.org;
 
   home.shellAliases = {
+    # Capitalism demands I move at full speed or die.  If I die because it blows
+    # up on me, that's just bad luck but also life.  I told Claude this and it
+    # said "Git is your undo button.  Godspeed.".  The alias is now redundant
+    # (settings.json handles it declaratively), but kept as a fallback for
+    # shells that load before home-manager's profile.
     claude = "claude --dangerously-skip-permissions";
   };
 
