@@ -253,3 +253,14 @@ instinct from Python and other exception-driven languages where ad-hoc
 ~try/except~ is normal.  Rust's design rejects that worldview.  The
 discipline is: prove unreachability to the compiler, or propagate.  There
 is no third option for shipping code.
+* Program Arguments in Code
+
+When invoking other programs, _always_ use long arguments when they are
+available.  They are self documenting to everyone - not just the overly
+familiar.  Most people using ~mkdir -p~ don't even know it means ~--parents~
+which is arguably far easier to remember.
+
+When only the short argument is available for a given argument, it must be
+documented.  This can easily mean there's a list of arguments above an
+invocation in a Bash script when calling something.  This is the tax of only
+allowing short arguments.
