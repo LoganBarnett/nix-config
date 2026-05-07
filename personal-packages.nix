@@ -61,9 +61,10 @@
   # See home.nix for how emacs is configured to include mu4e, plus additional
   # documentation on the configuration.
   pkgs.mu
-  # OBS does sweet screen recording and video composition.
-  # Sadly, this does not work on Darwin, yet.
-  # pkgs.obs-studio
+  # OBS does sweet screen recording and video composition.  Built from a
+  # vendored copy of NixOS/nixpkgs#498663 via overlays/default.nix until
+  # that PR merges; see derivations/obs-studio/.
+  pkgs.obs-studio
   # openconnect-sso wraps openconnect to provide SSO functionality.
   #
   # (pkgs.callPackage

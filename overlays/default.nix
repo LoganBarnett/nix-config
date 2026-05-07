@@ -52,6 +52,14 @@
       meta.platforms = final.lib.platforms.unix;
     });
   })
+  # nixpkgs's obs-studio derivation is Linux-only.  Replace it with the
+  # vendored copy of NixOS/nixpkgs#498663, which refactors the package
+  # into shared/linux/darwin pieces and adds an aarch64-darwin/x86_64-darwin
+  # build path.  Drop this overlay once that PR merges and the pinned
+  # nixpkgs catches up.
+  (final: prev: {
+    obs-studio = final.qt6Packages.callPackage ../derivations/obs-studio { };
+  })
   # Hash mismatch: upstream re-published the zip with different contents.
   (final: prev: {
     istat-menus = prev.istat-menus.overrideAttrs (old: {
