@@ -490,11 +490,7 @@
         };
         logan = {
           description = "The reason we suffer.";
-          emails = [
-            "logustus@proton"
-            # Catch-all for logustus.com — every *@logustus.com lands here.
-            "@logustus.com"
-          ];
+          emails = [ "logustus@proton" ];
           type = "person";
           full-name = "Logan Barnett";
           ldap-groups = [

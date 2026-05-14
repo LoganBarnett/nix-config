@@ -60,6 +60,7 @@ in
         domain = "logustus.com";
         dkimSelector = "default";
         dkimSecretName = "stalwart-dkim-logustus";
+        catchAllTarget = "logustus@${domain}";
       }
     ];
 

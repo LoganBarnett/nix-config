@@ -67,17 +67,31 @@ in
               type = types.str;
               description = "Name of the agenix secret holding the Ed25519 DKIM private key.";
             };
+            catchAllTarget = mkOption {
+              type = types.nullOr types.str;
+              default = null;
+              description = ''
+                LDAP-recognized address that receives all otherwise-unmatched
+                mail for this domain.  Implemented as a
+                `session.rcpt.rewrite` expression that rewrites the envelope
+                recipient before the LDAP verify lookup runs, so the lookup
+                resolves against this target.  Message headers (To:, etc.)
+                are not modified — only envelope routing.
+
+                Null (default) means strict recipient matching: addresses
+                must correspond exactly to an LDAP `mail` value or be
+                rejected as relay.
+
+                Stalwart 0.14's per-directory `catch-all` option and the
+                `session.rcpt.catch-all` bool are not honored by the LDAP
+                backend; the rewrite approach is the working mechanism.
+              '';
+            };
           };
         }
       );
       default = [ ];
-      description = ''
-        External mail domains hosted on this server.  Catch-all routing is
-        controlled at the LDAP layer: a user with a `mail` attribute value of
-        the form `@domain.com` (empty local part) receives every otherwise
-        unmatched address at that domain, because Stalwart's directory
-        catch-all option is enabled.
-      '';
+      description = "External mail domains hosted on this server.";
     };
 
     ldap = {
@@ -234,13 +248,21 @@ in
               { "else" = false; }
             ];
 
-            # When an exact recipient lookup fails, fall back to the
-            # empty-local-part `@<domain>` mail alias on the LDAP user.
-            # That user's mailbox then receives all otherwise-unmatched
-            # mail for the domain.  This setting lives on the session
-            # stage; the per-directory option of the same name is ignored
-            # by the LDAP backend in 0.14.
-            session.rcpt.catch-all = true;
+            # Per-domain catch-all routing.  For each externalDomain with a
+            # catchAllTarget set, rewrite *@domain envelope recipients to
+            # the target before LDAP verify runs.  Domains without a target
+            # fall through to strict matching.
+            session.rcpt.rewrite =
+              (concatMap (
+                d:
+                lib.optional (d.catchAllTarget != null) {
+                  "if" = "matches('^.+@${lib.escapeRegex d.domain}$', rcpt)";
+                  "then" = "'${d.catchAllTarget}'";
+                }
+              ) cfg.externalDomains)
+              ++ [
+                { "else" = false; }
+              ];
           }
         ]
         # Per external domain: Let's Encrypt TLS certificate + DKIM signing.
