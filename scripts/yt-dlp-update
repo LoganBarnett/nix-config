@@ -23,7 +23,7 @@ hash_32="$(nix-prefetch-url \
   --unpack \
   "https://github.com/yt-dlp/yt-dlp/archive/refs/tags/${version}.tar.gz"
 )"
-hash_sri="$(nix hash convert --hash-algo sha256 --to sri "${hash_32}")"
+hash_sri="$(nix hash to-sri --type sha256 "${hash_32}")"
 
 echo "Hash: ${hash_sri}"
 

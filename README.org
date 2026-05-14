@@ -316,7 +316,7 @@ The three parts of this pattern are:
 
 - ~scripts/<pkg>-update~ :: A shell script that fetches the latest upstream
   version, prefetches its hash with ~nix-prefetch-url~, converts to SRI with
-  ~nix hash convert~, and writes both values back into ~static.nix~ via
+  ~nix hash to-sri~, and writes both values back into ~static.nix~ via
   ~nix-editor~.
 
 To update a package, run its script and then redeploy:

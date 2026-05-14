@@ -29,7 +29,7 @@ hash_32="$(nix-prefetch-url \
   --name 'zoomusInstallerFull.pkg' \
   "https://zoom.us/client/${version}/zoomusInstallerFull.pkg?archType=arm64"
 )"
-hash_sri="$(nix hash convert --hash-algo sha256 --to sri "${hash_32}")"
+hash_sri="$(nix hash to-sri --type sha256 "${hash_32}")"
 
 echo "Hash: ${hash_sri}"
 

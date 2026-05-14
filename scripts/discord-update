@@ -38,7 +38,7 @@ update_platform() {
   local hash_32
   hash_32="$(nix-prefetch-url --type sha256 --name "$name" "$download_url")"
   local hash_sri
-  hash_sri="$(nix hash convert --hash-algo sha256 --to sri "$hash_32")"
+  hash_sri="$(nix hash to-sri --type sha256 "$hash_32")"
 
   echo "  Hash: ${hash_sri}"
 

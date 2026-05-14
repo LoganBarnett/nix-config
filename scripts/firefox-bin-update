@@ -23,7 +23,7 @@ hash_32="$(nix-prefetch-url \
   --name "Firefox-${version}.dmg" \
   "https://archive.mozilla.org/pub/firefox/releases/${version}/mac/en-US/Firefox%20${version}.dmg"
 )"
-hash_sri="$(nix hash convert --hash-algo sha256 --to sri "${hash_32}")"
+hash_sri="$(nix hash to-sri --type sha256 "${hash_32}")"
 
 echo "Hash: ${hash_sri}"
 

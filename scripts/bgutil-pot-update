@@ -36,7 +36,7 @@ for system in "${!arches[@]}"; do
   url="https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/releases/download/v${version}/bgutil-pot-linux-${arch}"
   echo "Fetching ${system} hash from ${url}..."
   hash_32="$(nix-prefetch-url --type sha256 "$url")"
-  hash_sri="$(nix hash convert --hash-algo sha256 --to sri "${hash_32}")"
+  hash_sri="$(nix hash to-sri --type sha256 "${hash_32}")"
   echo "${system}: ${hash_sri}"
   nix-editor \
     static.nix \
@@ -48,7 +48,7 @@ done
 plugin_url="https://github.com/jim60105/bgutil-ytdlp-pot-provider-rs/releases/download/v${version}/bgutil-ytdlp-pot-provider-rs.zip"
 echo "Fetching plugin hash from ${plugin_url}..."
 plugin_hash_32="$(nix-prefetch-url --type sha256 "$plugin_url")"
-plugin_hash_sri="$(nix hash convert --hash-algo sha256 --to sri "${plugin_hash_32}")"
+plugin_hash_sri="$(nix hash to-sri --type sha256 "${plugin_hash_32}")"
 echo "Plugin hash: ${plugin_hash_sri}"
 
 nix-editor \
