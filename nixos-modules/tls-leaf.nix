@@ -93,14 +93,24 @@ in
         map (leaf-config: {
           name = "tls-cert-expiry-${leaf-config.fqdn}";
           value = {
-            #   -checkend N  exit 0 if cert valid past N seconds, 1 otherwise.
+            # openssl `x509 -checkend` is broken — it always exits 0 regardless
+            # of expiry (https://github.com/openssl/openssl/issues/11772, open
+            # since 2020).  Compute the comparison ourselves: read notAfter,
+            # convert to a unix timestamp, and check that it exceeds the
+            # warning threshold ahead of now.
+            #   -enddate     print the notAfter date.
             #   -noout       suppress printing the cert body.
             #   -in PATH     read certificate from PATH.
             exec = ''
-              ${pkgs.openssl}/bin/openssl x509 \
-                -checkend ${toString expiry-warning-seconds} \
+              set -eu
+              end=$(${pkgs.openssl}/bin/openssl x509 \
+                -enddate \
                 -noout \
-                -in ${../secrets/tls-${leaf-config.fqdn}.crt}
+                -in ${../secrets/tls-${leaf-config.fqdn}.crt} \
+                | ${pkgs.coreutils}/bin/cut --delimiter='=' --fields=2)
+              end_ts=$(${pkgs.coreutils}/bin/date --date="$end" +%s)
+              now_ts=$(${pkgs.coreutils}/bin/date +%s)
+              [ "$end_ts" -gt "$((now_ts + ${toString expiry-warning-seconds}))" ]
             '';
             "exit-status" = 0;
           };
