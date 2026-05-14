@@ -33,7 +33,7 @@ in
     internalPort = config.services.grafana.settings.server.http_port;
   };
   auth.ldap.users."${service-user-prefix}-grafana-service" = {
-    email = "${service-user-prefix}-grafana-service@proton";
+    emails = [ "${service-user-prefix}-grafana-service@proton" ];
     fullName = "${service-user-prefix}-grafana-service";
     description = "Grafana service account on ${service-user-prefix}.";
     group = "grafana";

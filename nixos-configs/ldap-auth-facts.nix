@@ -20,7 +20,7 @@ let
 in
 {
   auth.ldap.users = lib.mapAttrs (_: user: {
-    email = user.email;
+    emails = user.emails;
     fullName = user.full-name;
     description = user.description;
     type = "person";

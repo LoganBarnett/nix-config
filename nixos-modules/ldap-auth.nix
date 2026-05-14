@@ -34,9 +34,14 @@ in
           enable = lib.mkEnableOption "LDAP user" // {
             default = true;
           };
-          email = mkOption {
-            type = str;
-            description = "Email address for this LDAP user.";
+          emails = mkOption {
+            type = listOf str;
+            description = ''
+              Email addresses for this LDAP user.  Rendered as multi-valued
+              `mail` LDAP attribute values.  An entry of the form `@domain.com`
+              (empty local part) acts as a catch-all alias for that domain
+              when the directory's `catch-all` option is enabled.
+            '';
           };
           fullName = mkOption {
             type = str;

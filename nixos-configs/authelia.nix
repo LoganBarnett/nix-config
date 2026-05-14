@@ -132,7 +132,7 @@ in
   #   ${host-id}-authelia-service-ldap-password-hashed (slapd hash)
   # The reconciler keeps the LDAP entry's userPassword in sync automatically.
   auth.ldap.users."${host-id}-authelia-service" = {
-    email = "${host-id}-authelia-service@proton";
+    emails = [ "${host-id}-authelia-service@proton" ];
     fullName = "${host-id}-authelia-service";
     description = "Authelia LDAP bind account on ${host-id}.";
   };

@@ -14,7 +14,7 @@ in
     serviceNameForSocket = "matrix-synapse";
   };
   auth.ldap.users."${host-id}-matrix-service" = {
-    email = "${host-id}-matrix-service@${facts.network.domain}";
+    emails = [ "${host-id}-matrix-service@${facts.network.domain}" ];
     fullName = "${host-id}-matrix-service";
     description = "Matrix service account on ${host-id}.";
     group = "matrix";

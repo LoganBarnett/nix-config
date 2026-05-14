@@ -67,26 +67,17 @@ in
               type = types.str;
               description = "Name of the agenix secret holding the Ed25519 DKIM private key.";
             };
-            catchAll = mkOption {
-              type = types.bool;
-              default = false;
-              description = "Route all unmatched addresses at this domain to the owner's inbox.";
-            };
           };
         }
       );
       default = [ ];
-      description = "External mail domains hosted on this server.";
-    };
-
-    # Stalwart-side address aliases: external address → LDAP-backed local
-    # address.  Requires LDAP mailAlias attribute support or an equivalent
-    # in-memory directory override — not yet wired into settings.
-    # TODO: wire once LDAP schema includes mailAlias.
-    aliases = mkOption {
-      type = types.attrsOf types.str;
-      default = { };
-      description = "Address aliases mapping external addresses to LDAP-backed local addresses.";
+      description = ''
+        External mail domains hosted on this server.  Catch-all routing is
+        controlled at the LDAP layer: a user with a `mail` attribute value of
+        the form `@domain.com` (empty local part) receives every otherwise
+        unmatched address at that domain, because Stalwart's directory
+        catch-all option is enabled.
+      '';
     };
 
     ldap = {
@@ -181,7 +172,11 @@ in
                 email = "(&(objectClass=inetOrgPerson)(mail=?))";
                 verify = "(&(objectClass=inetOrgPerson)(mail=?))";
                 expand = "";
-                domains = "(&(objectClass=inetOrgPerson)(uid=?))";
+                # Stalwart substitutes `?` with the domain being checked.
+                # Match any user that has a `mail` attribute at that domain
+                # (including the empty-local-part `@<domain>` catch-all
+                # aliases used to receive otherwise-unmatched recipients).
+                domains = "(&(objectClass=inetOrgPerson)(mail=*@?))";
               };
               attributes = {
                 name = "uid";
@@ -189,6 +184,10 @@ in
                 email = [ "mail" ];
                 member-of = [ "memberOf" ];
               };
+              # Fall back to the empty-local-part `@<domain>` alias on the
+              # LDAP user when an exact recipient match fails.  The matching
+              # user's mailbox receives all unmatched mail for that domain.
+              options.catch-all = true;
             };
 
             server = {

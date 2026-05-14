@@ -18,7 +18,7 @@
     internalPort = config.services.prometheus.alertmanager.port;
   };
   auth.ldap.users."${host-id}-alertmanager-service" = {
-    email = "${host-id}-alertmanager-service@${facts.network.domain}";
+    emails = [ "${host-id}-alertmanager-service@${facts.network.domain}" ];
     fullName = "${host-id}-alertmanager-service";
     description = "AlertManager service account on ${host-id}.  Primarily for posting alerts.";
     group = "root";

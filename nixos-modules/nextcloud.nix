@@ -54,7 +54,7 @@ in
 {
   networking.dnsAliases = [ "nextcloud" ];
   auth.ldap.users."${host-id}-nextcloud-service" = {
-    email = "${host-id}-nextcloud-service@proton";
+    emails = [ "${host-id}-nextcloud-service@proton" ];
     fullName = "${host-id}-nextcloud-service";
     description = "Nextcloud service account on ${host-id}.";
     group = "root";

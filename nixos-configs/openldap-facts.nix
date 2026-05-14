@@ -121,7 +121,7 @@ in
       users = lib.mapAttrs (name: ucfg: {
         cn = ucfg.fullName;
         sn = name;
-        mail = ucfg.email;
+        mail = ucfg.emails;
         userPassword =
           if ucfg.managed then
             mkManagedFromPath (credential-path name)

@@ -25,7 +25,7 @@ in
 {
   networking.dnsAliases = [ "gitea" ];
   auth.ldap.users.${ldapServiceUser} = lib.mkIf ldap-enabled {
-    email = "${ldapServiceUser}@${facts.network.domain}";
+    emails = [ "${ldapServiceUser}@${facts.network.domain}" ];
     fullName = ldapServiceUser;
     description = "Gitea service account on ${host-id}.";
     group = service;

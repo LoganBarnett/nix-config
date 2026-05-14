@@ -29,7 +29,7 @@ in
   #   stalwart-ldap-password         — plaintext, delivered via LoadCredential
   #   stalwart-ldap-password-hashed  — argon2 hash for the LDAP reconciler
   auth.ldap.users.stalwart = {
-    email = "stalwart@${domain}";
+    emails = [ "stalwart@${domain}" ];
     fullName = "Stalwart mail service account";
     type = "service";
     group = "stalwart-mail";
@@ -55,21 +55,13 @@ in
         domain = "meshward.com";
         dkimSelector = "default";
         dkimSecretName = "stalwart-dkim-meshward";
-        catchAll = false;
       }
       {
         domain = "logustus.com";
         dkimSelector = "default";
         dkimSecretName = "stalwart-dkim-logustus";
-        catchAll = true;
       }
     ];
-
-    # TODO: Wire into Stalwart settings once the LDAP schema includes
-    # mailAlias, or once a Stalwart-native alias mechanism is confirmed.
-    aliases = {
-      "logan@meshward.com" = "logustus@${domain}";
-    };
 
     ldap = {
       url = "ldaps://ldap.${domain}:636";
