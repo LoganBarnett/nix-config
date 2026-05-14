@@ -53,8 +53,8 @@
   };
 
   signal-desktop-bin = {
-    version = "8.6.0";
-    hash = "sha256-MruUd6ClCgAWasgluYMYaBI9tavYpmnTNU9kjH85g+c=";
+    version = "8.10.0";
+    hash = "sha256-LF7Og1r7vF1RAj8vr+H+mfYVK7/eiXhFKrJDKE5lzto=";
   };
 
   bgutil-pot = {
