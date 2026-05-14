@@ -184,10 +184,6 @@ in
                 email = [ "mail" ];
                 member-of = [ "memberOf" ];
               };
-              # Fall back to the empty-local-part `@<domain>` alias on the
-              # LDAP user when an exact recipient match fails.  The matching
-              # user's mailbox receives all unmatched mail for that domain.
-              options.catch-all = true;
             };
 
             server = {
@@ -237,6 +233,14 @@ in
               }
               { "else" = false; }
             ];
+
+            # When an exact recipient lookup fails, fall back to the
+            # empty-local-part `@<domain>` mail alias on the LDAP user.
+            # That user's mailbox then receives all otherwise-unmatched
+            # mail for the domain.  This setting lives on the session
+            # stage; the per-directory option of the same name is ignored
+            # by the LDAP backend in 0.14.
+            session.rcpt.catch-all = true;
           }
         ]
         # Per external domain: Let's Encrypt TLS certificate + DKIM signing.
