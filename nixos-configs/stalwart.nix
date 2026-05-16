@@ -46,4 +46,36 @@
       keySecretName = "tls-mail.proton.key";
     };
   };
+
+  # ── EXPERIMENT: sieve probe ────────────────────────────────────────────
+  # Temporary diagnostic to answer:
+  #   1. Whether [sieve.trusted.scripts.X] in local TOML is honored in 0.14.
+  #   2. Whether `envelope :matches "to"` at the DATA stage sees the
+  #      pre-rewrite or post-rewrite recipient.
+  #   3. Where our header insertions land relative to X-Spam-* headers
+  #      (which tells us classifier ordering vs our script).
+  #
+  # Remove after the experiment is concluded.
+  services.stalwart-mail.settings = {
+    sieve.trusted.scripts.catch-all-probe.contents = ''
+      require ["editheader", "envelope", "variables"];
+
+      if envelope :matches "to" "*" {
+        set "env_to" "''${1}";
+      } else {
+        set "env_to" "(none)";
+      }
+
+      if header :matches "to" "*" {
+        set "hdr_to" "''${1}";
+      } else {
+        set "hdr_to" "(none)";
+      }
+
+      addheader "X-Probe-Envelope-To" "''${env_to}";
+      addheader "X-Probe-Header-To" "''${hdr_to}";
+      addheader "X-Probe-Stage" "data";
+    '';
+    session.data.script = "'catch-all-probe'";
+  };
 }
