@@ -60,20 +60,36 @@
     sieve.trusted.scripts.catch-all-probe.contents = ''
       require ["editheader", "envelope", "variables"];
 
-      if envelope :matches "to" "*" {
-        set "env_to" "''${1}";
-      } else {
-        set "env_to" "(none)";
-      }
+      # Smoke test: literal variable assignment + interpolation.
+      set "literal" "ok";
+      addheader "X-Probe-Literal" "''${literal}";
 
-      if header :matches "to" "*" {
-        set "hdr_to" "''${1}";
-      } else {
-        set "hdr_to" "(none)";
+      # Envelope :matches with two-capture pattern.
+      set "env_matched" "no";
+      set "env_local" "(unset)";
+      set "env_domain" "(unset)";
+      if envelope :matches "to" "*@*" {
+        set "env_matched" "yes";
+        set "env_local" "''${1}";
+        set "env_domain" "''${2}";
       }
+      addheader "X-Probe-Env-Matched" "''${env_matched}";
+      addheader "X-Probe-Env-Local" "''${env_local}";
+      addheader "X-Probe-Env-Domain" "''${env_domain}";
 
-      addheader "X-Probe-Envelope-To" "''${env_to}";
-      addheader "X-Probe-Header-To" "''${hdr_to}";
+      # Header :matches with two-capture pattern.
+      set "hdr_matched" "no";
+      set "hdr_local" "(unset)";
+      set "hdr_domain" "(unset)";
+      if header :matches "to" "*@*" {
+        set "hdr_matched" "yes";
+        set "hdr_local" "''${1}";
+        set "hdr_domain" "''${2}";
+      }
+      addheader "X-Probe-Hdr-Matched" "''${hdr_matched}";
+      addheader "X-Probe-Hdr-Local" "''${hdr_local}";
+      addheader "X-Probe-Hdr-Domain" "''${hdr_domain}";
+
       addheader "X-Probe-Stage" "data";
     '';
     session.data.script = "'catch-all-probe'";
