@@ -30,12 +30,15 @@ let
 
   serviceAccount = "stalwart";
   ldapCredential = "${serviceAccount}-ldap-password";
+  adminCredential = "stalwart-admin-password";
 
   # Stalwart's %{file:...}% macro reads files verbatim, including trailing
   # newlines.  agenix-decrypted secrets end with \n, which makes the LDAP
-  # bind password wrong.  ExecStartPre strips the newline into this path.
+  # bind password and the fallback-admin password wrong.  ExecStartPre
+  # strips the newlines into these paths.
   strippedCredsDir = "/run/stalwart-mail-creds";
   strippedLdapCred = "${strippedCredsDir}/${ldapCredential}";
+  strippedAdminCred = "${strippedCredsDir}/${adminCredential}";
 
   internalKeySecret = "tls-mail.${domain}.key";
   internalCertFile = "${../secrets/tls-mail.${domain}.crt}";
@@ -59,6 +62,16 @@ in
     type = "service";
     group = "stalwart-mail";
     managed = true;
+  };
+
+  # Fallback admin credential for Stalwart's HTTP management API.
+  # Plaintext passphrase, agenix-rekey'd, delivered via LoadCredential.
+  # Used by stalwart-cli for diagnostics; required because LDAP users
+  # don't have the admin role by default.
+  age.secrets.${adminCredential} = {
+    generator.script = "passphrase";
+    group = "stalwart-mail";
+    mode = "0440";
   };
 
   services.stalwart-mail = {
@@ -174,6 +187,14 @@ in
         }
         { "else" = false; }
       ];
+
+      # Fallback admin user for the HTTP management API.  Auths against
+      # the password loaded via LoadCredential and stripped of its
+      # trailing newline (see ExecStartPre).
+      authentication.fallback-admin = {
+        user = "admin";
+        secret = "%{file:${strippedAdminCred}}%";
+      };
     };
   };
 
@@ -208,10 +229,16 @@ in
             > ${strippedLdapCred}
           chown stalwart-mail:stalwart-mail ${strippedLdapCred}
           chmod 0400 ${strippedLdapCred}
+          ${pkgs.coreutils}/bin/tr -d '\n' \
+            < /run/credentials/stalwart-mail.service/${adminCredential} \
+            > ${strippedAdminCred}
+          chown stalwart-mail:stalwart-mail ${strippedAdminCred}
+          chmod 0400 ${strippedAdminCred}
         ''}"
       ];
       LoadCredential = [
         "${ldapCredential}:${config.age.secrets.${ldapCredential}.path}"
+        "${adminCredential}:${config.age.secrets.${adminCredential}.path}"
         "tls-key:${config.age.secrets.${internalKeySecret}.path}"
       ];
     };
