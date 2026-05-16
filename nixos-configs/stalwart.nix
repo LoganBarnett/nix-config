@@ -29,7 +29,6 @@ in
   #   stalwart-ldap-password         — plaintext, delivered via LoadCredential
   #   stalwart-ldap-password-hashed  — argon2 hash for the LDAP reconciler
   auth.ldap.users.stalwart = {
-    emails = [ "stalwart@${domain}" ];
     fullName = "Stalwart mail service account";
     type = "service";
     group = "stalwart-mail";
@@ -60,7 +59,9 @@ in
         domain = "logustus.com";
         dkimSelector = "default";
         dkimSecretName = "stalwart-dkim-logustus";
-        catchAllTarget = "logustus@${domain}";
+        # logan's derived `mail` value on the internal domain.  Stalwart's
+        # filter.verify resolves this against the LDAP user `logan`.
+        catchAllTarget = "logan@${domain}";
       }
     ];
 

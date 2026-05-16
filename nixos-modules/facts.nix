@@ -458,7 +458,6 @@
       {
         cassandra = {
           description = "";
-          emails = [ "cassandra@proton" ];
           type = "person";
           full-name = "Cassandra Barnett";
           ldap-groups = [
@@ -472,7 +471,6 @@
         };
         kai = {
           description = "";
-          emails = [ "kai@proton" ];
           type = "person";
           full-name = "Kai Barnett";
           ldap-groups = [
@@ -490,7 +488,6 @@
         };
         logan = {
           description = "The reason we suffer.";
-          emails = [ "logustus@proton" ];
           type = "person";
           full-name = "Logan Barnett";
           ldap-groups = [
@@ -533,7 +530,6 @@
         };
         selena = {
           description = "";
-          emails = [ "selena@proton" ];
           type = "person";
           full-name = "Selena";
           ldap-groups = [ ];
@@ -550,7 +546,6 @@
         };
         solomon = {
           description = "";
-          emails = [ "solomon@proton" ];
           type = "person";
           full-name = "Solomon Barnett";
           ldap-groups = [
@@ -569,56 +564,48 @@
       }
       // {
         immich = {
-          emails = [ "immich@proton" ];
           type = "oidc-client";
           description = "Immich OIDC client.";
           full-name = "immich";
           devices = [ ];
         };
         ivatar = {
-          emails = [ "ivatar@proton" ];
           type = "oidc-client";
           description = "ivatar OIDC client.";
           full-name = "ivatar";
           devices = [ ];
         };
         openhab = {
-          emails = [ "openhab@proton" ];
           type = "oidc-client";
           description = "OpenHab OIDC client.";
           full-name = "openhab";
           devices = [ ];
         };
         mastodon-logustus = {
-          emails = [ "mastodon-logustus@proton" ];
           type = "oidc-client";
           description = "Mastodon (logustus.com) OIDC client.";
           full-name = "mastodon-logustus";
           devices = [ ];
         };
         mastodon-meshward = {
-          emails = [ "mastodon-meshward@proton" ];
           type = "oidc-client";
           description = "Mastodon (meshward.com) OIDC client.";
           full-name = "mastodon-meshward";
           devices = [ ];
         };
         mastodon-proton = {
-          emails = [ "mastodon-proton@proton" ];
           type = "oidc-client";
           description = "Mastodon (proton) OIDC client.";
           full-name = "mastodon-proton";
           devices = [ ];
         };
         wiki = {
-          emails = [ "wiki@proton" ];
           type = "oidc-client";
           description = "Org-wiki OIDC client.";
           full-name = "wiki";
           devices = [ ];
         };
         sftpgo = {
-          emails = [ "sftpgo@proton" ];
           type = "oidc-client";
           description = "SFTPGo OIDC client.";
           full-name = "sftpgo";

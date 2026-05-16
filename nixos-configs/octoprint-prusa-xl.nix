@@ -56,7 +56,6 @@
     ../nixos-modules/octoprint-shim.nix
   ];
   auth.ldap.users."${host-id}-octoprint-service" = {
-    emails = [ "${host-id}-octoprint-service@${facts.network.domain}" ];
     fullName = "${host-id}-octoprint-service";
     description = "OctoPrint service account on ${host-id}.";
     group = "root";

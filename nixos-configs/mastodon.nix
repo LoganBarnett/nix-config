@@ -72,21 +72,18 @@ in
   # One account per instance so credentials are isolated.  ldap-auth.nix
   # auto-emits <name>-ldap-password and <name>-ldap-password-hashed secrets.
   auth.ldap.users.mastodon-proton = {
-    emails = [ "mastodon@${facts.network.domain}" ];
     fullName = "Mastodon proton SMTP service account";
     type = "service";
     group = "mastodon-proton";
     managed = true;
   };
   auth.ldap.users.mastodon-logustus = {
-    emails = [ "mastodon@logustus.com" ];
     fullName = "Mastodon logustus SMTP service account";
     type = "service";
     group = "mastodon-logustus";
     managed = true;
   };
   auth.ldap.users.mastodon-meshward = {
-    emails = [ "mastodon@meshward.com" ];
     fullName = "Mastodon meshward SMTP service account";
     type = "service";
     group = "mastodon-meshward";

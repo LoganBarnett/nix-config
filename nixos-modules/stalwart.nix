@@ -248,14 +248,41 @@ in
               { "else" = false; }
             ];
 
-            # Per-domain catch-all routing.  For each externalDomain with a
-            # catchAllTarget set, rewrite *@domain envelope recipients to
-            # the target before LDAP verify runs.  Domains without a target
-            # fall through to strict matching.
+            # Per-domain catch-all routing with auto-generated exclusions.
+            #
+            # For each externalDomain with a catchAllTarget set, rewrite
+            # *@domain envelope recipients to the target before LDAP verify
+            # runs.  Explicit recipients — any address that some LDAP user
+            # already claims via their derived primary or `email.aliases` —
+            # are emitted as pass-through rules *before* the regex catch-all,
+            # so first-match-wins evaluation preserves them.
+            #
+            # This means declaring `email.aliases = [ "foo@logustus.com" ]`
+            # on any user automatically protects `foo@logustus.com` from the
+            # catch-all without manual maintenance.
             session.rcpt.rewrite =
+              let
+                # Every `mail` LDAP value across every email-enabled user.
+                allMail = lib.lists.concatMap (
+                  user:
+                  lib.lists.optionals user.email.enable (
+                    [ "${user.email.username}@${cfg.internalDomain}" ] ++ user.email.aliases
+                  )
+                ) (lib.attrValues config.auth.ldap.users);
+                # Explicit recipients within a particular catch-all'd domain.
+                protectedFor =
+                  domain: lib.lists.filter (a: lib.strings.hasSuffix "@${domain}" a) allMail;
+              in
               (concatMap (
                 d:
-                lib.optional (d.catchAllTarget != null) {
+                let
+                  protected = protectedFor d.domain;
+                in
+                (map (a: {
+                  "if" = "rcpt == '${a}'";
+                  "then" = "rcpt";
+                }) protected)
+                ++ lib.optional (d.catchAllTarget != null) {
                   "if" = "matches('^.+@${lib.escapeRegex d.domain}$', rcpt)";
                   "then" = "'${d.catchAllTarget}'";
                 }

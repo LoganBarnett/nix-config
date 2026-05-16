@@ -19,16 +19,21 @@ let
   persons = lib.filterAttrs (_: u: u.type == "person") facts.network.users;
 in
 {
-  auth.ldap.users = lib.mapAttrs (_: user: {
-    emails = user.emails;
-    fullName = user.full-name;
-    description = user.description;
-    type = "person";
-    group = "root";
-    # Person passwords are set once on LDAP entry creation and then left to
-    # the user to change.  The reconciler must not overwrite them.
-    managed = false;
-  }) persons;
+  auth.ldap.users = lib.mapAttrs (
+    _: user:
+    {
+      fullName = user.full-name;
+      description = user.description;
+      type = "person";
+      group = "root";
+      # Person passwords are set once on LDAP entry creation and then left to
+      # the user to change.  The reconciler must not overwrite them.
+      managed = false;
+    }
+    // lib.optionalAttrs (user ? email) {
+      email = user.email;
+    }
+  ) persons;
 
   auth.ldap.groups = lib.mkMerge (
     lib.mapAttrsToList (

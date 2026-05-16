@@ -118,17 +118,28 @@ in
         bindPassword = mkManagedFromPath "/run/credentials/nix-hapi-ldap.service/ldap-root-pass";
       };
 
-      users = lib.mapAttrs (name: ucfg: {
-        cn = ucfg.fullName;
-        sn = name;
-        mail = ucfg.emails;
-        userPassword =
-          if ucfg.managed then
-            mkManagedFromPath (credential-path name)
-          else
-            mkInitialFromPath (credential-path name);
-        description = if ucfg.description != "" then ucfg.description else null;
-      }) all-ldap-users;
+      users = lib.mapAttrs (
+        name: ucfg:
+        {
+          cn = ucfg.fullName;
+          sn = name;
+          userPassword =
+            if ucfg.managed then
+              mkManagedFromPath (credential-path name)
+            else
+              mkInitialFromPath (credential-path name);
+          description = if ucfg.description != "" then ucfg.description else null;
+        }
+        // lib.optionalAttrs ucfg.email.enable {
+          # Primary derived from email.username + the internal network domain,
+          # extended by any explicit aliases.  LDAP `mail` is multi-valued; no
+          # entry is treated as more "primary" than another at the LDAP layer.
+          mail = [
+            "${ucfg.email.username}@${facts.network.domain}"
+          ]
+          ++ ucfg.email.aliases;
+        }
+      ) all-ldap-users;
 
       groups = lib.mapAttrs (_name: group: {
         description = if group.description != "" then group.description else null;
