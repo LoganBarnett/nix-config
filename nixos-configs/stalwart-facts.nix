@@ -201,20 +201,10 @@ in
       ])
       externalDomainNames;
 
-  # Custom spam-filter rules: sender-alignment scoring for catch-all'd
-  # domains.  Mail to `<tag>@<catch-all-domain>` from a sender whose
-  # domain matches `<tag>` (or a subdomain of it) gets a confidence
-  # boost; mail from anything else gets a mild suspicion bump as a
-  # leak signal.  See nixos-modules/stalwart.nix for why these have to
-  # be merged via extraSpamFilterRules instead of plain TOML.
-  services.stalwart-mail.extraSpamFilterRules = lib.attrsets.mergeAttrsList (
-    map mkAlignmentRule catchAllDomainNames
-  );
-
-  services.stalwart-mail.extraSpamFilterScores =
-    lib.optionalAttrs (catchAllDomainNames != [ ])
-      {
-        CATCHALL_SENDER_ALIGNED = "-1.5";
-        CATCHALL_SENDER_MISMATCH = "1.0";
-      };
+  # TODO: re-introduce sender-alignment scoring on catch-all'd domains
+  # once the spam-filter merge in nixos-modules/stalwart.nix is working.
+  # The mkAlignmentRule helper above generates the right schema; we just
+  # can't wire it through extraSpamFilterRules / extraSpamFilterScores
+  # until the bundled-TOML invalid-syntax problem is resolved.  Tracked
+  # at https://github.com/LoganBarnett/stalwart-spam-filter-toml-bug.
 }

@@ -22,27 +22,14 @@ let
 
   hasExtras = cfg.extraSpamFilterRules != { } || cfg.extraSpamFilterScores != { };
 
-  # The bundled rule set as declared by upstream stalwart-mail.  Loaded at
-  # eval time so we can merge our own rules and scores into a single output
-  # file that Stalwart consumes as its sole spam-filter resource.
-  bundled = builtins.fromTOML (
-    builtins.readFile "${pkgs.stalwart-mail.spam-filter}/spam-filter.toml"
-  );
-
-  # Deep-merge our extras over the bundled rules and scores.  The score
-  # table needs an explicit per-key merge — recursiveUpdate would replace
-  # the whole `scores` attrset (its values are leaf strings, not nested
-  # attrs) and we'd lose every bundled score.
-  merged = lib.recursiveUpdate bundled {
-    spam-filter = {
-      rule = cfg.extraSpamFilterRules;
-      list.scores = bundled.spam-filter.list.scores // cfg.extraSpamFilterScores;
-    };
-  };
-
-  mergedFile =
-    (pkgs.formats.toml { }).generate "stalwart-spam-filter-merged.toml"
-      merged;
+  # The merge implementation is parked until we have a working approach.
+  # The naive `builtins.fromTOML` path fails because the bundled
+  # spam-filter.toml uses curly-brace inline-set syntax that no strict
+  # TOML parser accepts — see
+  # https://github.com/LoganBarnett/stalwart-spam-filter-toml-bug for
+  # the reproducer.  The replacement will use a runCommand-based
+  # text-merge (sed-fix the broken syntax, then cat the bundled file
+  # with our additions appended) — to be wired up once landed.
 in
 {
   options.services.stalwart-mail = {
@@ -124,7 +111,13 @@ in
     };
   };
 
-  config = lib.mkIf (cfg.enable && hasExtras) {
-    services.stalwart-mail.settings.spam-filter.resource = "file://${mergedFile}";
-  };
+  # Warn loudly if any consumer sets the extras options before the merge
+  # is wired up, so we don't pretend to honor them.
+  config.warnings = lib.optional (cfg.enable && hasExtras) ''
+    services.stalwart-mail.extraSpamFilterRules / extraSpamFilterScores are
+    set but the underlying merge into the bundled spam-filter resource is
+    not yet implemented (the bundled file is invalid TOML; see
+    https://github.com/LoganBarnett/stalwart-spam-filter-toml-bug).  Those
+    options are inert until that's resolved.
+  '';
 }
