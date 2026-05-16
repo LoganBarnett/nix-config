@@ -144,8 +144,10 @@ in
 
         # Stalwart's HTTP management API, exposed on loopback only.  Used
         # for `stalwart-cli` diagnostics; not reachable from the LAN.
+        # Port 8087 chosen to avoid collisions with nginx (8080) and
+        # other services on the host.
         listener.http = {
-          bind = [ "127.0.0.1:8080" ];
+          bind = [ "127.0.0.1:8087" ];
           protocol = "http";
           tls.implicit = false;
         };
