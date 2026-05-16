@@ -743,6 +743,28 @@
 
     };
 
+    # Mail-related facts.  Consumed by nixos-configs/stalwart-facts.nix to
+    # generate the Stalwart configuration.  The internal domain
+    # (network.domain) is implicit and not listed under externalDomains.
+    mail = {
+      externalDomains = {
+        "meshward.com" = {
+          dkimSelector = "default";
+          dkimSecretName = "stalwart-dkim-meshward";
+          # Optional facts.network.users attribute key.  When set, mail to
+          # any unmatched address at this domain rewrites to that user's
+          # derived primary address before LDAP verify runs.  null = strict
+          # recipient matching.
+          catchAllUser = null;
+        };
+        "logustus.com" = {
+          dkimSelector = "default";
+          dkimSecretName = "stalwart-dkim-logustus";
+          catchAllUser = "logan";
+        };
+      };
+    };
+
     monitoring = {
       # Dashboard definitions shared between the Grafana server and the kiosk
       # restart trigger.  Centralizing here lets both silicon (which hosts
