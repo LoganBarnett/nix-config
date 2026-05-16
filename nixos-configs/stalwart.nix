@@ -1,95 +1,233 @@
 ################################################################################
-# Stalwart mail server configuration — the network-invariant pieces.
+# Stalwart mail server — the network-invariant pieces.
 #
-# Domain list, DKIM secrets, ACME certs, internal/external domain wiring, and
-# catch-all routing all live in stalwart-facts.nix, sourced from
-# facts.network.mail.  This file declares only:
+# Anything network-specific (which external domains we own, which user is
+# the catch-all target, DKIM secret names, ACME certs, the rewrite rules)
+# lives in stalwart-facts.nix, sourced from facts.network.mail.  This file
+# handles:
 #
-#   - The stalwart LDAP service account (uniform across networks).
-#   - The internalTls cert/key pair, named after the internal domain.
-#   - services.stalwart-host.enable (the activation flip).
+#   - The stalwart LDAP service account.
+#   - services.stalwart-mail enablement and base settings (storage,
+#     directory, listeners, server hostname, internal cert, relay rule).
+#   - systemd unit extensions (credential strip, LoadCredential basics).
+#   - Tank-volume + firewall ports.
 #
-# Authentication is LDAP-backed against OpenLDAP on silicon.  ldap-auth.nix
-# auto-emits the service account's password secrets.
-#
-# Before first deploy, generate all secrets:
-#   agenix rekey generate --rekey -a
-# Then commit the generated secrets/tls-mail.<internal-domain>.crt to the
-# repository.
-#
-# After a DKIM secret is generated, extract the public key for the DNS TXT
-# record at default._domainkey.<domain>:
-#   openssl pkey -in <(rage --decrypt secrets/generated/stalwart-dkim-<domain>.age) \
-#     -pubout | grep -v '^-----' | tr -d '\n'
+# Listener layout (port: protocol / TLS mode / purpose):
+#   25   SMTP  STARTTLS   Inbound MX
+#   587  SMTP  STARTTLS   Authenticated client submission
+#   993  IMAP  implicit   Mailbox access
 ################################################################################
-{ facts, ... }:
+{
+  config,
+  facts,
+  pkgs,
+  ...
+}:
+let
+  domain = facts.network.domain;
+  baseDn = "dc=${domain},dc=org";
+  internalFqdn = "mail.${domain}";
+
+  serviceAccount = "stalwart";
+  ldapCredential = "${serviceAccount}-ldap-password";
+
+  # Stalwart's %{file:...}% macro reads files verbatim, including trailing
+  # newlines.  agenix-decrypted secrets end with \n, which makes the LDAP
+  # bind password wrong.  ExecStartPre strips the newline into this path.
+  strippedCredsDir = "/run/stalwart-mail-creds";
+  strippedLdapCred = "${strippedCredsDir}/${ldapCredential}";
+
+  internalKeySecret = "tls-mail.${domain}.key";
+  internalCertFile = "${../secrets/tls-mail.${domain}.crt}";
+in
 {
   imports = [ ./stalwart-facts.nix ];
 
-  # Register the stalwart LDAP service account.  ldap-auth.nix auto-emits:
-  #   stalwart-ldap-password         — plaintext, delivered via LoadCredential
-  #   stalwart-ldap-password-hashed  — argon2 hash for the LDAP reconciler
-  auth.ldap.users.stalwart = {
+  networking.dnsAliases = [ "mail" ];
+
+  # Internal TLS leaf cert for mail.<internal-domain>.  agenix-rekey
+  # generates secrets/tls-mail.<domain>.key.age and the plain .crt file.
+  tls.tls-leafs.${internalFqdn} = {
+    fqdn = internalFqdn;
+    ca = config.age.secrets.proton-ca;
+  };
+
+  # LDAP service account.  ldap-auth.nix auto-emits its plaintext and
+  # hashed password secrets given this declaration.
+  auth.ldap.users.${serviceAccount} = {
     fullName = "Stalwart mail service account";
     type = "service";
     group = "stalwart-mail";
     managed = true;
   };
 
-  services.stalwart-host = {
+  services.stalwart-mail = {
     enable = true;
+    settings = {
+      # All data backed by a single embedded RocksDB instance.  Migrate to
+      # PostgreSQL later if needed.
+      storage = {
+        data = "rocksdb";
+        blob = "rocksdb";
+        fts = "rocksdb";
+        lookup = "rocksdb";
+        directory = "ldap";
+      };
 
-    # TODO: this still bakes the internal domain into the secret filename.
-    # Lift the rename when the internal domain isn't `proton`.
-    internalTls = {
-      certFile = "${../secrets/tls-mail.proton.crt}";
-      keySecretName = "tls-mail.proton.key";
-    };
-  };
+      store.rocksdb = {
+        type = "rocksdb";
+        path = "/tank/data/stalwart-mail/data";
+        compression = "lz4";
+      };
 
-  # ── EXPERIMENT: custom spam-filter rules ───────────────────────────────
-  # Test whether local TOML [spam-filter.rule.X] entries merge with the
-  # bundled spam-filter.toml resource, and whether new tag scores in
-  # [spam-filter.list].scores compose with the bundled scores.  If both
-  # work, this is the production design path for catch-all sender
-  # alignment policy.
-  #
-  # Aligned:    From: domain matches the recipient local part (or is a
-  #             subdomain of it).  Mild confidence boost.
-  # Mismatch:   Catch-all'd recipient + sender from an unrelated domain.
-  #             Suspected leak — mild spam bump.
-  #
-  # Remove after the experiment, or generalize via stalwart-facts.nix.
-  services.stalwart-mail.settings = {
-    spam-filter.rule.STWT_CATCHALL_SENDER_ALIGNED = {
-      enable = true;
-      scope = "any";
-      priority = 2000;
-      condition = [
+      # LDAP directory for user authentication and address lookup.  Users
+      # bind with their own credentials via the re-bind flow; the service
+      # account is used only for lookups.
+      directory.ldap = {
+        type = "ldap";
+        url = "ldaps://ldap.${domain}:636";
+        base-dn = baseDn;
+        # Stalwart uses rustls with webpki-roots, which ignores the system
+        # trust store.  The internal CA is not in Mozilla's root list, so
+        # we must skip verification here.
+        tls.allow-invalid-certs = true;
+        bind = {
+          dn = "uid=${serviceAccount},ou=users,${baseDn}";
+          # %{file:...}% reads the credential at runtime so the password
+          # never appears in the Nix store.  We use the stripped copy (no
+          # trailing newline) from ExecStartPre.
+          secret = "%{file:${strippedLdapCred}}%";
+          # LDAP bind auth: Stalwart looks up the user's DN, then binds
+          # as that user with the provided password.  This lets OpenLDAP
+          # verify argon2 hashes natively instead of Stalwart trying (and
+          # failing) to verify them locally.
+          auth.method = "lookup";
+        };
+        filter = {
+          name = "(&(objectClass=inetOrgPerson)(uid=?))";
+          email = "(&(objectClass=inetOrgPerson)(mail=?))";
+          verify = "(&(objectClass=inetOrgPerson)(mail=?))";
+          expand = "";
+          # `?` is substituted with the domain being checked.  Match any
+          # user with a `mail` attribute at that domain (including the
+          # empty-local-part `@<domain>` catch-all aliases).
+          domains = "(&(objectClass=inetOrgPerson)(mail=*@?))";
+        };
+        attributes = {
+          name = "uid";
+          description = [ "cn" ];
+          email = [ "mail" ];
+          member-of = [ "memberOf" ];
+        };
+      };
+
+      server = {
+        hostname = internalFqdn;
+
+        listener.smtp = {
+          bind = [ "0.0.0.0:25" ];
+          protocol = "smtp";
+          tls.implicit = false;
+        };
+
+        listener.submission = {
+          bind = [ "0.0.0.0:587" ];
+          protocol = "smtp";
+          tls.implicit = false;
+        };
+
+        listener.imaps = {
+          bind = [ "0.0.0.0:993" ];
+          protocol = "imap";
+          tls.implicit = true;
+        };
+
+        # Stalwart's HTTP management API, exposed on loopback only.  Used
+        # for `stalwart-cli` diagnostics; not reachable from the LAN.
+        listener.http = {
+          bind = [ "127.0.0.1:8080" ];
+          protocol = "http";
+          tls.implicit = false;
+        };
+
+        tls = {
+          enable = true;
+          implicit = false;
+          # The full cert list is composed by stalwart-facts.nix, which
+          # knows the external domains.  This file contributes "internal";
+          # module merging takes care of combining them.
+        };
+      };
+
+      certificate.internal = {
+        cert = "%{file:${internalCertFile}}%";
+        private-key = "%{file:/run/credentials/stalwart-mail.service/tls-key}%";
+      };
+
+      # Allow relay only for authenticated users.
+      session.rcpt.relay = [
         {
-          "if" =
-            "to.domain == 'logustus.com' && (from.domain == to.local || ends_with(from.domain, '.' + to.local))";
-          "then" = "'CATCHALL_SENDER_ALIGNED'";
+          "if" = "!is_empty(authenticated_as)";
+          "then" = true;
         }
         { "else" = false; }
       ];
     };
-    spam-filter.rule.STWT_CATCHALL_SENDER_MISMATCH = {
-      enable = true;
-      scope = "any";
-      priority = 2001;
-      condition = [
-        {
-          "if" =
-            "to.domain == 'logustus.com' && from.domain != to.local && !ends_with(from.domain, '.' + to.local)";
-          "then" = "'CATCHALL_SENDER_MISMATCH'";
-        }
-        { "else" = false; }
+  };
+
+  systemd.services.stalwart-mail = {
+    # Restart whenever the generated TOML changes (relay rules, cert
+    # paths, LDAP filters, etc.).  The upstream module does not trigger
+    # restarts on settings changes by itself.
+    restartTriggers = [ (builtins.toJSON config.services.stalwart-mail.settings) ];
+    after = [
+      "ldap-reconciler.service"
+      "run-agenix.d.mount"
+      "tank-data.mount"
+    ];
+    wants = [ "ldap-reconciler.service" ];
+    requires = [
+      "run-agenix.d.mount"
+      "tank-data.mount"
+    ];
+    serviceConfig = {
+      # ProtectSystem=strict (set by the upstream module) makes the
+      # filesystem read-only.  The tank RocksDB path is outside the
+      # StateDirectory so it needs an explicit exemption.
+      ReadWritePaths = [ "/tank/data/stalwart-mail" ];
+      RuntimeDirectory = "stalwart-mail-creds";
+      RuntimeDirectoryMode = "0700";
+      ExecStartPre = [
+        "+${pkgs.writeShellScript "stalwart-strip-creds" ''
+          # Stalwart's %{file:...}% reads verbatim, so strip trailing
+          # newlines that agenix adds to secret files.
+          ${pkgs.coreutils}/bin/tr -d '\n' \
+            < /run/credentials/stalwart-mail.service/${ldapCredential} \
+            > ${strippedLdapCred}
+          chown stalwart-mail:stalwart-mail ${strippedLdapCred}
+          chmod 0400 ${strippedLdapCred}
+        ''}"
+      ];
+      LoadCredential = [
+        "${ldapCredential}:${config.age.secrets.${ldapCredential}.path}"
+        "tls-key:${config.age.secrets.${internalKeySecret}.path}"
       ];
     };
-    spam-filter.list.scores = {
-      "CATCHALL_SENDER_ALIGNED" = "-1.5";
-      "CATCHALL_SENDER_MISMATCH" = "1.0";
-    };
   };
+
+  # Mail data lives on the tank volume so it participates in the existing
+  # btrfs + restic backup pipeline.  No quiesce needed — RocksDB's WAL
+  # ensures every btrfs snapshot of a live instance is recoverable.
+  # group = "stalwart-mail" makes tmpfiles create the tank directory with
+  # the right ownership so the service user can write to the RocksDB path.
+  tankVolumes.volumes.stalwart-mail = {
+    backupData = true;
+    group = "stalwart-mail";
+  };
+
+  networking.firewall.allowedTCPPorts = [
+    25
+    587
+    993
+  ];
 }

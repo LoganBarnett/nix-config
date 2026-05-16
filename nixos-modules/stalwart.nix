@@ -1,18 +1,14 @@
 ################################################################################
-# Stalwart mail server module.
+# Stalwart-mail module extensions.
 #
-# Declares services.stalwart-host options and builds Stalwart's TOML
-# configuration from them.  Importing this module makes the options available;
-# set services.stalwart-host.enable = true (via nixos-configs/stalwart.nix) to
-# activate.
+# Configuration of services.stalwart-mail itself happens directly in the
+# nixos-configs/ consumer files (stalwart.nix for invariant pieces,
+# stalwart-facts.nix for facts-derived pieces).
 #
-# Listener layout:
-#   25   SMTP     STARTTLS   Inbound MX
-#   587  SMTP     STARTTLS   Authenticated client submission
-#   993  IMAP     implicit   Mailbox access
-#
-# TLS: internal CA cert for mail.<internalDomain>; Let's Encrypt for external
-# domains via the NixOS ACME module (DNS challenge, provider TBD).
+# This module exists only to add a small extension to the upstream
+# `services.stalwart-mail` namespace: a way to contribute custom
+# spam-filter rules that actually fire.  See the option descriptions for
+# the architectural reason that requires its own machinery.
 ################################################################################
 {
   config,
@@ -21,363 +17,114 @@
   ...
 }:
 let
-  inherit (lib)
-    concatMap
-    map
-    mkEnableOption
-    mkIf
-    mkMerge
-    mkOption
-    types
-    ;
-  cfg = config.services.stalwart-host;
-  internalFqdn = "mail.${cfg.internalDomain}";
-  # Credential name delivered via LoadCredential for the LDAP bind password.
-  ldapCredential = "${cfg.ldap.serviceAccountName}-ldap-password";
-  # Stalwart's %{file:...}% macro reads files verbatim, including trailing
-  # newlines.  agenix-decrypted secrets end with \n, which makes the LDAP
-  # bind password wrong.  ExecStartPre strips the newline into this path.
-  strippedCredsDir = "/run/stalwart-mail-creds";
-  strippedLdapCred = "${strippedCredsDir}/${ldapCredential}";
+  inherit (lib) mkOption types;
+  cfg = config.services.stalwart-mail;
 
-in
-{
-  options.services.stalwart-host = {
-    enable = mkEnableOption "Stalwart mail server";
+  hasExtras = cfg.extraSpamFilterRules != { } || cfg.extraSpamFilterScores != { };
 
-    internalDomain = mkOption {
-      type = types.str;
-      description = ''Local-only mail domain (e.g. "proton").'';
-    };
+  # The bundled rule set as declared by upstream stalwart-mail.  Loaded at
+  # eval time so we can merge our own rules and scores into a single output
+  # file that Stalwart consumes as its sole spam-filter resource.
+  bundled = builtins.fromTOML (
+    builtins.readFile "${pkgs.stalwart-mail.spam-filter}/spam-filter.toml"
+  );
 
-    externalDomains = mkOption {
-      type = types.listOf (
-        types.submodule {
-          options = {
-            domain = mkOption {
-              type = types.str;
-              description = ''External domain name (e.g. "meshward.com").'';
-            };
-            dkimSelector = mkOption {
-              type = types.str;
-              default = "default";
-              description = "DKIM selector published in the domain's DNS TXT record.";
-            };
-            dkimSecretName = mkOption {
-              type = types.str;
-              description = "Name of the agenix secret holding the Ed25519 DKIM private key.";
-            };
-            catchAllTarget = mkOption {
-              type = types.nullOr types.str;
-              default = null;
-              description = ''
-                LDAP-recognized address that receives all otherwise-unmatched
-                mail for this domain.  Implemented as a
-                `session.rcpt.rewrite` expression that rewrites the envelope
-                recipient before the LDAP verify lookup runs, so the lookup
-                resolves against this target.  Message headers (To:, etc.)
-                are not modified — only envelope routing.
-
-                Null (default) means strict recipient matching: addresses
-                must correspond exactly to an LDAP `mail` value or be
-                rejected as relay.
-
-                Stalwart 0.14's per-directory `catch-all` option and the
-                `session.rcpt.catch-all` bool are not honored by the LDAP
-                backend; the rewrite approach is the working mechanism.
-              '';
-            };
-          };
-        }
-      );
-      default = [ ];
-      description = "External mail domains hosted on this server.";
-    };
-
-    ldap = {
-      url = mkOption {
-        type = types.str;
-        description = ''LDAP server URL, e.g. "ldaps://ldap.proton:636".'';
-      };
-      baseDn = mkOption {
-        type = types.str;
-        description = ''LDAP base DN, e.g. "dc=proton,dc=org".'';
-      };
-      # Bind DN is derived as "uid=<name>,ou=users,<baseDn>".  The plaintext
-      # password secret "<name>-ldap-password" is auto-emitted by ldap-auth.nix
-      # when auth.ldap.users.<name> is declared.
-      serviceAccountName = mkOption {
-        type = types.str;
-        default = "stalwart";
-        description = "Username of the LDAP service account used for directory lookups.";
-      };
-    };
-
-    # Internal CA cert/key for mail.<internalDomain>.  The module auto-declares
-    # the TLS leaf via tls.tls-leafs; these options just point to the resulting
-    # artifacts.
-    internalTls = {
-      certFile = mkOption {
-        type = types.str;
-        description = "Absolute path to the internal CA TLS certificate file.";
-      };
-      keySecretName = mkOption {
-        type = types.str;
-        description = "Name of the agenix secret holding the TLS private key.";
-      };
+  # Deep-merge our extras over the bundled rules and scores.  The score
+  # table needs an explicit per-key merge — recursiveUpdate would replace
+  # the whole `scores` attrset (its values are leaf strings, not nested
+  # attrs) and we'd lose every bundled score.
+  merged = lib.recursiveUpdate bundled {
+    spam-filter = {
+      rule = cfg.extraSpamFilterRules;
+      list.scores = bundled.spam-filter.list.scores // cfg.extraSpamFilterScores;
     };
   };
 
-  config = mkIf cfg.enable {
-    networking.dnsAliases = [ "mail" ];
-    # Declare the internal TLS leaf cert.  agenix-rekey generates
-    # secrets/tls-mail.<internalDomain>.key.age and the plain .crt file.
-    tls.tls-leafs.${internalFqdn} = {
-      fqdn = internalFqdn;
-      ca = config.age.secrets.proton-ca;
-    };
-
-    services.stalwart-mail = {
-      enable = true;
-      settings = mkMerge (
-        [
-          {
-            # All data types backed by a single embedded RocksDB instance.
-            # Migrate to PostgreSQL later if needed.
-            storage = {
-              data = "rocksdb";
-              blob = "rocksdb";
-              fts = "rocksdb";
-              lookup = "rocksdb";
-              directory = "ldap";
-            };
-
-            store."rocksdb" = {
-              type = "rocksdb";
-              path = "/tank/data/stalwart-mail/data";
-              compression = "lz4";
-            };
-
-            # LDAP directory for user authentication and address lookup.
-            # Users bind with their own credentials via the re-bind flow;
-            # the service account is used only for lookups.
-            directory."ldap" = {
-              type = "ldap";
-              url = cfg.ldap.url;
-              base-dn = cfg.ldap.baseDn;
-              # Stalwart uses rustls with webpki-roots, which ignores the
-              # system trust store.  The internal CA is not in Mozilla's
-              # root list, so we must skip verification here.
-              tls.allow-invalid-certs = true;
-              bind = {
-                dn = "uid=${cfg.ldap.serviceAccountName},ou=users,${cfg.ldap.baseDn}";
-                # %{file:...}% reads the credential at runtime so the password
-                # never appears in the Nix store.  We use the stripped copy
-                # (no trailing newline) from ExecStartPre.
-                secret = "%{file:${strippedLdapCred}}%";
-                # Use LDAP bind auth: Stalwart looks up the user's DN, then
-                # binds as that user with the provided password.  This lets
-                # OpenLDAP verify argon2 hashes natively instead of Stalwart
-                # trying (and failing) to verify them locally.
-                auth.method = "lookup";
-              };
-              filter = {
-                name = "(&(objectClass=inetOrgPerson)(uid=?))";
-                email = "(&(objectClass=inetOrgPerson)(mail=?))";
-                verify = "(&(objectClass=inetOrgPerson)(mail=?))";
-                expand = "";
-                # Stalwart substitutes `?` with the domain being checked.
-                # Match any user that has a `mail` attribute at that domain
-                # (including the empty-local-part `@<domain>` catch-all
-                # aliases used to receive otherwise-unmatched recipients).
-                domains = "(&(objectClass=inetOrgPerson)(mail=*@?))";
-              };
-              attributes = {
-                name = "uid";
-                description = [ "cn" ];
-                email = [ "mail" ];
-                member-of = [ "memberOf" ];
-              };
-            };
-
-            server = {
-              hostname = internalFqdn;
-
-              # Port 25: inbound MX.
-              listener."smtp" = {
-                bind = [ "0.0.0.0:25" ];
-                protocol = "smtp";
-                tls.implicit = false;
-              };
-
-              # Port 587: authenticated client submission only.
-              listener."submission" = {
-                bind = [ "0.0.0.0:587" ];
-                protocol = "smtp";
-                tls.implicit = false;
-              };
-
-              # Port 993: IMAP with implicit TLS for mailbox access.
-              listener."imaps" = {
-                bind = [ "0.0.0.0:993" ];
-                protocol = "imap";
-                tls.implicit = true;
-              };
-
-              tls = {
-                enable = true;
-                implicit = false;
-                # External domain certs listed first; Stalwart uses SNI to
-                # select the right one and falls back to "internal".
-                certificate = (map (d: d.domain) cfg.externalDomains) ++ [ "internal" ];
-              };
-            };
-
-            # Internal CA certificate for mail.<internalDomain>.
-            certificate."internal" = {
-              cert = "%{file:${cfg.internalTls.certFile}}%";
-              private-key = "%{file:/run/credentials/stalwart-mail.service/tls-key}%";
-            };
-
-            # Allow relay only for authenticated users.
-            session.rcpt.relay = [
-              {
-                "if" = "!is_empty(authenticated_as)";
-                "then" = true;
-              }
+  mergedFile =
+    (pkgs.formats.toml { }).generate "stalwart-spam-filter-merged.toml"
+      merged;
+in
+{
+  options.services.stalwart-mail = {
+    extraSpamFilterRules = mkOption {
+      type = types.attrsOf (types.attrsOf types.anything);
+      default = { };
+      example = lib.literalExpression ''
+        {
+          STWT_MY_CUSTOM_RULE = {
+            enable = true;
+            scope = "any";
+            priority = 2000;
+            condition = [
+              { "if" = "from.domain == 'example.com'"; "then" = "'FROM_EXAMPLE'"; }
               { "else" = false; }
             ];
-
-            # Per-domain catch-all routing with auto-generated exclusions.
-            #
-            # For each externalDomain with a catchAllTarget set, rewrite
-            # *@domain envelope recipients to the target before LDAP verify
-            # runs.  Explicit recipients — any address that some LDAP user
-            # already claims via their derived primary or `email.aliases` —
-            # are emitted as pass-through rules *before* the regex catch-all,
-            # so first-match-wins evaluation preserves them.
-            #
-            # This means declaring `email.aliases = [ "foo@logustus.com" ]`
-            # on any user automatically protects `foo@logustus.com` from the
-            # catch-all without manual maintenance.
-            session.rcpt.rewrite =
-              let
-                # Every `mail` LDAP value across every email-enabled user.
-                allMail = lib.lists.concatMap (
-                  user:
-                  lib.lists.optionals user.email.enable (
-                    [ "${user.email.username}@${cfg.internalDomain}" ] ++ user.email.aliases
-                  )
-                ) (lib.attrValues config.auth.ldap.users);
-                # Explicit recipients within a particular catch-all'd domain.
-                protectedFor =
-                  domain: lib.lists.filter (a: lib.strings.hasSuffix "@${domain}" a) allMail;
-              in
-              (concatMap (
-                d:
-                let
-                  protected = protectedFor d.domain;
-                in
-                (map (a: {
-                  "if" = "rcpt == '${a}'";
-                  "then" = "rcpt";
-                }) protected)
-                ++ lib.optional (d.catchAllTarget != null) {
-                  "if" = "matches('^.+@${lib.escapeRegex d.domain}$', rcpt)";
-                  "then" = "'${d.catchAllTarget}'";
-                }
-              ) cfg.externalDomains)
-              ++ [
-                { "else" = false; }
-              ];
-          }
-        ]
-        # Per external domain: Let's Encrypt TLS certificate + DKIM signing.
-        ++ map (d: {
-          # fullchain.pem is world-readable; key.pem is delivered via
-          # LoadCredential so no group membership changes are needed.
-          certificate.${d.domain} = {
-            cert = "/var/lib/acme/${d.domain}/fullchain.pem";
-            private-key = "%{file:/run/credentials/stalwart-mail.service/acme-key-${d.domain}}%";
           };
+        }
+      '';
+      description = ''
+        Custom spam-filter rules merged into Stalwart's bundled rule set
+        at evaluation time.
 
-          auth.dkim.sign.${d.domain} = {
-            algo = "ed25519-sha256";
-            domain = d.domain;
-            selector = d.dkimSelector;
-            private-key = "%{file:/run/credentials/stalwart-mail.service/${d.dkimSecretName}}%";
-            headers.relaxed = [
-              "From"
-              "To"
-              "Message-ID"
-              "Date"
-              "Subject"
-              "MIME-Version"
-            ];
-            canonicalization = "relaxed/relaxed";
-          };
-        }) cfg.externalDomains
-      );
+        Stalwart 0.14 loads its working rule set from the URL given by
+        `services.stalwart-mail.settings.spam-filter.resource` (by
+        default the bundled file in
+        `pkgs.stalwart-mail.spam-filter`).  Rules declared in local TOML
+        under `services.stalwart-mail.settings.spam-filter.rule.<id>`
+        do appear in the running configuration but are silently NOT
+        evaluated — the rule engine consults only the resource.  This
+        is a documented gap; the upstream maintainer's note at
+        <https://github.com/stalwartlabs/stalwart/discussions/789>
+        recommends "creat[ing] a local copy of the spam rules and
+        modify[ing] them" until the API for additive rules ships.
+
+        This option implements that workaround declaratively: at eval
+        time we read the bundled `spam-filter.toml`, deep-merge entries
+        from this option into its `[spam-filter.rule.<id>]` section,
+        write the result to a derivation in the Nix store, and point
+        `spam-filter.resource` at that file.  Rules contributed here
+        therefore actually fire.
+
+        Each value follows the bundled file's per-rule schema:
+        `{ enable = true; scope = "any"; priority = <int>; condition =
+        [ { "if" = "<expr>"; "then" = "'TAG_NAME'"; } { "else" =
+        false; } ]; }`.  When a rule emits a new `TAG_NAME`, declare
+        its score in `extraSpamFilterScores` so the classifier weights
+        it correctly.
+
+        Removable once upstream lands additive-rule support.
+      '';
     };
 
-    systemd.services.stalwart-mail = {
-      # Restart whenever the generated TOML changes (e.g. relay rules, cert
-      # paths, LDAP filters).  The upstream module does not trigger restarts
-      # on settings changes by itself.
-      restartTriggers = [ (builtins.toJSON config.services.stalwart-mail.settings) ];
-      after = [
-        "ldap-reconciler.service"
-        "run-agenix.d.mount"
-        "tank-data.mount"
-      ];
-      wants = [ "ldap-reconciler.service" ];
-      requires = [
-        "run-agenix.d.mount"
-        "tank-data.mount"
-      ];
-      serviceConfig = {
-        # ProtectSystem=strict (set by the upstream module) makes the
-        # filesystem read-only.  The tank RocksDB path is outside the
-        # StateDirectory so it needs an explicit exemption.
-        ReadWritePaths = [ "/tank/data/stalwart-mail" ];
-        RuntimeDirectory = "stalwart-mail-creds";
-        RuntimeDirectoryMode = "0700";
-        ExecStartPre = [
-          "+${pkgs.writeShellScript "stalwart-strip-creds" ''
-            # Stalwart's %{file:...}% reads verbatim, so strip trailing
-            # newlines that agenix adds to secret files.
-            ${pkgs.coreutils}/bin/tr -d '\n' \
-              < /run/credentials/stalwart-mail.service/${ldapCredential} \
-              > ${strippedLdapCred}
-            chown stalwart-mail:stalwart-mail ${strippedLdapCred}
-            chmod 0400 ${strippedLdapCred}
-          ''}"
-        ];
-        LoadCredential = [
-          "${ldapCredential}:${config.age.secrets.${ldapCredential}.path}"
-          "tls-key:${config.age.secrets.${cfg.internalTls.keySecretName}.path}"
-        ]
-        ++ concatMap (d: [
-          "${d.dkimSecretName}:${config.age.secrets.${d.dkimSecretName}.path}"
-          "acme-key-${d.domain}:/var/lib/acme/${d.domain}/key.pem"
-        ]) cfg.externalDomains;
-      };
-    };
+    extraSpamFilterScores = mkOption {
+      type = types.attrsOf types.str;
+      default = { };
+      example = lib.literalExpression ''
+        {
+          "FROM_EXAMPLE" = "-1.0";
+          "SUSPICIOUS_TAG" = "2.5";
+        }
+      '';
+      description = ''
+        Score (numeric string, matching the bundled format) for each
+        tag emitted by rules in `extraSpamFilterRules`.  Merged
+        per-key into the bundled spam-filter's score table at the same
+        eval-time step that merges the rules.
 
-    # Mail data lives on the tank volume so it participates in the existing
-    # btrfs + restic backup pipeline.  No quiesce needed — RocksDB's WAL
-    # ensures every btrfs snapshot of a live instance is recoverable.
-    # group = "stalwart-mail" ensures tmpfiles creates the tank directory with
-    # the right ownership so the service user can write to the RocksDB path.
-    tankVolumes.volumes.stalwart-mail = {
-      backupData = true;
-      group = "stalwart-mail";
-    };
+        Stalwart's classifier sums all matching tag scores for a
+        message; the result in `X-Spam-Status` decides whether the
+        message is filed into Junk Mail.  Typical weights: `-1.5` to
+        `-0.5` for confidence boosts, `0.5` to `2.0` for suspicion
+        bumps, `5.0` and above for near-certain spam markers.
 
-    networking.firewall.allowedTCPPorts = [
-      25
-      587
-      993
-    ];
+        See the description of `extraSpamFilterRules` for why
+        custom-tag scores need to be merged at this layer rather
+        than declared in local TOML.
+      '';
+    };
+  };
+
+  config = lib.mkIf (cfg.enable && hasExtras) {
+    services.stalwart-mail.settings.spam-filter.resource = "file://${mergedFile}";
   };
 }
