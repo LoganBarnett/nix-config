@@ -30,6 +30,7 @@ in
     ../nixos-configs/notes-sync.nix
     ../nixos-configs/dns-server.nix
     ../nixos-configs/dns-smart-block.nix
+    ../nixos-configs/unbound.nix
     ../nixos-modules/grafana.nix
     ../nixos-modules/makemkv-ripper.nix
     ../nixos-modules/makemkv-updater.nix

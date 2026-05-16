@@ -33,20 +33,12 @@ let
     filter
     unique
     ;
-  # Just so we know whose these are.
-  cloudflare = "1.1.1.1";
-  opendns = "208.67.222.222";
-  quad9 = "9.9.9.9";
-  # I'd rather give Google the tracking capability than have no DNS.  But the
-  # other three failing is pretty unlikely.
-  google = "8.8.8.8";
-  nameservers = [
-    # Order is intentional.
-    opendns
-    quad9
-    cloudflare
-    google
-  ];
+  # DNS resolution flows: silicon (and other LAN clients) --> blocky:53 -->
+  # unbound:5354 (loopback) --> root/TLD/authoritative servers.  Public
+  # resolvers (OpenDNS et al.) are intentionally NOT in this chain -- the
+  # whole point of standing up unbound was to get DNSBL/SURBL lookups working
+  # for stalwart, which the shared public resolvers block.  See
+  # nixos-configs/unbound.nix.
   # TODO: Make this a dynamic value on the host.
   subnet = facts.network.subnets.barnett-main;
 
@@ -71,7 +63,9 @@ in
   networking.firewall.allowedUDPPorts = [ 53 ];
   # Larger connections (DNSSEC, zone transfers) use TCP for DNS.
   networking.firewall.allowedTCPPorts = [ 53 ];
-  networking.nameservers = nameservers;
+  # Silicon's own resolver goes through the local stack so its mail server
+  # (stalwart) hits unbound for SURBL lookups instead of public resolvers.
+  networking.nameservers = [ "127.0.0.1" ];
   services.https.fqdns."blocky.${facts.network.domain}" = {
     enable = true;
     internalPort = config.services.blocky.settings.ports.http;
@@ -83,8 +77,10 @@ in
         dns = 53;
         http = 4000;
       };
-      # Forward external DNS queries to these upstream servers.
-      upstream.default = nameservers;
+      # Forward external DNS queries to our local recursive resolver.  See
+      # nixos-configs/unbound.nix for why this is not the public resolver
+      # list.
+      upstream.default = [ "127.0.0.1:5354" ];
       # Conditional forwarding: Forward .proton domain queries to dnsmasq for
       # local hostname resolution. Dnsmasq runs on port 5353 to avoid conflict
       # with blocky on port 53.
