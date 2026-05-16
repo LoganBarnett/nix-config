@@ -47,51 +47,49 @@
     };
   };
 
-  # ── EXPERIMENT: sieve probe ────────────────────────────────────────────
-  # Temporary diagnostic to answer:
-  #   1. Whether [sieve.trusted.scripts.X] in local TOML is honored in 0.14.
-  #   2. Whether `envelope :matches "to"` at the DATA stage sees the
-  #      pre-rewrite or post-rewrite recipient.
-  #   3. Where our header insertions land relative to X-Spam-* headers
-  #      (which tells us classifier ordering vs our script).
+  # ── EXPERIMENT: custom spam-filter rules ───────────────────────────────
+  # Test whether local TOML [spam-filter.rule.X] entries merge with the
+  # bundled spam-filter.toml resource, and whether new tag scores in
+  # [spam-filter.list].scores compose with the bundled scores.  If both
+  # work, this is the production design path for catch-all sender
+  # alignment policy.
   #
-  # Remove after the experiment is concluded.
+  # Aligned:    From: domain matches the recipient local part (or is a
+  #             subdomain of it).  Mild confidence boost.
+  # Mismatch:   Catch-all'd recipient + sender from an unrelated domain.
+  #             Suspected leak — mild spam bump.
+  #
+  # Remove after the experiment, or generalize via stalwart-facts.nix.
   services.stalwart-mail.settings = {
-    sieve.trusted.scripts.catch-all-probe.contents = ''
-      require ["editheader", "envelope", "variables"];
-
-      # Smoke test: literal variable assignment + interpolation.
-      set "literal" "ok";
-      addheader "X-Probe-Literal" "''${literal}";
-
-      # Envelope :matches with two-capture pattern.
-      set "env_matched" "no";
-      set "env_local" "(unset)";
-      set "env_domain" "(unset)";
-      if envelope :matches "to" "*@*" {
-        set "env_matched" "yes";
-        set "env_local" "''${1}";
-        set "env_domain" "''${2}";
-      }
-      addheader "X-Probe-Env-Matched" "''${env_matched}";
-      addheader "X-Probe-Env-Local" "''${env_local}";
-      addheader "X-Probe-Env-Domain" "''${env_domain}";
-
-      # Header :matches with two-capture pattern.
-      set "hdr_matched" "no";
-      set "hdr_local" "(unset)";
-      set "hdr_domain" "(unset)";
-      if header :matches "to" "*@*" {
-        set "hdr_matched" "yes";
-        set "hdr_local" "''${1}";
-        set "hdr_domain" "''${2}";
-      }
-      addheader "X-Probe-Hdr-Matched" "''${hdr_matched}";
-      addheader "X-Probe-Hdr-Local" "''${hdr_local}";
-      addheader "X-Probe-Hdr-Domain" "''${hdr_domain}";
-
-      addheader "X-Probe-Stage" "data";
-    '';
-    session.data.script = "'catch-all-probe'";
+    spam-filter.rule.STWT_CATCHALL_SENDER_ALIGNED = {
+      enable = true;
+      scope = "any";
+      priority = 2000;
+      condition = [
+        {
+          "if" =
+            "to.domain == 'logustus.com' && (from.domain == to.local || ends_with(from.domain, '.' + to.local))";
+          "then" = "'CATCHALL_SENDER_ALIGNED'";
+        }
+        { "else" = false; }
+      ];
+    };
+    spam-filter.rule.STWT_CATCHALL_SENDER_MISMATCH = {
+      enable = true;
+      scope = "any";
+      priority = 2001;
+      condition = [
+        {
+          "if" =
+            "to.domain == 'logustus.com' && from.domain != to.local && !ends_with(from.domain, '.' + to.local)";
+          "then" = "'CATCHALL_SENDER_MISMATCH'";
+        }
+        { "else" = false; }
+      ];
+    };
+    spam-filter.list.scores = {
+      "CATCHALL_SENDER_ALIGNED" = "-1.5";
+      "CATCHALL_SENDER_MISMATCH" = "1.0";
+    };
   };
 }
