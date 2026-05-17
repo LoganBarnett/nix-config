@@ -377,16 +377,25 @@ in
     };
   };
 
+  # Define a host-local "OIDC provider is serving" target so consumers can
+  # depend on the abstraction instead of authelia-authelia-ready.service
+  # directly.  Parallels nss-lookup.target / ldap-ready.target.
+  systemd.targets.oidc-ready = {
+    description = "OIDC provider is up and serving discovery";
+  };
+
   # Readiness gate: blocks dependent services until Authelia's HTTP health
   # endpoint responds.  systemd considers authelia-authelia.service "started"
   # the instant the process forks (Type=simple), but Authelia still needs to
   # run DB migrations, bind to LDAP, and initialise OIDC.  Services that
   # perform OIDC discovery at startup (oauth2-proxy, org-wiki-web) depend on
-  # this unit instead of authelia-authelia.service directly.
+  # oidc-ready.target instead of authelia-authelia.service directly.
   systemd.services."${service-name}-ready" = {
     description = "Wait for Authelia to become healthy";
     after = [ "${service-name}.service" ];
     requires = [ "${service-name}.service" ];
+    wants = [ "oidc-ready.target" ];
+    before = [ "oidc-ready.target" ];
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;

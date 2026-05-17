@@ -173,6 +173,17 @@ in
     };
   };
 
+  # Publish dnsmasq into nss-lookup.target so DNS consumers can depend on
+  # the abstract "DNS is up" target instead of any specific resolver.  This
+  # host's blocky conditional-forwards .proton queries to dnsmasq, so the
+  # whole resolution chain depends on dnsmasq being responsive.  Upstream
+  # nixpkgs unbound already does this; dnsmasq does not, hence the local
+  # override.
+  systemd.services.dnsmasq = {
+    wants = [ "nss-lookup.target" ];
+    before = [ "nss-lookup.target" ];
+  };
+
   # Goss health checks for dnsmasq DHCP and local DNS.
   services.goss.checks = {
     # Verify dnsmasq is running.

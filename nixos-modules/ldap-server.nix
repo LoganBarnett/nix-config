@@ -199,11 +199,38 @@ in
 
     networking.firewall.allowedTCPPorts = [ ldap-port ];
     networking.firewall.allowedUDPPorts = [ ldap-port ];
+    # Define a host-local "LDAP server is serving" target that consumers can
+    # depend on without naming openldap.service directly.  Parallels
+    # nss-lookup.target: providers (openldap here) declare Before=, consumers
+    # declare After=.  Lets services move between hosts that may use
+    # different LDAP implementations without rewiring.
+    systemd.targets.ldap-ready = {
+      description = "LDAP server is up and serving queries";
+    };
     systemd.services.openldap = {
-      wants = [ "run-agenix.d.mount" ];
-      serviceConfig.LoadCredential = [
-        "tls-ldap-key:${config.age.secrets."tls-ldap.proton.key".path}"
+      wants = [
+        "run-agenix.d.mount"
+        "ldap-ready.target"
       ];
+      before = [ "ldap-ready.target" ];
+      serviceConfig = {
+        LoadCredential = [
+          "tls-ldap-key:${config.age.secrets."tls-ldap.proton.key".path}"
+        ];
+        # Hold the unit in `activating` until slapd actually answers queries
+        # on its Unix socket.  systemd marks Type=simple "active" the moment
+        # slapd forks, but slapd still needs to read its config, open the DB,
+        # and start accepting connections.  rootDSE search via ldapi:/// is
+        # the standard "are you alive" probe -- always permitted, even with
+        # strict ACLs, and doesn't need DNS or credentials.
+        ExecStartPost = pkgs.writeShellScript "openldap-wait-ready" ''
+          for i in {1..30}; do
+            ${pkgs.openldap}/bin/ldapsearch -x -H ldapi:/// -s base -b "" -LLL > /dev/null 2>&1 && exit 0
+            sleep 1
+          done
+          exit 1
+        '';
+      };
     };
   };
 }
