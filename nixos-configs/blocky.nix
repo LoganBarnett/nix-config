@@ -235,6 +235,24 @@ in
       prometheus.enable = true;
     };
   };
+  # Hold blocky.service in `activating` until DNS actually answers.  blocky
+  # has no sd_notify support and won't get it -- upstream's stance is that
+  # platform-integration surface (incl. systemd) lives outside the project
+  # (see PR #244, where the maintainer declined a systemd installation
+  # guide).  So `Type=notify` is unavailable and `After=blocky.service`
+  # only sequences against fork, not readiness -- which races dependents
+  # like nextcloud-custom-config that resolve via blocky.  `blocky
+  # healthcheck` is upstream's documented liveness probe (issue #1304); we
+  # poll it from ExecStartPost so systemd holds activation until DNS is
+  # serving.
+  systemd.services.blocky.serviceConfig.ExecStartPost =
+    pkgs.writeShellScript "blocky-wait-ready" ''
+      for i in {1..60}; do
+        ${pkgs.blocky}/bin/blocky healthcheck && exit 0
+        sleep 1
+      done
+      exit 1
+    '';
   # Goss health checks for Blocky DNS.
   services.goss.checks = {
     # Check that the HTTPS endpoint is responding.
