@@ -20,6 +20,7 @@
 {
   config,
   facts,
+  lib,
   pkgs,
   ...
 }:
@@ -45,6 +46,51 @@ let
 in
 {
   imports = [ ./stalwart-facts.nix ];
+
+  # Hard-fail at eval time if stalwart-mail crosses the 0.16 boundary.
+  # 0.16 moved spam-filter rules, domain config, session config, and
+  # most operational settings out of the local TOML and into a runtime
+  # database.  Declarative provisioning of that DB requires a
+  # nix-hapi-provider-stalwart reconciler that does not yet exist
+  # (gated on the nix-hapi core refactor).  Bumping past 0.14 without
+  # that reconciler would silently break the catch-all rewrite, any
+  # custom spam-filter logic, and the LDAP wiring we currently emit
+  # via local TOML — most of which would not surface as obvious
+  # service failures, just as quiet degradation.
+  #
+  # Lift this assertion when:
+  #   1. nix-hapi-provider-stalwart exists and is wired into this host, AND
+  #   2. end-to-end mail health tests are running (probe SMTP delivery,
+  #      DKIM signing, spam classification, IMAP login).
+  #
+  # Without both, an upgrade is a foot-gun.
+  assertions = [
+    {
+      assertion = lib.versionOlder pkgs.stalwart-mail.version "0.16";
+      message = ''
+        stalwart-mail ${pkgs.stalwart-mail.version} ≥ 0.16 is not yet
+        supported by this configuration.
+
+        Stalwart 0.16 moves spam-filter, session, and domain config from
+        local TOML into a runtime database.  This config still emits
+        everything via local TOML (catch-all rewrite, LDAP filters,
+        listeners, etc.), so an upgrade would silently lose most
+        operational settings.
+
+        Before lifting this assertion:
+          - Build nix-hapi-provider-stalwart (blocked on nix-hapi core
+            refactor) and migrate the affected settings into reconciler
+            inputs.
+          - Stand up end-to-end mail health probes so we'd see a silent
+            regression instead of finding out months later.
+
+        Until then, pin stalwart-mail to a 0.14 version (the 25.11
+        channel ships a working pin).  If you intentionally want to
+        proceed without the reconciler, delete this assertion and
+        prepare to debug.
+      '';
+    }
+  ];
 
   networking.dnsAliases = [ "mail" ];
 
