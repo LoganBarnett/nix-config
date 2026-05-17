@@ -258,9 +258,17 @@ in
   # (blocky/unbound/dnsmasq/etc.) is in play.  Reaches `active` only after
   # the ExecStartPost healthcheck above succeeds, so nss-lookup.target
   # inherits real-readiness gating, not just fork-vs-active.
+  #
+  # PropagatesStopTo couples the target to blocky's lifecycle: when blocky
+  # stops (incl. as part of a restart during nixos-rebuild switch), the
+  # target stops too, then is pulled back in via the `Wants=` edge during
+  # blocky's restart.  This makes the target actually follow runtime
+  # restarts, which `Before=`/`Wants=` alone do not -- those are
+  # activation-graph directives, not lifecycle coupling.
   systemd.services.blocky = {
     wants = [ "nss-lookup.target" ];
     before = [ "nss-lookup.target" ];
+    unitConfig.PropagatesStopTo = "nss-lookup.target";
   };
   # Goss health checks for Blocky DNS.
   services.goss.checks = {

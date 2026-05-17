@@ -396,6 +396,9 @@ in
     requires = [ "${service-name}.service" ];
     wants = [ "oidc-ready.target" ];
     before = [ "oidc-ready.target" ];
+    # Couple target lifecycle to authelia-ready so restarts propagate.  See
+    # the matching comment in nixos-configs/blocky.nix for the reasoning.
+    unitConfig.PropagatesStopTo = "oidc-ready.target";
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;

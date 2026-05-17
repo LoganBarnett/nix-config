@@ -213,6 +213,10 @@ in
         "ldap-ready.target"
       ];
       before = [ "ldap-ready.target" ];
+      # Couple target lifecycle to openldap so restarts propagate.  See the
+      # matching comment in nixos-configs/blocky.nix for why
+      # `Wants=`/`Before=` alone aren't enough for runtime restarts.
+      unitConfig.PropagatesStopTo = "ldap-ready.target";
       serviceConfig = {
         LoadCredential = [
           "tls-ldap-key:${config.age.secrets."tls-ldap.proton.key".path}"

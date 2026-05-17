@@ -178,10 +178,12 @@ in
   # host's blocky conditional-forwards .proton queries to dnsmasq, so the
   # whole resolution chain depends on dnsmasq being responsive.  Upstream
   # nixpkgs unbound already does this; dnsmasq does not, hence the local
-  # override.
+  # override.  PropagatesStopTo couples target lifecycle to dnsmasq -- see
+  # the matching comment in nixos-configs/blocky.nix for the full reasoning.
   systemd.services.dnsmasq = {
     wants = [ "nss-lookup.target" ];
     before = [ "nss-lookup.target" ];
+    unitConfig.PropagatesStopTo = "nss-lookup.target";
   };
 
   # Goss health checks for dnsmasq DHCP and local DNS.
