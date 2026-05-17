@@ -82,6 +82,17 @@ in
       # TODO: Make this less sloppy.
       User = "nextcloud";
     };
-    wants = [ "run-agenix.d.mount" ];
+    # Resolves bitbucket.org (git remote) at runtime, so gate on DNS being
+    # ready.  Without this the oneshot can race a rebuild that restarts the
+    # local resolver and fails with "Could not resolve hostname".
+    after = [
+      "nss-lookup.target"
+      "network-online.target"
+    ];
+    wants = [
+      "run-agenix.d.mount"
+      "nss-lookup.target"
+      "network-online.target"
+    ];
   };
 }

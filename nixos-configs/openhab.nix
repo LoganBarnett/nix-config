@@ -72,20 +72,20 @@ in
 
   # Ensure oauth2-proxy starts after Authelia is *healthy* (not just forked).
   # authelia-authelia-ready.service polls /api/health and only completes once Authelia
-  # can serve OIDC discovery.  blocky.service is needed because OIDC discovery
+  # can serve OIDC discovery.  nss-lookup.target is needed because OIDC discovery
   # resolves authelia.<domain> through local DNS.
   systemd.services.oauth2-proxy = {
     after = [
       "run-agenix.d.mount"
       "network-online.target"
-      "blocky.service"
+      "nss-lookup.target"
       "nginx.service"
       "authelia-authelia-ready.service"
     ];
     requires = [ "run-agenix.d.mount" ];
     wants = [
       "network-online.target"
-      "blocky.service"
+      "nss-lookup.target"
       "nginx.service"
       "authelia-authelia-ready.service"
     ];

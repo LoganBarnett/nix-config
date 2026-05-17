@@ -253,6 +253,15 @@ in
       done
       exit 1
     '';
+  # Announce blocky as this host's NSS DNS provider, so DNS-dependent units
+  # can `After=nss-lookup.target` and stay agnostic to which resolver
+  # (blocky/unbound/dnsmasq/etc.) is in play.  Reaches `active` only after
+  # the ExecStartPost healthcheck above succeeds, so nss-lookup.target
+  # inherits real-readiness gating, not just fork-vs-active.
+  systemd.services.blocky = {
+    wants = [ "nss-lookup.target" ];
+    before = [ "nss-lookup.target" ];
+  };
   # Goss health checks for Blocky DNS.
   services.goss.checks = {
     # Check that the HTTPS endpoint is responding.
