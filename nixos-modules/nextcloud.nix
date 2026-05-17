@@ -251,9 +251,18 @@ in
     # be able to copy the values.
     nextcloud-custom-config =
       let
+        # Ordering after openldap and blocky is required because the script
+        # does `ldapwhoami -H ldaps://ldap.proton` -- it needs DNS resolution
+        # (blocky) and a reachable LDAP server (openldap).  Without these
+        # entries the oneshot races those services during nixos-rebuild
+        # switch and fails with `ldap_sasl_bind(SIMPLE): Can't contact LDAP
+        # server (-1)`.  `after` is a soft ordering directive, so hosts that
+        # don't run openldap/blocky are unaffected.
         after = [
           "run-agenix.d.mount"
           "nextcloud-setup.service"
+          "openldap.service"
+          "blocky.service"
         ];
       in
       {
