@@ -55,6 +55,18 @@ in
       systemd.targets.suspend.enable = false;
       systemd.targets.hibernate.enable = false;
       systemd.targets.hybrid-sleep.enable = false;
+      # PCIe Active State Power Management is another way the system tries to
+      # save power, by putting bus links into low-power D-states when idle.
+      # On at least one host (arsenic — AMD X570 Taichi + ath9k), the PCIe
+      # bridge fails the D3hot -> D0 transition under load, taking out the
+      # wifi card and wired NIC, and ultimately hanging the cfg80211
+      # workqueue in an ioread32 RCU stall (kernel taints, hard reset
+      # required).  The idle-power cost of disabling ASPM on a server/desktop
+      # is negligible compared to the failure mode, so we turn it off
+      # everywhere this module is applied.
+      boot.kernelParams = [
+        "pcie_aspm=off"
+      ];
       # A tip from @ryantm:
       # https://discourse.nixos.org/t/why-is-my-new-nixos-install-suspending/19500/2
       # This has some troubleshooting and potential extra context on the "bug":
