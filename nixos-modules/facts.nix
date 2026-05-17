@@ -195,6 +195,10 @@
         controlledHost = true;
         expectedOnline = false;
         ipv4 = 8;
+        macAddresses = [
+          "50:46:5d:a5:6d:e6" # WiFi.
+          "f4:6d:04:21:dc:89" # Ethernet.
+        ];
         system = "x86_64-linux";
       };
       "M-CL64PK702X" = {
