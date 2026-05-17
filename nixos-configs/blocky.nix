@@ -36,8 +36,8 @@ let
   # DNS resolution flows: silicon (and other LAN clients) --> blocky:53 -->
   # unbound:5354 (loopback) --> root/TLD/authoritative servers.  Public
   # resolvers (OpenDNS et al.) are intentionally NOT in this chain -- the
-  # whole point of standing up unbound was to get DNSBL/SURBL lookups working
-  # for stalwart, which the shared public resolvers block.  See
+  # whole point of standing up unbound was to get DNSBL lookups (Spamhaus)
+  # working for stalwart, which the shared public resolvers block.  See
   # nixos-configs/unbound.nix.
   # TODO: Make this a dynamic value on the host.
   subnet = facts.network.subnets.barnett-main;
@@ -77,9 +77,10 @@ in
         dns = 53;
         http = 4000;
       };
-      # Forward external DNS queries to our local recursive resolver.  See
-      # nixos-configs/unbound.nix for why this is not the public resolver
-      # list.
+      # Forward external DNS queries to our local recursive resolver -- needed
+      # so DNSBL lookups (Spamhaus) reach the auth servers from our own
+      # resolver IP instead of a shared public one.  See
+      # nixos-configs/unbound.nix.
       upstream.default = [ "127.0.0.1:5354" ];
       # Conditional forwarding: Forward .proton domain queries to dnsmasq for
       # local hostname resolution. Dnsmasq runs on port 5353 to avoid conflict

@@ -6,15 +6,21 @@
 #   clients --> blocky:53 --> unbound:5354 --> root/TLD/authoritative servers
 #                       \--> dnsmasq:5353 (for .proton local zone)
 #
-# Motivation: DNSBL/SURBL spam-filter zones (e.g. multi.surbl.org) block
-# queries from shared public resolvers because they cannot rate-limit per
-# user.  Running our own recursive resolver gives us our own resolver IP and
-# unblocks those lookups for stalwart's spam filtering pipeline.  Privacy and
-# local DNSSEC validation are bonuses; SURBL is the load-bearing reason.
+# Motivation: DNSBL spam-filter zones (Spamhaus dbl/zen, etc.) block queries
+# from shared public resolvers because they cannot rate-limit per user.  The
+# blocking is silent -- Cloudflare and Quad9 return the sentinel
+# 127.255.255.254 instead of real listing codes, which a naive consumer treats
+# as "listed" and rejects every probed address.  Running our own recursive
+# resolver gives stalwart's spam-filter pipeline real Spamhaus data.  Privacy
+# and local DNSSEC validation are bonuses; DNSBL is the load-bearing reason.
 #
-# This is pure recursion -- no forwarders.  Forwarding to OpenDNS et al.
-# would defeat the entire purpose (those resolvers' IPs are what gets
-# blocked by SURBL).
+# This is pure recursion -- no forwarders.  Forwarding back to OpenDNS et al.
+# would defeat the entire purpose, since their IPs are what get blocked (or
+# in OpenDNS's case, only work because of a fragile paid arrangement).
+#
+# Acceptance check: `dig @silicon.proton dbltest.com.dbl.spamhaus.org` should
+# return 127.0.1.2.  Anything returning 127.255.255.254 means the query
+# escaped through a public resolver.
 ################################################################################
 { ... }:
 {
