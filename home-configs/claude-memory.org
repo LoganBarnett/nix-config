@@ -3,6 +3,19 @@
 
 * Document format
 
+This document itself is written in org-mode.  Inline-verbatim text uses tildes
+as delimiters: ~code~ is the literal text =code= rendered in monospace.  In
+particular, ~/foo~ is the org-verbatim literal =/foo= — *not* a home-directory
+path.  Other org markup used in this file:
+
+- =equals= for verbatim text (alternative to ~tildes~)
+- /slashes/ for italics
+- *asterisks* for bold
+- +pluses+ for strikethrough
+- ~[[link][display text]]~ for hyperlinks
+- ~* heading~, ~** subheading~, etc. for section headers (asterisks at column
+  zero)
+
 Prefer org-mode (~.org~) for new documents unless markdown is strictly required
 or the project was established by non-org-mode users (e.g. existing repo with a
 ~README.md~).
@@ -43,7 +56,8 @@ their conventions when contributing to or copying patterns from those.
 * Dev environment
 
 Unless stipulated otherwise, non-trivial projects should be built in Rust.  Use
-~/new-rust-project~ to scaffold them.
+the ~/new-rust-project~ slash command (which wraps
+=~/dev/rust-template/new-project.sh=) to scaffold them.
 
 ** Global tools
 
