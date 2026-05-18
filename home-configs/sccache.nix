@@ -26,4 +26,23 @@
     SCCACHE_DIR = "${config.home.homeDirectory}/.cache/sccache";
     SCCACHE_CACHE_SIZE = "20G";
   };
+
+  # session vars above are sufficient for login shells, but `nix develop` /
+  # direnv-spawned devshells build a fresh env that strips them.  cargo
+  # itself reads its config.toml regardless of caller env, so duplicate the
+  # values here with `force = true` to override anything (or nothing) the
+  # caller propagates.  Without this, rust-analyzer under Emacs — spawned
+  # via direnv — writes into per-project target/ directories instead of
+  # the shared CARGO_TARGET_DIR.
+  #
+  # Other modules may extend this file via `lib.mkAfter` (e.g.
+  # nix-config-private's cargo-privacy.nix appends `[net]
+  # git-fetch-with-cli` to honour git insteadOf rules).
+  home.file.".cargo/config.toml".text = ''
+    [env]
+    CARGO_TARGET_DIR   = { value = "${config.home.homeDirectory}/.cache/cargo-target", force = true }
+    RUSTC_WRAPPER      = { value = "${pkgs.sccache}/bin/sccache",                      force = true }
+    SCCACHE_DIR        = { value = "${config.home.homeDirectory}/.cache/sccache",      force = true }
+    SCCACHE_CACHE_SIZE = { value = "20G",                                              force = true }
+  '';
 }
