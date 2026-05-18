@@ -69,7 +69,7 @@ in
           };
           # TODO: Move hostname and domain into facts.nix.
           user-dir = "logan";
-          git-url = "git@bitbucket.org:LoganBarnett/notes.git";
+          git-url = "ssh://git@gitea.proton:2222/logan/notes.git";
           notes-relative-dir = "/${user-dir}/files/notes";
           notes-dir = "${config.services.nextcloud.datadir}/data" + notes-relative-dir;
         in
@@ -82,7 +82,7 @@ in
       # TODO: Make this less sloppy.
       User = "nextcloud";
     };
-    # Resolves bitbucket.org (git remote) at runtime, so gate on DNS being
+    # Resolves gitea.proton (git remote) at runtime, so gate on DNS being
     # ready.  Without this the oneshot can race a rebuild that restarts the
     # local resolver and fails with "Could not resolve hostname".
     after = [
