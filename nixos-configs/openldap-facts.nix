@@ -132,12 +132,20 @@ in
         }
         // lib.optionalAttrs ucfg.email.enable {
           # Primary derived from email.username + the internal network domain,
-          # extended by any explicit aliases.  LDAP `mail` is multi-valued; no
-          # entry is treated as more "primary" than another at the LDAP layer.
-          mail = [
-            "${ucfg.email.username}@${facts.network.domain}"
-          ]
-          ++ ucfg.email.aliases;
+          # extended by any explicit aliases.  LDAP `mail` is multi-valued at
+          # the protocol layer, but the provider's `list_live` normalises
+          # single-valued attributes to JSON scalars, so a one-element list
+          # here would compare unequal to the live scalar on every run.
+          # Emit a bare string when there's exactly one address and a list
+          # only when aliases are declared.
+          mail =
+            let
+              all = [
+                "${ucfg.email.username}@${facts.network.domain}"
+              ]
+              ++ ucfg.email.aliases;
+            in
+            if builtins.length all == 1 then builtins.head all else all;
         }
       ) all-ldap-users;
 
