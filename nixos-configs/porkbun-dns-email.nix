@@ -37,26 +37,42 @@ let
   api-secret = mkManagedFromPath (cred-path "porkbun-api-secret");
 
   # jq expressions for records to leave alone on every reconciliation.
-  # Each expression receives . = {"key": "TYPE/name", "resource_id": "TYPE/name"}.
-  ignore-acme = ".key | startswith(\"TXT/_acme-challenge\")";
-  ignore-wildcard-a = ".key == \"A/*\"";
-  ignore-vpn-a = ".key == \"A/vpn\"";
+  # Each expression is evaluated against the live record body:
+  #   { __nixhapi: { providerKey: [{ type, name, content }] },
+  #     id, name (FQDN), type, content, ttl, prio }
+  # `__nixhapi.providerKey[0].name` is the relative (sub-)name; `.name`
+  # is the absolute FQDN.  We match against `.type` and the relative
+  # name so the predicates read like the records they target.
+  ignore-acme = ''(.type == "TXT") and (.__nixhapi.providerKey[0].name | startswith("_acme-challenge"))'';
+  ignore-wildcard-a = ''(.type == "A") and (.__nixhapi.providerKey[0].name == "*")'';
+  ignore-vpn-a = ''(.type == "A") and (.__nixhapi.providerKey[0].name == "vpn")'';
   # NS records at the apex are managed by the registrar; never delete them.
-  ignore-ns = ".key | startswith(\"NS/\")";
+  ignore-ns = ''.type == "NS"'';
 
-  # Email DNS records common to any externally-hosted domain.
+  # Email DNS records common to any externally-hosted domain.  The outer
+  # attribute names (`apex-mx`, `apex-spf`, …) are user-chosen labels;
+  # record identity is the (type, name, content) triple via the default
+  # providerKey.
   emailRecords = domain: dkimPub: {
-    "MX/@" = {
+    apex-mx = {
+      type = "MX";
+      name = "@";
       content = "mail.${domain}";
       prio = "10";
     };
-    "TXT/@" = {
+    apex-spf = {
+      type = "TXT";
+      name = "@";
       content = "v=spf1 mx ~all";
     };
-    "TXT/default._domainkey" = {
+    apex-dkim = {
+      type = "TXT";
+      name = "default._domainkey";
       content = "v=DKIM1; k=ed25519; p=${dkimPub}";
     };
-    "TXT/_dmarc" = {
+    apex-dmarc = {
+      type = "TXT";
+      name = "_dmarc";
       content = "v=DMARC1; p=none; rua=mailto:logustus+dmarc@gmail.com";
     };
   };

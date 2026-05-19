@@ -10,7 +10,9 @@
 ################################################################################
 { ... }:
 {
-  services.nix-hapi-porkbun.scopes."logustus.com".records."CNAME/blog" = {
+  services.nix-hapi-porkbun.scopes."logustus.com".records.blog-cname = {
+    type = "CNAME";
+    name = "blog";
     content = "loganbarnett.github.io";
   };
 }
