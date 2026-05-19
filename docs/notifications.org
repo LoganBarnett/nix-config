@@ -1,0 +1,78 @@
+#+title:     Notifications
+#+language:  en
+
+* Overview
+
+Rationale for the household push-notification stack.  Self-hosted services
+in this network (download completions, backup outcomes, alertmanager
+firings, IoT events) need a way to reach phones and desktops without
+each service inventing its own delivery mechanism.
+
+Posture:
+
+- Self-hosted preferred; data flowing through a third party is reserved
+  for cases where the alternative is materially worse.
+- iOS support is required.  Household uses iOS, so an Android-only
+  delivery agent is disqualifying.
+- The stack should be declarable in Nix.  Click-ops administration of
+  notification sources is a hard negative; every new source should be a
+  config commit, not a web-UI round trip.
+
+* Options considered
+
+** ntfy.sh (chosen)
+
+Topic-based pub-sub.  Anyone holding the URL =https://ntfy.host/topic=
+publishes; anyone subscribed to that topic receives.  Single static Go
+binary, embedded SQLite, web UI bundled.
+
+What recommended it:
+
+- Native iOS *and* Android apps.
+- Topic semantics fit "I have many services that want to alert me"
+  naturally: pick a topic per source, drop the URL into the source's
+  config, done.  No app/token registration round trip.
+- Authentication is opt-in.  The server runs with =auth-default-access:
+  read-write= and zero credentials for personal use, or locks down with
+  users + per-topic ACLs when the topology calls for it.
+- User and ACL management ships as =ntfy user= and =ntfy access=
+  subcommands.  That made it tractable to add a reconciler later — see
+  [[https://github.com/LoganBarnett/nix-hapi-provider-ntfy][nix-hapi-provider-ntfy]] — without driving the web UI.
+
+** Gotify (declined)
+
+DB-backed notification server with first-class *applications*: each
+notification source is registered as an application in the web UI,
+issued a token, and that token goes into the source's config.
+
+Why declined:
+
+- Android-only.  No official iOS app — disqualifying on its own.
+- The application/token model means every new source is a click-ops
+  round trip through the web UI to create the app and copy the token.
+- Token administration is fully web-UI-driven.  No CLI means no
+  reconciler — every change to the auth surface is a manual operation.
+
+The application model has real value when each source needs distinct
+authorisation in a multi-tenant deployment.  In a single-household
+setting that benefit is invisible and the friction is constant.
+
+** Pushover (declined)
+
+Commercial hosted service.  Per-device one-time app purchase, HTTP API
+for sending.
+
+Why declined: it is a third-party SaaS for data that does not need to
+leave the network.  Volume isn't high enough to make hosted delivery
+attractive, and the privacy / availability trade-off is in the wrong
+direction for the use case.
+
+** Apprise (declined; wrong category)
+
+Notification *router* — a library / CLI that fans out to many backends
+(Discord, Slack, Pushover, Telegram, …).  It solves a different
+problem: "given multiple destinations, how do I address them
+uniformly?"  The choice this document is about is what the
+*destination* is.  Apprise could sit upstream of ntfy if the
+household ever needs a multi-destination fan-out, but it is not itself
+a delivery target.
