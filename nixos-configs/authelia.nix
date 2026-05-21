@@ -399,9 +399,9 @@ in
     # See matching comment in nixos-configs/blocky.nix.  This is especially
     # important here because, unlike blocky/openldap, the ready service is
     # not `wantedBy = multi-user.target` -- nothing else pulls it in, so
-    # without `wantedBy = oidc-ready.target` the target activates empty
+    # without `requiredBy = oidc-ready.target` the target activates empty
     # and the gate no-ops.
-    wantedBy = [ "oidc-ready.target" ];
+    requiredBy = [ "oidc-ready.target" ];
     # Couple target lifecycle to authelia-ready so restarts propagate.  See
     # the matching comment in nixos-configs/blocky.nix for the reasoning.
     unitConfig.PropagatesStopTo = "oidc-ready.target";

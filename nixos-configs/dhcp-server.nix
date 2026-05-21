@@ -184,7 +184,7 @@ in
     wants = [ "nss-lookup.target" ];
     before = [ "nss-lookup.target" ];
     # See matching comment in nixos-configs/blocky.nix.
-    wantedBy = [ "nss-lookup.target" ];
+    requiredBy = [ "nss-lookup.target" ];
     unitConfig.PropagatesStopTo = "nss-lookup.target";
   };
 
