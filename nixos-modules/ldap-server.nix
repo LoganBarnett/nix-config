@@ -213,6 +213,8 @@ in
         "ldap-ready.target"
       ];
       before = [ "ldap-ready.target" ];
+      # See matching comment in nixos-configs/blocky.nix.
+      wantedBy = [ "ldap-ready.target" ];
       # Couple target lifecycle to openldap so restarts propagate.  See the
       # matching comment in nixos-configs/blocky.nix for why
       # `Wants=`/`Before=` alone aren't enough for runtime restarts.

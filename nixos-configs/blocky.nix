@@ -268,6 +268,13 @@ in
   systemd.services.blocky = {
     wants = [ "nss-lookup.target" ];
     before = [ "nss-lookup.target" ];
+    # `wantedBy` translates to `Wants=` from the target side, so when the
+    # target is pulled in (e.g. by a consumer's After= edge), the provider
+    # is pulled in too.  Without this, a consumer that gates on
+    # nss-lookup.target without an active provider would see the target
+    # activate empty -- which means the gate effectively no-ops.  Matches
+    # upstream nixpkgs unbound's convention.
+    wantedBy = [ "nss-lookup.target" ];
     unitConfig.PropagatesStopTo = "nss-lookup.target";
   };
   # Goss health checks for Blocky DNS.
