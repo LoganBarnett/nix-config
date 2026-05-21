@@ -12,8 +12,10 @@ Posture:
 
 - Self-hosted preferred; data flowing through a third party is reserved
   for cases where the alternative is materially worse.
-- iOS support is required.  Household uses iOS, so an Android-only
-  delivery agent is disqualifying.
+- iOS support is required.  Household uses iOS, so a delivery agent
+  with no usable iOS client is disqualifying.  First-party iOS support
+  is preferred over a community port — the latter is operative until
+  the maintainer loses interest.
 - The stack should be declarable in Nix.  Click-ops administration of
   notification sources is a hard negative; every new source should be a
   config commit, not a web-UI round trip.
@@ -47,7 +49,10 @@ issued a token, and that token goes into the source's config.
 
 Why declined:
 
-- Android-only.  No official iOS app — disqualifying on its own.
+- iOS support is community-only.  The official Gotify project ships
+  Android and web clients; iOS coverage exists but as a third-party
+  port.  Not disqualifying on its own, but it tilts the platform-risk
+  ledger compared to ntfy's first-party iOS app.
 - The application/token model means every new source is a click-ops
   round trip through the web UI to create the app and copy the token.
 - Token administration is fully web-UI-driven.  No CLI means no
@@ -55,7 +60,9 @@ Why declined:
 
 The application model has real value when each source needs distinct
 authorisation in a multi-tenant deployment.  In a single-household
-setting that benefit is invisible and the friction is constant.
+setting that benefit is invisible and the friction is constant.  Even
+with the community iOS client in the picture, the click-ops + no-CLI
+combination would carry the decision on its own.
 
 ** Pushover (declined)
 
