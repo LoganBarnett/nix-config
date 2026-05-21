@@ -172,7 +172,15 @@ in
     };
   };
   systemd.services.grafana = {
-    wants = [ "run-agenix.d.mount" ];
+    after = [
+      "ldap-ready.target"
+      "nss-lookup.target"
+    ];
+    wants = [
+      "run-agenix.d.mount"
+      "ldap-ready.target"
+      "nss-lookup.target"
+    ];
     # TODO: Submit StateDirectory upstream to the NixOS Grafana module.  The
     # upstream module relies on the grafana user already owning /var/lib/grafana
     # but never declares StateDirectory, so data migrations (or fresh deploys

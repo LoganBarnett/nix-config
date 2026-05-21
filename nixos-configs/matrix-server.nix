@@ -89,11 +89,21 @@ in
       ];
     };
   };
-  systemd.services.matrix-synapse.serviceConfig.LoadCredential = [
-    "ldap-password:${
-      config.age.secrets."${host-id}-matrix-service-ldap-password".path
-    }"
-  ];
+  systemd.services.matrix-synapse = {
+    after = [
+      "ldap-ready.target"
+      "nss-lookup.target"
+    ];
+    wants = [
+      "ldap-ready.target"
+      "nss-lookup.target"
+    ];
+    serviceConfig.LoadCredential = [
+      "ldap-password:${
+        config.age.secrets."${host-id}-matrix-service-ldap-password".path
+      }"
+    ];
+  };
 
   services.postgresql = {
     enable = true;

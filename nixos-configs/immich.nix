@@ -41,4 +41,18 @@ in
     mountDependencies = [ "tank-data.mount" ];
     oauthConfigFile = config.age.secrets."immich-oauth-config".path;
   };
+
+  # Immich does OIDC discovery against authelia.${domain} at startup, so gate
+  # on oidc-ready.target (Authelia healthy) and nss-lookup.target (DNS for
+  # authelia.${domain} resolves).
+  systemd.services.immich-server = {
+    after = [
+      "oidc-ready.target"
+      "nss-lookup.target"
+    ];
+    wants = [
+      "oidc-ready.target"
+      "nss-lookup.target"
+    ];
+  };
 }

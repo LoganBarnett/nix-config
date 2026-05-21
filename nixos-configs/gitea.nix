@@ -187,6 +187,8 @@ in
   systemd.services.gitea =
     let
       after = [
+        "ldap-ready.target"
+        "nss-lookup.target"
         "postgresql.target"
         "run-agenix.d.mount"
       ];

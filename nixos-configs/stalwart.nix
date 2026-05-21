@@ -251,10 +251,16 @@ in
     restartTriggers = [ (builtins.toJSON config.services.stalwart-mail.settings) ];
     after = [
       "ldap-reconciler.service"
+      "ldap-ready.target"
+      "nss-lookup.target"
       "run-agenix.d.mount"
       "tank-data.mount"
     ];
-    wants = [ "ldap-reconciler.service" ];
+    wants = [
+      "ldap-reconciler.service"
+      "ldap-ready.target"
+      "nss-lookup.target"
+    ];
     requires = [
       "run-agenix.d.mount"
       "tank-data.mount"

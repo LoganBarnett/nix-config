@@ -251,18 +251,19 @@ in
     # be able to copy the values.
     nextcloud-custom-config =
       let
-        # Ordering after openldap and nss-lookup.target is required because
-        # the script does `ldapwhoami -H ldaps://ldap.proton` -- it needs a
-        # reachable LDAP server (openldap) and host name resolution
-        # (whatever DNS resolver the host runs).  Without these the oneshot
-        # races those services during nixos-rebuild switch and fails with
-        # `ldap_sasl_bind(SIMPLE): Can't contact LDAP server (-1)`.  `after`
-        # is a soft ordering directive, so hosts that don't run openldap or
-        # don't gate a resolver into nss-lookup.target are unaffected.
+        # Ordering after ldap-ready.target and nss-lookup.target is required
+        # because the script does `ldapwhoami -H ldaps://ldap.proton` -- it
+        # needs a reachable LDAP server (gated by ldap-ready.target) and host
+        # name resolution (gated by nss-lookup.target).  Without these the
+        # oneshot races those services during nixos-rebuild switch and fails
+        # with `ldap_sasl_bind(SIMPLE): Can't contact LDAP server (-1)`.
+        # `after` is a soft ordering directive, so hosts that don't run
+        # openldap or don't gate a resolver into nss-lookup.target are
+        # unaffected.
         after = [
           "run-agenix.d.mount"
           "nextcloud-setup.service"
-          "openldap.service"
+          "ldap-ready.target"
           "nss-lookup.target"
         ];
       in

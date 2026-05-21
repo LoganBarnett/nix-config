@@ -71,23 +71,23 @@ in
   };
 
   # Ensure oauth2-proxy starts after Authelia is *healthy* (not just forked).
-  # authelia-authelia-ready.service polls /api/health and only completes once Authelia
-  # can serve OIDC discovery.  nss-lookup.target is needed because OIDC discovery
-  # resolves authelia.<domain> through local DNS.
+  # oidc-ready.target (backed by authelia-authelia-ready.service, which polls
+  # /api/health) gates OIDC-discovery readiness; nss-lookup.target gates DNS
+  # so OIDC discovery resolves authelia.<domain> via local DNS.
   systemd.services.oauth2-proxy = {
     after = [
       "run-agenix.d.mount"
       "network-online.target"
       "nss-lookup.target"
       "nginx.service"
-      "authelia-authelia-ready.service"
+      "oidc-ready.target"
     ];
     requires = [ "run-agenix.d.mount" ];
     wants = [
       "network-online.target"
       "nss-lookup.target"
       "nginx.service"
-      "authelia-authelia-ready.service"
+      "oidc-ready.target"
     ];
     serviceConfig = {
       # If OIDC discovery still fails despite the gate (e.g. transient DNS

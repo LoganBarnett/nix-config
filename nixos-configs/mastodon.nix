@@ -68,6 +68,28 @@ in
   ];
   networking.dnsAliases = [ "mastodon" ];
 
+  # ── OIDC + DNS gating for each instance's web service ─────────────────────
+  # Each mastodon-<instance>-web service does OIDC discovery against
+  # authelia.${domain} at startup; gate on oidc-ready.target (Authelia
+  # healthy) and nss-lookup.target (DNS resolves authelia.${domain}).
+  systemd.services =
+    lib.genAttrs
+      [
+        "mastodon-proton-web"
+        "mastodon-logustus-web"
+        "mastodon-meshward-web"
+      ]
+      (_: {
+        after = [
+          "oidc-ready.target"
+          "nss-lookup.target"
+        ];
+        wants = [
+          "oidc-ready.target"
+          "nss-lookup.target"
+        ];
+      });
+
   # ── LDAP service accounts for SMTP authentication ──────────────────────────
   # One account per instance so credentials are isolated.  ldap-auth.nix
   # auto-emits <name>-ldap-password and <name>-ldap-password-hashed secrets.

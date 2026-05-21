@@ -10,6 +10,19 @@
   };
   environment.systemPackages = [ pkgs.alsa-utils ];
 
+  # OIDC client of authelia.${domain} -- gate on the auth provider being
+  # healthy and DNS being able to resolve it.
+  systemd.services.sonify-health = {
+    after = [
+      "oidc-ready.target"
+      "nss-lookup.target"
+    ];
+    wants = [
+      "oidc-ready.target"
+      "nss-lookup.target"
+    ];
+  };
+
   systemd.services.alsa-unmute = {
     description = "Unmute ALSA master volume";
     wantedBy = [ "sonify-health.service" ];

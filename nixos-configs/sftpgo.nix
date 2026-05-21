@@ -119,7 +119,7 @@ in
   systemd.services.sftpgo =
     let
       after = [
-        "authelia-authelia-ready.service"
+        "oidc-ready.target"
         "postgresql.target"
         "run-agenix.d.mount"
         "tank-data.mount"

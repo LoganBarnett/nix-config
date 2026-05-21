@@ -419,7 +419,8 @@ in
   systemd.services.${service-name} =
     let
       after = [
-        "openldap.service"
+        "ldap-ready.target"
+        "nss-lookup.target"
         "postgresql.target"
         "run-agenix.d.mount"
       ];

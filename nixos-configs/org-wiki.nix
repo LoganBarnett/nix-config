@@ -42,23 +42,23 @@ in
   };
 
   # Ensure agenix secrets are decrypted and Authelia is *healthy* before
-  # starting.  authelia-authelia-ready.service polls Authelia's /api/health endpoint
-  # so OIDC discovery succeeds on the first attempt.  nss-lookup.target is
-  # needed because OIDC discovery resolves authelia.<domain> through local DNS.
+  # starting.  oidc-ready.target (backed by authelia-authelia-ready.service,
+  # which polls /api/health) gates OIDC-discovery readiness; nss-lookup.target
+  # gates DNS so OIDC discovery resolves authelia.<domain> via local DNS.
   systemd.services.org-wiki-web = {
     after = [
       "run-agenix.d.mount"
       "network-online.target"
       "nss-lookup.target"
       "nginx.service"
-      "authelia-authelia-ready.service"
+      "oidc-ready.target"
     ];
     requires = [ "run-agenix.d.mount" ];
     wants = [
       "network-online.target"
       "nss-lookup.target"
       "nginx.service"
-      "authelia-authelia-ready.service"
+      "oidc-ready.target"
     ];
     serviceConfig = {
       RestartSec = lib.mkDefault 3;
