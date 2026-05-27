@@ -86,7 +86,7 @@ in
       filePath = teaConfigPath;
       documentPath = ".logins[0].ssh_key";
       operation = "set";
-      value = ''"/Users/logan/.ssh/id_rsa"'';
+      value = ''"${config.home.homeDirectory}/.ssh/id_ed25519"'';
       transform = "yaml";
     };
     tea-gitea-insecure = {

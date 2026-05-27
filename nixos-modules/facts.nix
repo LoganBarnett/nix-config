@@ -201,6 +201,12 @@
         ];
         system = "x86_64-linux";
       };
+      # HMH/NWEA work workstation.  The host entry stays here so the rest of
+      # the network can resolve and reach it, but the host module is split:
+      # the generic stub is at ../hosts/M-CL64PK702X.nix and the HMH-specific
+      # extension lives in nix-config-hmh-private
+      # (gitea.proton:logan/nix-config-hmh-private:hosts/M-CL64PK702X.nix),
+      # which extends this configuration via `extendModules`.
       "M-CL64PK702X" = {
         controlledHost = true;
         blockProfiles = [ "adult" ];
