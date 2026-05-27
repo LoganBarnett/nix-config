@@ -76,29 +76,40 @@ in
       name
       settings.tls
       ''
-        \
-             set -euo pipefail
-             crt_file="$(dirname "${file}")/${name}.crt"
-             ${pkgs.openssl}/bin/openssl req \
-                -new \
-                -newkey rsa:4096 \
-                -keyout root.key \
-                -x509 \
-                -nodes \
-                -out "$crt_file" \
-                -subj "/CN=${settings.tls.domain}${subject-string settings.tls.subject}" \
-                -days "${toString settings.tls.validity}" \
-                -addext "basicConstraints = critical, CA:TRUE, pathlen:0" \
-                -addext "keyUsage = critical, keyCertSign, cRLSign"
-             # keyUsage is formally required on CA certificates by RFC 5280
-             # §4.2.1.3 (https://www.rfc-editor.org/rfc/rfc5280#section-4.2.1.3).
-             # Most TLS stacks ignored this for years; Python 3.13 + urllib3 2.5
-             # do not.  keyCertSign permits signing certificates; cRLSign permits
-             # signing revocation lists.  pathlen:0 prevents this root from being
-             # used to mint intermediate CAs.
-             ${gitAdd} "$crt_file"
-             cat root.key
-             rm root.key
+        set -euo pipefail
+        crt_file="$(dirname "${file}")/${name}.crt"
+        # keyUsage is formally required on CA certificates by RFC 5280 §4.2.1.3
+        # (https://www.rfc-editor.org/rfc/rfc5280#section-4.2.1.3).  Most TLS
+        # stacks ignored this for years; Python 3.13 + urllib3 2.5 do not.
+        # keyCertSign permits signing certificates; cRLSign permits signing
+        # revocation lists.  pathlen:0 prevents this root from being used to
+        # mint intermediate CAs.
+        #
+        # nameConstraints (RFC 5280 §4.2.1.10) scopes what DNS names this CA can
+        # sign certs for.  Without it, a stolen CA key could mint a valid cert
+        # for *any* domain (google.com, your bank, etc.)  and every client
+        # trusting this root would accept it.  DNS subtree semantics: the
+        # constraint matches the name exactly and any name formed by adding
+        # labels to its left (so permitted;DNS:proton covers `proton`,
+        # `host.proton`, `svc.host.proton`, etc.).  Marked critical so
+        # non-supporting clients fail closed instead of silently ignoring the
+        # restriction.  Only DNS is constrained — IP/email SANs remain
+        # unconstrained; revisit if leaves ever start using those.
+        ${pkgs.openssl}/bin/openssl req \
+           -new \
+           -newkey rsa:4096 \
+           -keyout root.key \
+           -x509 \
+           -nodes \
+           -out "$crt_file" \
+           -subj "/CN=${settings.tls.domain}${subject-string settings.tls.subject}" \
+           -days "${toString settings.tls.validity}" \
+           -addext "basicConstraints = critical, CA:TRUE, pathlen:0" \
+           -addext "keyUsage = critical, keyCertSign, cRLSign" \
+           -addext "nameConstraints = critical, permitted;DNS:${settings.tls.domain}"
+        ${gitAdd} "$crt_file"
+        cat root.key
+        rm root.key
       '';
 
   # srl files can created during the leaf certificate creation.  The files track

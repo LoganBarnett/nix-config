@@ -15,6 +15,7 @@
 ################################################################################
 {
   config,
+  facts,
   flake-inputs,
   host-id,
   lib,
@@ -116,7 +117,7 @@ in
     rekeyFile = ../secrets/proton-ca.age;
     settings = {
       tls = {
-        domain = "proton";
+        domain = facts.network.domain;
         subject = {
           country = "US";
           state = "Oregon";
