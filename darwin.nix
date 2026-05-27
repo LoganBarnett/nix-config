@@ -62,6 +62,7 @@ let
 in
 {
   imports = [
+    ./darwin-modules/global-protect-persistent.nix
     ./darwin-configs/goss.nix
     ./darwin-modules/goss.nix
     ./darwin-modules/goss-exporter.nix

@@ -87,4 +87,16 @@
     hash = "sha256-YSUaM8YAJHigm4M9W34/bD164M8f/hbhtcmHyUwFN20=";
   };
 
+  # GlobalProtect VPN client (gpclient + gpauth).  Both vendored derivations
+  # (../derivations/gpauth and ../derivations/gpclient) share a single source
+  # tarball and Cargo.lock, so one version/hash/cargoHash triplet pins the
+  # whole suite.  Pinned independently of nixpkgs because upstream auth and
+  # cookie handling fixes land here faster than nixpkgs catches up — see the
+  # vendored derivations for packaging notes.
+  globalprotect-openconnect = {
+    version = "2.5.2";
+    hash = "sha256-Eg43O+nu8QWVlRW93QhH1G6IzkZTH4gDeuFhRaasFaQ=";
+    cargoHash = "sha256-WAzkVrXxI72FhbPmF9q4b2mKpx53NMSIX/Ze/GvwQdY=";
+  };
+
 }

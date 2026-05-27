@@ -1,0 +1,206 @@
+#!/usr/bin/env python3
+"""
+Drive gpauth in --browser remote mode for the --as-gateway flow.
+
+Spawns `gpauth --browser remote --gateway <gateway>`, watches its
+stderr for the local auth-server URL, hands that URL to the Playwright
+SAML driver (gp-auth-headless) to complete authentication at the IdP,
+captures the `globalprotectcallback:...` URL the driver prints to its
+own stdout, writes that URL to gpauth's stdin (which is what
+"please paste the authentication data back to this terminal" actually
+means), then waits for gpauth to emit its single-line JSON cookie blob
+on stdout and forwards that blob to our own stdout for piping into
+`gpclient connect --cookie-on-stdin --as-gateway <gateway>`.
+
+Protocol details that motivate this shape (see
+crates/auth/src/browser/{auth_server,browser_auth}.rs in the gpauth
+source):
+
+- The auth-server is a SAML *bootstrapper*: one GET, returns 302 to
+  the IdP, server stops.  It does not receive the SAML callback.
+- In Browser::Remote, gpauth reads the final
+  `globalprotectcallback:...` URL from stdin via read_line.  The
+  prompt is the "Manual Authentication Required" banner.
+- gp-auth-headless already does the Playwright walk-through-SAML +
+  callback-URL-extraction; we reuse it and just relay its stdout into
+  gpauth's stdin instead of into gpclient's PTY (which is what the
+  legacy gp-connect-pty flow does).
+
+The portal -> gateway cookie-reuse path is broken on Prisma Access
+deployments since early 2026 (upstream issue
+yuezk/GlobalProtect-openconnect#572): the gateway rejects portal
+cookies with "Invalid username or password".  Bypassing the portal
+with --as-gateway and authenticating directly against the gateway
+avoids that handoff entirely.
+
+No PTY needed for gpauth or gpclient in this flow: gpauth reads stdin
+with read_line (no TTY required), and gpclient in --cookie-on-stdin
+mode never prompts for anything.
+"""
+
+import argparse
+import re
+import subprocess
+import sys
+import threading
+
+AUTH_URL_RE = re.compile(r"http://[\d.]+:\d+/[a-f0-9-]+")
+
+
+def log(message):
+    print(f"[gp-auth-cookie] {message}", file=sys.stderr, flush=True)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Capture a gpauth cookie blob for --as-gateway."
+    )
+    parser.add_argument("--gateway", required=True)
+    parser.add_argument("--username", required=True)
+    parser.add_argument("--password", required=True)
+    parser.add_argument("--totp", required=True)
+    parser.add_argument(
+        "--auth-script",
+        required=True,
+        help="Path to the Playwright SAML driver (gp-auth-headless).",
+    )
+    parser.add_argument(
+        "--gpauth",
+        default="gpauth",
+        help="gpauth binary to invoke (default: from PATH).",
+    )
+    parser.add_argument(
+        "--url-timeout",
+        type=int,
+        default=30,
+        help="Seconds to wait for gpauth to print the auth URL.",
+    )
+    parser.add_argument(
+        "--saml-timeout",
+        type=int,
+        default=120,
+        help="Seconds for Playwright to complete SAML.",
+    )
+    parser.add_argument(
+        "--cookie-timeout",
+        type=int,
+        default=30,
+        help="Seconds to wait for gpauth to emit its cookie after stdin write.",
+    )
+    args = parser.parse_args()
+
+    cmd = [args.gpauth, "--browser", "remote", "--gateway", args.gateway]
+    log(f"Starting: {' '.join(cmd)}")
+
+    proc = subprocess.Popen(
+        cmd,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        bufsize=1,
+    )
+
+    # Mirror gpauth stderr to our own stderr while scanning for the auth URL.
+    auth_url_holder = {}
+    url_seen = threading.Event()
+
+    def pump_stderr():
+        for line in proc.stderr:
+            print(line, end="", file=sys.stderr, flush=True)
+            if "url" not in auth_url_holder:
+                match = AUTH_URL_RE.search(line)
+                if match:
+                    auth_url_holder["url"] = match.group(0)
+                    url_seen.set()
+
+    threading.Thread(target=pump_stderr, daemon=True).start()
+
+    if not url_seen.wait(timeout=args.url_timeout):
+        log("Timed out waiting for gpauth to print the auth URL")
+        proc.terminate()
+        return 1
+
+    auth_url = auth_url_holder["url"]
+    log(f"Auth URL detected: {auth_url}")
+    log("Running Playwright SAML driver...")
+
+    try:
+        saml = subprocess.run(
+            [
+                sys.executable,
+                args.auth_script,
+                auth_url,
+                args.username,
+                args.password,
+                args.totp,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=args.saml_timeout,
+        )
+    except subprocess.TimeoutExpired:
+        log("Playwright SAML driver timed out")
+        proc.terminate()
+        return 1
+
+    if saml.returncode != 0:
+        log(f"Playwright SAML driver failed (exit {saml.returncode})")
+        if saml.stderr:
+            for line in saml.stderr.splitlines():
+                log(f"  saml-stderr: {line}")
+        proc.terminate()
+        return 1
+
+    callback_url = saml.stdout.strip()
+    if not callback_url:
+        log("Playwright SAML driver exited 0 but did not emit a callback URL")
+        proc.terminate()
+        return 1
+    if not callback_url.startswith("globalprotectcallback:"):
+        log(
+            "Playwright SAML driver emitted unexpected stdout "
+            f"(first 80 chars): {callback_url[:80]!r}"
+        )
+        proc.terminate()
+        return 1
+
+    log(
+        f"Got callback URL ({len(callback_url)} chars); writing to gpauth "
+        "stdin and awaiting cookie..."
+    )
+    # Let communicate() own the stdin lifecycle.  Closing stdin manually
+    # first and then calling communicate() trips over Popen.communicate's
+    # unconditional self.stdin.flush() on the already-closed handle
+    # (ValueError: I/O operation on closed file).
+    try:
+        stdout, _ = proc.communicate(
+            input=callback_url + "\n",
+            timeout=args.cookie_timeout,
+        )
+    except subprocess.TimeoutExpired:
+        log("gpauth did not exit after receiving the callback URL")
+        proc.kill()
+        return 1
+    except BrokenPipeError:
+        log("gpauth closed stdin before we could write the callback URL")
+        return 1
+
+    if proc.returncode != 0:
+        log(f"gpauth exited non-zero: {proc.returncode}")
+        if stdout:
+            log(f"gpauth stdout was: {stdout[:200]!r}")
+        return 1
+
+    cookie = stdout.strip()
+    if not cookie:
+        log("gpauth exited cleanly but emitted no cookie on stdout")
+        return 1
+
+    print(cookie, flush=True)
+    log(f"Emitted cookie blob ({len(cookie)} bytes)")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,109 @@
+#+title:     gpauth and the root-execution restriction
+#+language:  en
+
+* Summary
+
+~gpauth~ (part of the ~yuezk/GlobalProtect-openconnect~ suite) refuses to
+run as the root user when it would open a webview-based browser for SAML
+authentication.  This is intentional: a webview running with full root
+privilege would expose the host to any malicious script returned by the
+identity provider (or by a man-in-the-middle), so upstream blocks it
+outright.
+
+This document captures why the restriction matters, where it has bitten
+us in the past, and the prepared workaround so that future contributors
+do not have to rediscover the story.
+
+* Why upstream refuses
+
+A webview is a full HTML/JS runtime.  SAML auth pages routinely execute
+JavaScript and may include third-party content (analytics, identity
+provider widgets, etc.).  Running such a runtime as root means any
+exploit that escapes the webview lands on the host as root.  The
+project's stance is that the auth UI should always run as an
+unprivileged user — typically the human who is sitting at the
+keyboard — even if the resulting cookie is later handed to a
+privileged tunnel-creation process.
+
+The check is targeted at the webview path specifically.  The
+~--browser remote~ flow does not open a webview at all; it runs a tiny
+local HTTP auth-server, prints the URL, and waits for a separate
+browser (anywhere on the network) to POST the SAML callback back.  No
+JS executes inside ~gpauth~ itself, so the refusal does not apply.
+
+* Where this bites us today
+
+Almost nowhere — by design.  The relevant pieces of our setup:
+
+- ~launchd.daemons.globalprotect-monitor~ runs as ~cfg.primaryUser~,
+  not as root.  See ~darwin-modules/global-protect-persistent.nix~.
+- The monitor invokes ~gp-connect-auto~ via ~sudo -E~ only to elevate
+  for the tunnel-creation step inside ~gpclient~.  ~gpauth~ inside
+  that flow runs in ~--browser remote~ mode (driven by Playwright in
+  ~gp-connect-pty~), so the root check is not triggered.
+- Ad-hoc manual runs (~gpclient connect ...~ at a shell prompt) are
+  performed by the human user, not under ~sudo~, so the webview path
+  works for them.
+
+The shape that *would* hit the restriction is anyone who runs
+~sudo gpclient connect~ (without ~--browser remote~) on a host where
+~gpclient~ shells out to ~gpauth~ for the webview flow.  That
+combination is the canonical foot-gun.
+
+* The prepared escape hatch: ~overlays/gpclient-with-gpauth-wrapper.nix~
+
+This overlay exists in the tree but is intentionally /not/ wired into
+~overlays/default.nix~.  It is kept as documented prior art: should
+the restriction become a live problem (for example, if upstream
+removes ~--browser remote~ support, or we end up needing the webview
+path under sudo for some other reason), enabling it is the
+known-good remedy.
+
+The overlay replaces the ~gpauth~ binary with a thin shell wrapper
+that detects effective-uid-zero, looks for ~PRIMARY_USER~ in the
+environment, and re-execs the real ~gpauth~ under ~sudo -u
+$PRIMARY_USER~.  Non-root invocations pass through unchanged.
+
+If you need it:
+
+1. Add ~(import ./gpclient-with-gpauth-wrapper.nix)~ to the overlay
+   list in ~overlays/default.nix~, placed after ~./gpclient.nix~ so
+   the wrapper layers on top of the vendored derivation.
+2. Ensure ~PRIMARY_USER~ is exported in the environment of whatever
+   process invokes ~gpclient~ (the monitor service already exports
+   the equivalent ~cfg.primaryUser~ data; verify the variable name
+   matches what the wrapper expects).
+3. Confirm that ~sudo~ is on the ~PATH~ of the elevated context.
+
+* Why ~--browser remote~ is the structural fix, not the wrapper
+
+The wrapper trades elegance for compatibility: it papers over a root
+invocation that probably should not have happened in the first place.
+~--browser remote~ removes the underlying ambiguity by separating
+authentication (no privilege needed) from tunnel creation (root
+needed).  Our automation should prefer the structural separation
+wherever practical:
+
+- ~gpauth --browser remote~ runs as the unprivileged user, drives
+  SAML via the headless Playwright browser, and emits a cookie blob
+  to stdout.
+- ~gpclient connect --cookie-on-stdin~ runs as root, consumes the
+  cookie blob, and creates the tunnel.
+
+This is the model the ~--as-gateway~ flow (see
+~docs/globalprotect-automation.org~) is built on, and it sidesteps
+the root question entirely.
+
+* See also
+
+- ~overlays/gpclient-with-gpauth-wrapper.nix~ — the dormant
+  wrapper, intentionally not loaded.
+- ~darwin-modules/global-protect-persistent.nix~ — module that
+  configures the monitor service to run as ~cfg.primaryUser~.
+- ~scripts/gp-connect-auto~ / ~scripts/gp-connect-pty~ — the
+  automation that uses ~--browser remote~ to keep gpauth in its
+  non-privileged lane.
+- Upstream issue [[https://github.com/yuezk/GlobalProtect-openconnect/issues/572][yuezk/GlobalProtect-openconnect#572]] — the
+  ~portal -> gateway~ cookie-reuse regression that motivated the
+  ~--as-gateway~ migration which made ~--browser remote~ load-bearing
+  for our automation.

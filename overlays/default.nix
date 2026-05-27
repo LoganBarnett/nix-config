@@ -34,6 +34,7 @@
   (import ./rust.nix)
   (import ./firefox-bin.nix)
   (import ./ghostty-bin.nix)
+  (import ./gpclient.nix)
   (import ./signal-desktop.nix { inherit flake-inputs system; })
   (import ./claude-code.nix { inherit flake-inputs system; })
   (import ./makemkv.nix)

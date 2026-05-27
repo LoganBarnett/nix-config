@@ -1,0 +1,139 @@
+#!/usr/bin/env bash
+
+################################################################################
+# Updates static.nix with the new version, source hash, and cargoHash for the
+# GlobalProtect VPN suite (gpclient + gpauth).  Both vendored derivations
+# (../derivations/gpauth and ../derivations/gpclient) share one upstream
+# tarball and Cargo.lock, so a single triplet pins the suite.
+#
+# Three-pass hash discovery:
+#   1. Fetch latest release tag from GitHub.
+#   2. Write fake src hash, build gpauth.src through the flake, and parse the
+#      real hash from the mismatch error.  fetchFromGitHub with
+#      fetchSubmodules cannot be prefetched from a URL — the hash is over
+#      the populated tree including submodule contents.
+#   3. Write fake cargoHash, build gpauth, parse the real cargoHash from the
+#      vendor-staging derivation's mismatch error.
+#
+# This script assumes the flake exposes pkgs through
+# darwinConfigurations.<hostname> — both detected automatically.
+################################################################################
+
+set -euo pipefail
+
+repo_root="$PWD"
+fake_hash="sha256-0000000000000000000000000000000000000000000="
+host="$(hostname -s)"
+
+if [[ ! -f "${repo_root}/flake.nix" ]] || [[ ! -f "${repo_root}/static.nix" ]]; then
+  echo "ERROR: must be run from nix-config repo root" >&2
+  exit 1
+fi
+
+version="$(curl --location --silent \
+  https://api.github.com/repos/yuezk/GlobalProtect-openconnect/releases/latest \
+    | jq --raw-output '.tag_name'
+)"
+
+if [[ -z "${version}" ]] || [[ "${version}" == "null" ]]; then
+  echo "ERROR: Could not determine latest gpclient version" >&2
+  exit 1
+fi
+
+# Strip leading "v" so static.nix stores the bare version like other entries.
+version="${version#v}"
+
+echo "Latest version: ${version}"
+
+# Pass 1: write version + fake hashes so Nix will rebuild the source FOD and
+# the vendor FOD and surface the real hashes via mismatch errors.
+nix-editor \
+  static.nix \
+  'globalprotect-openconnect.version' \
+  --val "\"${version}\"" \
+  --inplace
+
+nix-editor \
+  static.nix \
+  'globalprotect-openconnect.hash' \
+  --val "\"${fake_hash}\"" \
+  --inplace
+
+nix-editor \
+  static.nix \
+  'globalprotect-openconnect.cargoHash' \
+  --val "\"${fake_hash}\"" \
+  --inplace
+
+# nix evaluates from the git tree, not the working tree, so flake-tracked
+# files need to be staged before the build can see edits.
+git add static.nix derivations/gpauth/default.nix derivations/gpclient/default.nix overlays/gpclient.nix > /dev/null 2>&1 || true
+
+probe_log="$(mktemp)"
+trap 'rm --force "${probe_log}"' EXIT
+
+# Pass 2: discover src hash by evaluating gpauth.src under the flake.
+echo "Probing source hash (this may take a moment to fetch submodules)..."
+nix build \
+  --no-link \
+  --print-out-paths \
+  --impure \
+  --expr "let f = builtins.getFlake \"git+file://${repo_root}\"; pkgs = f.outputs.darwinConfigurations.${host}.pkgs; in pkgs.gpauth.src" \
+  > "${probe_log}" 2>&1 || true
+
+src_hash="$(
+  grep --extended-regexp --only-matching \
+    'got:[[:space:]]+sha256-[A-Za-z0-9+/=]+' "${probe_log}" \
+    | head --lines 1 \
+    | awk '{print $2}'
+)"
+
+if [[ -z "${src_hash}" ]]; then
+  echo "ERROR: Could not parse source hash from build output:" >&2
+  cat "${probe_log}" >&2
+  exit 1
+fi
+
+echo "Source hash: ${src_hash}"
+
+nix-editor \
+  static.nix \
+  'globalprotect-openconnect.hash' \
+  --val "\"${src_hash}\"" \
+  --inplace
+
+git add static.nix > /dev/null 2>&1 || true
+
+# Pass 3: discover cargoHash by building gpauth itself.  cargoHash is a
+# function of Cargo.lock so the answer is independent of nixpkgs revision.
+echo "Probing cargoHash by building gpauth with fake hash..."
+nix build \
+  --no-link \
+  --print-out-paths \
+  ".#darwinConfigurations.${host}.pkgs.gpauth" \
+  > "${probe_log}" 2>&1 || true
+
+cargo_hash="$(
+  grep --extended-regexp --only-matching \
+    'got:[[:space:]]+sha256-[A-Za-z0-9+/=]+' "${probe_log}" \
+    | head --lines 1 \
+    | awk '{print $2}'
+)"
+
+if [[ -z "${cargo_hash}" ]]; then
+  echo "ERROR: Could not parse cargoHash from build output:" >&2
+  cat "${probe_log}" >&2
+  exit 1
+fi
+
+echo "cargoHash: ${cargo_hash}"
+
+nix-editor \
+  static.nix \
+  'globalprotect-openconnect.cargoHash' \
+  --val "\"${cargo_hash}\"" \
+  --inplace \
+  --format
+
+echo "Done.  Updated static.nix to globalprotect-openconnect ${version}."
+echo "Next: nix-darwin-switch to install."

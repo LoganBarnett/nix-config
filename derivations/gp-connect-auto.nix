@@ -25,6 +25,10 @@ let
   # Python scripts as separate files in the package.
   authScript = builtins.readFile ../scripts/gp-auth-headless;
   ptyScript = builtins.readFile ../scripts/gp-connect-pty;
+  # New: cookie-only driver for the --as-gateway flow.  See
+  # docs/gpauth-root-restriction.org and upstream issue
+  # yuezk/GlobalProtect-openconnect#572 for why this path exists.
+  cookieScript = builtins.readFile ../scripts/gp-auth-cookie;
 
   # vpnc-script as a derivation so gpclient references a stable Nix store
   # path.  darwin-rebuild switch updates it immediately without needing a
@@ -62,13 +66,17 @@ writeShellApplication {
     # restart or VPN reconnect.
     AUTH_SCRIPT=$(mktemp)
     PTY_SCRIPT=$(mktemp)
+    COOKIE_SCRIPT=$(mktemp)
     cat > "$AUTH_SCRIPT" << 'AUTH_EOF'
     ${authScript}
     AUTH_EOF
     cat > "$PTY_SCRIPT" << 'PTY_EOF'
     ${ptyScript}
     PTY_EOF
-    chmod +x "$AUTH_SCRIPT" "$PTY_SCRIPT"
+    cat > "$COOKIE_SCRIPT" << 'COOKIE_EOF'
+    ${cookieScript}
+    COOKIE_EOF
+    chmod +x "$AUTH_SCRIPT" "$PTY_SCRIPT" "$COOKIE_SCRIPT"
     export GP_VPNC_SCRIPT="${vpncScriptPkg}/bin/vpnc-script-macos"
 
     # Create wrappers for the Python scripts
@@ -79,12 +87,16 @@ writeShellApplication {
     gp-connect-pty.py() {
       ${pythonWithPlaywright}/bin/python3 "$PTY_SCRIPT" "$@"
     }
+    gp-auth-cookie.py() {
+      ${pythonWithPlaywright}/bin/python3 "$COOKIE_SCRIPT" "$@"
+    }
     export -f gp-auth-headless.py
     export -f gp-connect-pty.py
+    export -f gp-auth-cookie.py
 
     # Clean up temp scripts on exit.  The vpnc-script lives in the Nix
     # store and does not need cleanup.
-    trap 'rm -f "$AUTH_SCRIPT" "$PTY_SCRIPT"' EXIT
+    trap 'rm -f "$AUTH_SCRIPT" "$PTY_SCRIPT" "$COOKIE_SCRIPT"' EXIT
 
     # Path to openconnect's HIP report CSD wrapper, baked in at build time so
     # that gpclient can submit the host integrity check required to unblock the

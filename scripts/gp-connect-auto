@@ -119,12 +119,35 @@ fi
 echo "✓ TOTP code generated: $TOTP_CODE"
 echo ""
 
-# Build gpclient command
-GP_CMD="gpclient connect --browser remote $VERBOSE"
+# Choose the connection flow.  When GP_GATEWAY is set we bypass the portal
+# entirely: gpauth authenticates directly against the gateway and pipes its
+# cookie blob into `gpclient connect --cookie-on-stdin --as-gateway`.  This
+# works around upstream issue yuezk/GlobalProtect-openconnect#572 (the
+# portal-cookie -> gateway handoff is broken on Prisma Access deployments
+# since early 2026, surfaced as "Authentication failure: Invalid username
+# or password" on the gateway login).  See also
+# docs/gpauth-root-restriction.org for why gpauth stays in --browser remote
+# mode through this flow.
+#
+# When GP_GATEWAY is empty we fall back to the legacy portal flow that
+# wraps gpclient in a PTY and drives the prompts inline — kept in case any
+# portal still routes correctly.
+USE_AS_GATEWAY=false
+if [ -n "$GP_GATEWAY" ]; then
+  USE_AS_GATEWAY=true
+fi
+
+if [ "$USE_AS_GATEWAY" = true ]; then
+  GP_CMD="gpclient connect --cookie-on-stdin --as-gateway $VERBOSE"
+else
+  GP_CMD="gpclient connect --browser remote $VERBOSE"
+fi
 if [ "$CLEAN" = true ]; then
   GP_CMD="$GP_CMD --clean"
 fi
-if [ -n "$GP_GATEWAY" ]; then
+# Legacy flow: gpclient itself picks the gateway from the portal config.
+# In the --as-gateway flow we point gpclient directly at GP_GATEWAY below.
+if [ "$USE_AS_GATEWAY" = false ] && [ -n "$GP_GATEWAY" ]; then
   GP_CMD="$GP_CMD --gateway \"$GP_GATEWAY\""
 fi
 # Submit the HIP (Host Integrity Protection) report required by the corporate
@@ -140,9 +163,17 @@ fi
 if [ -n "$GP_VPNC_SCRIPT" ] && [ -f "$GP_VPNC_SCRIPT" ]; then
   GP_CMD="$GP_CMD --script \"$GP_VPNC_SCRIPT\""
 fi
-GP_CMD="$GP_CMD \"$GP_SERVER\""
+if [ "$USE_AS_GATEWAY" = true ]; then
+  GP_CMD="$GP_CMD \"$GP_GATEWAY\""
+else
+  GP_CMD="$GP_CMD \"$GP_SERVER\""
+fi
 
-echo "Starting gpclient in remote browser mode with PTY..."
+if [ "$USE_AS_GATEWAY" = true ]; then
+  echo "Starting gpclient via gp-auth-cookie | gpclient (--as-gateway flow)..."
+else
+  echo "Starting gpclient in remote browser mode with PTY..."
+fi
 echo "Running: $GP_CMD"
 echo ""
 
@@ -202,13 +233,40 @@ else
 fi
 echo ""
 
-# Use Python PTY wrapper to run gpclient
-# It will handle authentication automatically
-# Pass the actual script path, not the function name
-gp-connect-pty.py "$GP_CMD" "$GP_USERNAME" "$PASSWORD" "$TOTP_CODE" "$AUTH_SCRIPT"
-GPCLIENT_EXIT=$?
+if [ "$USE_AS_GATEWAY" = true ]; then
+  # Pipe gpauth's cookie blob into gpclient.  gp-auth-cookie returns the
+  # single-line JSON object that gpauth emits on stdout once SAML is
+  # complete; gpclient --cookie-on-stdin consumes it and creates the
+  # tunnel.  set +e + PIPESTATUS lets us inspect both legs of the pipe
+  # under the script-wide pipefail setting.
+  set +e
+  gp-auth-cookie.py \
+    --gateway "$GP_GATEWAY" \
+    --username "$GP_USERNAME" \
+    --password "$PASSWORD" \
+    --totp "$TOTP_CODE" \
+    --auth-script "$AUTH_SCRIPT" \
+    | eval "$GP_CMD"
+  # Defaults defend against `set -u` complaining about PIPESTATUS slots
+  # bash leaves unset if a pipe element never started (e.g. left-side
+  # crashed before the right-side's fork).
+  COOKIE_EXIT=${PIPESTATUS[0]:-1}
+  GPCLIENT_EXIT=${PIPESTATUS[1]:-1}
+  set -e
 
-if [ $GPCLIENT_EXIT -eq 0 ]; then
+  if [ "$COOKIE_EXIT" -ne 0 ]; then
+    echo "gp-auth-cookie failed (exit $COOKIE_EXIT) — gpclient exit was $GPCLIENT_EXIT"
+    # Surface the cookie-capture failure rather than gpclient's
+    # downstream-broken-pipe exit so the log makes the root cause obvious.
+    GPCLIENT_EXIT=$COOKIE_EXIT
+  fi
+else
+  # Legacy portal flow: gpclient under a PTY, prompts driven inline.
+  gp-connect-pty.py "$GP_CMD" "$GP_USERNAME" "$PASSWORD" "$TOTP_CODE" "$AUTH_SCRIPT"
+  GPCLIENT_EXIT=$?
+fi
+
+if [ "$GPCLIENT_EXIT" -eq 0 ]; then
   echo ""
   echo "============================================================"
   echo "✓ VPN connection established successfully!"
