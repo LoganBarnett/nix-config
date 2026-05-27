@@ -1,0 +1,166 @@
+#+title:     Private Wrapper Flakes
+#+author:    Logan Barnett
+#+email:     logustus@gmail.com
+#+date:      <2026-05-27 Wed>
+#+language:  en
+#+file_tags:
+#+tags:
+
+A /private wrapper/ is a separate flake that takes ~nix-config~ as an input
+and layers host-specific configuration that can't safely live in the public
+repo (internal hostnames, VPN gateway/tenant identifiers, organization
+certs, work email addresses, and so on).  The public host file in this repo
+holds a generic stub; the private wrapper supplies the rest via
+~extendModules~.
+
+~nix-config~ exposes a helper, ~lib.mkPrivateWrapper~, which handles the
+wiring — every wrapper needs the same plumbing and there's no good reason
+each one should re-implement it.  See [[file:../lib/private-wrapper.nix]] for
+the implementation.
+
+* Flake setup
+
+A private wrapper's ~flake.nix~ is essentially a one-liner.  Declare
+~nix-config~ as an input and call the helper:
+
+#+begin_src nix
+  {
+    description = "Private wrapper around the nix-config flake";
+
+    inputs = {
+      nix-config = {
+        # Whatever URL form points at your nix-config checkout.  A git+ssh
+        # URL pointing at a private gitea / GitHub fork is typical.
+        url = "...";
+      };
+    };
+
+    outputs =
+      { self, nix-config, ... }:
+      nix-config.lib.mkPrivateWrapper {
+        inherit nix-config;
+        hostsDir = ./hosts;
+      };
+  }
+#+end_src
+
+The helper returns ~nix-config~'s outputs unchanged except for
+~darwinConfigurations~ and ~nixosConfigurations~, which get the wrapper's
+host extensions merged in.  ~devShells~, ~packages~, ~agenix-rekey~,
+etc., flow through untouched — so ~nix flake check~, ~darwin-rebuild~,
+~nix develop~, all the usual commands keep working from the private
+checkout.
+
+* Host extension files
+
+For every host you want to extend, drop ~./hosts/<hostname>.nix~ in the
+wrapper.  The filename's stem (everything before ~.nix~) must match a host
+that's already declared in ~nix-config~ — in either
+~darwinConfigurations~ or ~nixosConfigurations~.  Any unmatched filename
+throws at evaluation time; silent drops are too easy to miss after a
+rename or typo.
+
+The file is a normal NixOS / nix-darwin module: it can set options, import
+other modules, and read module arguments out of the function head.  It is
+appended to the matching host's module list via ~extendModules~, so option
+merging follows the usual rules:
+
+- Scalar options set by both the public host file and the extension /will
+  conflict/ unless the extension uses ~lib.mkForce~ (or another priority
+  helper) to override.
+- List-of options merge by concatenation, so you can /add/ certificate
+  files, packages, etc., without touching the public side.
+- Attrset options merge by union of leaves where the option type allows
+  it.
+
+Example skeleton for an extension that adds an internal-specific cert, a VPN
+heartbeat, and an environment variable:
+
+#+begin_src nix
+  { facts, flake-inputs, lib, pkgs, ... }:
+  {
+    security.pki.certificateFiles = [
+      ../certs/internal-root.pem
+    ];
+
+    environment.variables.MY_INTERNAL_API =
+      "https://api.internal.example.com";
+
+    services.sonify-health.heartbeats = [
+      # ...vpn heartbeat...
+    ];
+  }
+#+end_src
+
+* Module arguments inside extensions
+
+The helper preserves the same ~specialArgs~ that public's ~darwin-host~ /
+~nix-host~ provides, with one addition:
+
+| Arg            | Where it comes from                                        |
+|----------------+------------------------------------------------------------|
+| ~facts~        | ~nixos-modules/facts.nix~ (public)                         |
+| ~flake-inputs~ | ~nix-config.inputs~ *plus* ~nix-config~ itself (see below) |
+| ~host-id~      | the filename stem                                          |
+| ~system~       | from the host's ~facts~ entry                              |
+| ~lib~          | nixpkgs lib                                                |
+| ~pkgs~         | the host's evaluated package set                           |
+| ~config~       | the host's evaluated config                                |
+
+Home-manager modules in the same extension receive the same set via
+~extraSpecialArgs~ — the helper re-derives that internally because
+public's host-host functions capture ~flake-inputs~ at let-binding time
+and ~extendModules~'s ~specialArgs~ override would not otherwise reach
+home-manager.  Practically: ~flake-inputs.nix-config~ is available
+everywhere, both at the system level and inside home-manager modules.
+
+* Reaching back into nix-config
+
+~nix-config~ is not one of /its own/ inputs, so a plain ~darwinSystem~
+eval doesn't have ~flake-inputs.nix-config~ available.  The helper
+injects it.  Use it whenever an extension or its home-configs need to
+import or read files from the public tree:
+
+#+begin_src nix
+  { flake-inputs, pkgs, ... }:
+  {
+    # Read a script as text from the public repo:
+    home.packages = [
+      (pkgs.writeShellApplication {
+        name = "my-tool";
+        text = builtins.readFile
+          "${flake-inputs.nix-config}/scripts/my-tool";
+      })
+    ];
+
+    # Import a Nix module from the public repo:
+    home.file.".gemrc".text =
+      pkgs.callPackage "${flake-inputs.nix-config}/gemrc.nix" {
+        extra-gem-sources = [ "..." ];
+      };
+  }
+#+end_src
+
+The flake input is realised as a store path, so interpolation with
+~${flake-inputs.nix-config}~ resolves to ~/nix/store/<hash>-source~ —
+everything in the public tree is reachable from there.
+
+* Where the public host file goes
+
+When a private extension is in play, the public ~hosts/<hostname>.nix~
+should hold whatever /isn't/ private-leaning: imports of generic modules,
+generic packages, the host-platform tuple, ~system.stateVersion~, and so
+on.  Anything that names internal infrastructure or that the wrapper
+intends to own (the home-manager user binding, internal certificate
+paths, env vars, VPN service settings) belongs in the wrapper's extension
+file.  Add a comment in the public stub pointing at the wrapper so future
+readers know where to find the rest.
+
+* Adding a new host
+
+1. Declare the host in ~nixos-modules/facts.nix~ as usual.
+2. Add ~hosts/<hostname>.nix~ in the public repo with the generic stub.
+3. In the wrapper, add ~hosts/<hostname>.nix~ with the private extension.
+4. ~nix flake update nix-config~ in the wrapper, then deploy from there.
+
+That's it — no flake.nix edits in the wrapper, no plumbing per host.

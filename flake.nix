@@ -445,6 +445,11 @@
         host-configs-for-os darwin-host "darwin"
           facts.network.hosts;
       nixosConfigurations = host-configs-for-os nix-host "linux" facts.network.hosts;
+      # Helper for private wrapper flakes.  See lib/private-wrapper.nix and
+      # docs/private-wrapper.org for the call site and contract.
+      lib = {
+        mkPrivateWrapper = import ./lib/private-wrapper.nix;
+      };
       containerGuestHosts = { };
       packages.aarch64-darwin.nucleus =
         self.nixosConfigurations.nucleus.config.system.build.isoImage;
