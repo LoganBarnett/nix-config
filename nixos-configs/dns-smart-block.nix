@@ -62,11 +62,9 @@
       };
     };
 
-    # Watch Blocky DNS logs for domains to classify.
-    logProcessor = {
-      enable = true;
-      logSource = "cmd:journalctl -f -u blocky";
-    };
+    # Watch Blocky DNS logs for domains to classify.  Source is set by
+    # the blocky integration default below; no override needed here.
+    logProcessor.enable = true;
 
     # Serve blocklists via HTTP API. Bind to all interfaces to allow
     # Prometheus scraping from other hosts.
