@@ -225,11 +225,7 @@ in
     };
   };
 
-  config = {
-
-    # Packages and sudoers rules are always available when the module is
-    # imported, regardless of whether the daemon is enabled.  This ensures
-    # the VPN tooling is present even when iterating with enable = false.
+  config = mkIf cfg.enable {
 
     environment.systemPackages = [
       (pkgs.callPackage ../derivations/cleanup-vpn.nix { })
@@ -343,8 +339,7 @@ in
       };
     };
 
-    # The launchd daemon is only created when explicitly enabled.
-    launchd.daemons.globalprotect-monitor = mkIf cfg.enable {
+    launchd.daemons.globalprotect-monitor = {
       path = [ config.environment.systemPath ];
 
       serviceConfig = {

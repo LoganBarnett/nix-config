@@ -113,6 +113,75 @@ Consider introducing an ~internal-pkgs~ attrset (e.g. a ~pkgs/default.nix~
 that takes ~pkgs~ and returns all internal derivations) so consumers can
 reference ~internalPkgs.foo~ directly without polluting ~pkgs~.
 
+** TODO Untangle GlobalProtect modules: naming, scope, and a plain "just connect" entry point
+
+The Darwin GlobalProtect surface is currently split across two confusingly-named
+modules and lacks a simple connect path.  All work below should happen on the
+work workstation (=M-CL64PK702X=) so the VPN-enabled path can be verified end
+to end before each step lands.
+
+*** Naming inconsistency
+
+The project uses both =globalprotect= (one word) and =global-protect= (two
+words) interchangeably across file names, option paths, and prose:
+
+- =darwin-modules/global-protect-persistent.nix= — file uses the two-word form,
+  but defines =services.globalprotect-monitor.*= options (one word).
+- =nixos-modules/globalprotect-monitor.nix= — file uses the one-word form.
+- =docs/globalprotect-*.org= — one word.
+- =docs/gpauth-root-restriction.org= refers to the file as
+  =darwin-modules/global-protect-persistent.nix= (two words).
+
+Pick one spelling — Palo Alto's product is officially "GlobalProtect", which
+maps cleanly to the one-word =globalprotect= identifier — and rename
+consistently: file names, option paths, derivation names, prose.  Keep
+deprecation aliases on the option paths for one release to avoid breaking
+host configs.
+
+*** Module scope is unclear
+
+There are two GlobalProtect-adjacent modules whose responsibilities overlap
+and whose names do not communicate the distinction:
+
+- =nixos-modules/globalprotect-monitor.nix= — Linux-flavored module defining
+  =services.globalprotect-monitor.*=.  Not imported anywhere (=grep= confirms).
+- =darwin-modules/global-protect-persistent.nix= — Darwin module that *also*
+  defines =services.globalprotect-monitor.*=, plus a local =dnsmasq= forwarder
+  and a pile of VPN-recovery tooling in =environment.systemPackages= and
+  sudoers.
+
+After the safe-import fix landed on =main= (=config = mkIf cfg.enable= wrapping
+everything in =darwin-modules/global-protect-persistent.nix=), the Darwin
+module no longer leaks effects.  The remaining cleanup:
+
+1. Decide whether the NixOS module is still wanted.  If not, delete it.  If
+   yes, factor the shared option declarations into =agnostic-modules/= and
+   have both =nixos-modules/= and =darwin-modules/= consume them.
+2. Split the Darwin module: the dnsmasq forwarder, the recovery tooling, and
+   the monitor daemon are three distinct concerns currently entangled under
+   one =enable= toggle.  At minimum, the dnsmasq forwarder should be its own
+   module so a host can opt in to "Nix tools resolve VPN domains" without
+   also opting in to the persistent-connection daemon.
+3. Drop the =# TODO: REMOVE BEFORE MERGE= sudoers rules for =cleanup-vpn= and
+   =vpn-test-harness= once the Rust =gp-vpn= refactor (see [[file:vpn.org]])
+   subsumes them.
+
+*** Missing "just connect me" entry point
+
+There is no =globalprotect= / =global-protect= module that simply brings up
+the VPN once.  The only options today are:
+
+- =gp-connect= / =gp-connect-auto= derivations — invoked manually from a
+  shell, no Nix module wraps them.
+- =services.globalprotect-monitor= — the *persistent watchdog* daemon, which
+  also re-authenticates and reconnects on a timer.  Overkill if all you want
+  is "connect now and stay connected until I log off".
+
+Add a =services.globalprotect.enable= (or whatever the unified name lands on)
+that runs =gp-connect-auto= once at activation and exposes the user-facing
+=gp-connect= command, without the watchdog loop.  The persistent variant then
+becomes =services.globalprotect.persistent.enable= built on top.
+
 ** TODO Build a Nix cache-miss tracer
 
 There is no first-class tool in Nix for diagnosing why a derivation missed the
