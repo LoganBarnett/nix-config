@@ -193,13 +193,20 @@
       lithium = {
         blockProfiles = [ "kid-gaming-rig" ];
         controlledHost = true;
-        expectedOnline = false;
         ipv4 = 8;
         macAddresses = [
           "50:46:5d:a5:6d:e6" # WiFi.
           "f4:6d:04:21:dc:89" # Ethernet.
         ];
         system = "x86_64-linux";
+      };
+      lovelle-android = {
+        blockProfiles = [ "adult" ];
+        controlledHost = false;
+        macAddresses = [
+          "f0:d0:8c:0f:0c:5f"
+        ];
+        ipv4 = 149;
       };
       # HMH/NWEA work workstation.  The host entry stays here so the rest of
       # the network can resolve and reach it, but the host module is split:
