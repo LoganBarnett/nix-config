@@ -85,5 +85,5 @@ sudo killall -HUP mDNSResponder 2>/dev/null || true
 
 echo ""
 echo "DNS configuration complete!"
-echo "Created $(ls /etc/resolver/ 2>/dev/null | wc -l) resolver files in /etc/resolver/"
-ls -la /etc/resolver/ 2>/dev/null || true
+echo "Created $(find /etc/resolver -maxdepth 1 -type f 2>/dev/null | wc -l) resolver files in /etc/resolver/"
+find /etc/resolver -maxdepth 1 -mindepth 1 -ls 2>/dev/null || true
