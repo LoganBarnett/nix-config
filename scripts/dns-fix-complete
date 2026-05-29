@@ -1,10 +1,32 @@
 #!/usr/bin/env bash
 ################################################################################
-# Complete DNS fix - runs both VPN scoping and local domain setup.
-# This creates /etc/resolver entries for both VPN and local domains.
+# Complete DNS fix — runs both VPN scoping and local domain setup.  Creates
+# /etc/resolver entries for the VPN search domains (filtered by the corporate
+# suffix list) plus a local-network resolver for the host's primary domain.
+#
+# Configuration (corporate-domain suffix regex, local DNS server) is read
+# from $GP_AUTO_CONFIG — see
+# services.globalprotect-monitor in
+# darwin-modules/global-protect-persistent.nix.
 ################################################################################
 
 set -e
+
+CONFIG_FILE="$GP_AUTO_CONFIG"
+if [ ! -r "$CONFIG_FILE" ]; then
+  echo "Error: $CONFIG_FILE not found — globalprotect-monitor module not in effect?"
+  exit 1
+fi
+
+# Build a `pvt|hmco\.com|...` regex from the suffix list.
+CORP_DOMAIN_SUFFIXES_RE=$(jq -r '.corpDomainSuffixes
+  | map(gsub("\\."; "\\."))
+  | join("|")' "$CONFIG_FILE")
+LOCAL_DNS_SERVER=$(jq -r '.localDnsServer' "$CONFIG_FILE")
+if [ -z "$LOCAL_DNS_SERVER" ] || [ "$LOCAL_DNS_SERVER" = "null" ]; then
+  echo "Error: localDnsServer is not configured in $CONFIG_FILE"
+  exit 1
+fi
 
 echo "Creating /etc/resolver directory if needed..."
 sudo mkdir -p /etc/resolver
@@ -24,11 +46,8 @@ mapfile -t VPN_DNS_SERVERS < <(echo "$DNS_CONFIG" | \
 mapfile -t VPN_SEARCH_DOMAINS < <(echo "$DNS_CONFIG" | \
   grep -E "domain\[|search domain\[" | \
   awk '{print $4}' | \
-  grep -E "\.(pvt|hmco\.com|hmhco\.com|hmhpub\.com|heinemann\.com|hegn\.us)$" | \
+  grep -E "\.(${CORP_DOMAIN_SUFFIXES_RE})$" | \
   sort -u)
-
-# Local DNS server.
-LOCAL_DNS_SERVER="192.168.254.9"
 
 echo "Found VPN DNS servers: ${VPN_DNS_SERVERS[*]}"
 echo "Found VPN search domains: ${VPN_SEARCH_DOMAINS[*]}"
@@ -45,16 +64,16 @@ if [ ${#VPN_DNS_SERVERS[@]} -gt 0 ]; then
   done
 fi
 
-# Create resolver file for local .proton domain.
+# Create resolver file for the local-network domain.
 echo "Creating resolver for local domain: proton"
 echo "nameserver $LOCAL_DNS_SERVER" | sudo tee /etc/resolver/proton > /dev/null
 
 # Clean up global DNS to remove VPN search domains.
 echo "Cleaning up global DNS configuration..."
-sudo /usr/sbin/scutil << 'EOF'
+sudo /usr/sbin/scutil << EOF
 d.init
 d.add SearchDomains * proton
-d.add ServerAddresses * 192.168.254.9
+d.add ServerAddresses * $LOCAL_DNS_SERVER
 set State:/Network/Global/DNS
 quit
 EOF

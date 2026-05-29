@@ -3,6 +3,7 @@
   bind,
   coreutils,
   inetutils,
+  jq,
   writeShellApplication,
   ...
 }:
@@ -14,6 +15,7 @@ writeShellApplication {
     bind
     coreutils
     inetutils
+    jq
   ];
   text = builtins.readFile ../scripts/vpn-test-harness;
 }

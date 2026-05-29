@@ -291,14 +291,16 @@ EOF
         # domains.  Set SupplementalMatchDomains so VPN DNS is scoped to only
         # those domains — without it, macOS routes ALL DNS through VPN, breaking
         # public-domain resolution (e.g. yahoo.com returns NXDOMAIN).
-        FALLBACK_DOMAINS=(
-          americas.nwea.pvt
-          nwea.pvt
-          nweacolo.pvt
-          pubedu.hegn.us
-          rpcsys.hmco.com
-          sap2.hmhco.com
-        )
+        # Domain list comes from $GP_AUTO_CONFIG
+        # (written by services.globalprotect-monitor.fallbackSearchDomains).
+        # If the file is missing or unreadable the array stays empty and
+        # the script skips writing /etc/resolver entries on the fallback
+        # path.
+        FALLBACK_DOMAINS=()
+        if [ -r "$GP_AUTO_CONFIG" ]; then
+          mapfile -t FALLBACK_DOMAINS < <(jq -r '.fallbackSearchDomains[]' \
+            "$GP_AUTO_CONFIG" 2>/dev/null || true)
+        fi
         # Associate VPN DNS with the physical interface (en10) so
         # mDNSResponder considers the servers "Reachable."  See the comment
         # in the SEARCH_DOMAINS branch above for the full explanation.

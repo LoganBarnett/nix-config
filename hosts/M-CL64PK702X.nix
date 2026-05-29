@@ -84,7 +84,6 @@ in
           imports = [
             ../home-configs/ghostty.nix
             ../home-configs/gh-cli.nix
-            ../home-configs/mcphost.nix
             ../home-configs/copilot.nix
             ../home-configs/ssh-config-general.nix
             ../home-configs/ssh-config-container-vm.nix

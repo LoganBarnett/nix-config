@@ -57,8 +57,9 @@ fi
 echo ""
 
 # Test 4: DNS resolver files
-# Count all per-domain resolver files we create (pvt, hmco.com, hmhco.com,
-# hegn.us, etc.) not just *.pvt.
+# Count all per-domain resolver files we create, not just *.pvt — the set
+# of corporate suffixes is configured by
+# services.globalprotect-monitor.corpDomainSuffixes on the consuming host.
 echo "[4/7] Checking DNS resolver files..."
 RESOLVER_COUNT=$(find /etc/resolver -type f 2>/dev/null | wc -l | tr -d ' ')
 if [ "$RESOLVER_COUNT" -gt 0 ]; then
@@ -110,10 +111,15 @@ else
 fi
 echo ""
 
-# Test 7: VPN DNS (stash.americas.nwea.pvt)
-# Break this into sub-steps so we can diagnose exactly where it fails:
-# DNS resolution, routing, TCP connectivity, then full HTTPS.
-STASH_HOST="stash.americas.nwea.pvt"
+# Test 7: VPN DNS.  Break this into sub-steps so we can diagnose exactly
+# where it fails: DNS resolution, routing, TCP connectivity, then full
+# HTTPS.  Test host comes from $GP_AUTO_CONFIG
+# (services.globalprotect-monitor.testHost).
+STASH_HOST=$(jq -r '.testHost' "$GP_AUTO_CONFIG" \
+  2>/dev/null || echo "")
+if [ -z "$STASH_HOST" ]; then
+  echo "[7/7] Skipped: no testHost configured in $GP_AUTO_CONFIG"
+else
 echo "[7/7] Testing VPN endpoint: https://$STASH_HOST"
 
 # 7a: DNS resolution via VPN DNS server.
@@ -206,6 +212,7 @@ if [ -n "$STASH_IP" ]; then
 else
   echo "  (skipping routing and connectivity tests — DNS failed)"
 fi
+fi  # end: STASH_HOST configured
 echo ""
 
 # Test 8: SSH to gitea.proton

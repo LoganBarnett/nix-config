@@ -118,7 +118,15 @@ is_dns_working() {
   # Try to resolve a known internal domain using the VPN DNS.
   # This is more reliable than just checking if the tunnel is up.
   # Pick a domain that should always exist on the VPN.
-  local test_domain="americas.nwea.pvt"
+  # Test host comes from $GP_AUTO_CONFIG
+  # (services.globalprotect-monitor.testHost).
+  local test_domain
+  test_domain=$(jq -r '.testHost' "$GP_AUTO_CONFIG" \
+    2>/dev/null || echo "")
+  if [ -z "$test_domain" ]; then
+    echo "is_dns_working: no testHost configured — skipping probe" >&2
+    return 1
+  fi
 
   # Use dig to test DNS resolution with a short timeout.
   if command -v dig >/dev/null 2>&1; then

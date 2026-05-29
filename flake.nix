@@ -406,12 +406,6 @@
           sonification-test =
             pkgs.callPackage ./derivations/sonification-test/default.nix
               { };
-          work-alias = lib.concatStrings [
-            "n"
-            "w"
-            "e"
-            "a"
-          ];
         in
         {
           default = pkgs.mkShell {
@@ -432,8 +426,6 @@
             ];
             shellHook = ''
               export FLAKE_ROOT="$PWD"
-              export WITH_VPN_CHECK_HOST="stash.americas.${work-alias}colo.pvt"
-              export WITH_VPN_CHECK_IP="10.210.16.252"
               mkdir --parents .git/hooks
               ln --symbolic --force \
                 ${fmt-staged}/bin/fmt-staged .git/hooks/pre-commit

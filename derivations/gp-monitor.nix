@@ -2,6 +2,7 @@
   bash,
   gpclient,
   coreutils,
+  jq,
   writeShellApplication,
   callPackage,
   ...
@@ -18,6 +19,7 @@ writeShellApplication {
     gpclient
     coreutils
     dnsVpnScopingFix
+    jq
   ];
   text = builtins.readFile ../scripts/${script};
 }

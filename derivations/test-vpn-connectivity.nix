@@ -5,6 +5,7 @@
   curl,
   gnugrep,
   inetutils,
+  jq,
   nettools,
   openssh,
   writeShellApplication,
@@ -20,6 +21,7 @@ writeShellApplication {
     curl
     gnugrep
     inetutils
+    jq
     nettools
     openssh
   ];

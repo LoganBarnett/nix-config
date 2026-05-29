@@ -1,13 +1,28 @@
-# vpnc-script-macos cannot use writeShellApplication because it relies on
-# unset environment variables from gpclient (CISCO_SPLIT_DNS, etc.) and pipe
-# patterns that break under -o nounset / -o pipefail.  writeScriptBin
-# preserves the script's own shebang and set flags without adding stricter
-# ones.
+# writeShellApplication with bashOptions = [] preserves the script's own
+# set-flags (or lack thereof) while still wrapping it with PATH from
+# runtimeInputs.  This script is invoked by gpclient and depends on env
+# variables that may be unset (CISCO_SPLIT_DNS, etc.) plus pipe patterns
+# whose status codes get swallowed intentionally, both of which would
+# break under the default errexit/nounset/pipefail.
 #
-# Runtime dependency dns-resolver-helper is provided via systemPackages in
-# global-protect-persistent.nix, not bundled here, because this script runs
-# in the gpclient root context with the system PATH.
-{ writeScriptBin }:
-writeScriptBin "vpnc-script-macos" (
-  builtins.readFile ../scripts/vpnc-script-macos
-)
+# The script reads its JSON config path from $GP_AUTO_CONFIG, which is
+# exported by gp-connect-auto (and inherited through gpclient) — see
+# services.globalprotect-monitor in darwin-modules/global-protect-
+# persistent.nix.
+{
+  callPackage,
+  jq,
+  writeShellApplication,
+}:
+let
+  dnsResolverHelper = callPackage ./dns-resolver-helper.nix { };
+in
+writeShellApplication {
+  name = "vpnc-script-macos";
+  runtimeInputs = [
+    dnsResolverHelper
+    jq
+  ];
+  bashOptions = [ ];
+  text = builtins.readFile ../scripts/vpnc-script-macos;
+}

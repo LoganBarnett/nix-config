@@ -44,6 +44,20 @@ fi
 
 echo "Found VPN interface: $VPN_IF"
 
+# Load corporate-domain configuration written by
+# services.globalprotect-monitor.{corpDomainSuffixes,fallbackSearchDomains}.
+CONFIG_FILE="$GP_AUTO_CONFIG"
+if [ ! -r "$CONFIG_FILE" ]; then
+  echo "Error: $CONFIG_FILE not found — globalprotect-monitor module not in effect?"
+  exit 1
+fi
+# Build a `pvt|hmco\.com|...` regex from the suffix list.
+CORP_DOMAIN_SUFFIXES_RE=$(jq -r '.corpDomainSuffixes
+  | map(gsub("\\."; "\\."))
+  | join("|")' "$CONFIG_FILE")
+mapfile -t CONFIGURED_FALLBACK_DOMAINS < <(jq -r \
+  '.fallbackSearchDomains[]' "$CONFIG_FILE")
+
 # Extract DNS configuration from scutil.
 DNS_CONFIG=$(scutil --dns)
 
@@ -61,7 +75,7 @@ mapfile -t VPN_DNS_SERVERS < <(echo "$DNS_CONFIG" | \
 mapfile -t VPN_SEARCH_DOMAINS < <(echo "$DNS_CONFIG" | \
   grep -E "domain\[|search domain\[" | \
   awk '{print $4}' | \
-  grep -E "\.(pvt|hmco\.com|hmhco\.com|hmhpub\.com|heinemann\.com|hegn\.us)$" | \
+  grep -E "\.(${CORP_DOMAIN_SUFFIXES_RE})$" | \
   sort -u)
 
 if [ ${#VPN_DNS_SERVERS[@]} -eq 0 ]; then
@@ -76,14 +90,10 @@ if [ ${#VPN_SEARCH_DOMAINS[@]} -eq 0 ]; then
   # scutil ServerAddresses without SupplementalMatchDomains applies to all
   # queries), breaking public-domain resolution (e.g. yahoo.com returns
   # NXDOMAIN from the corporate resolver).
-  VPN_SEARCH_DOMAINS=(
-    americas.nwea.pvt
-    nwea.pvt
-    nweacolo.pvt
-    pubedu.hegn.us
-    rpcsys.hmco.com
-    sap2.hmhco.com
-  )
+  # Fallback domain list comes from
+  # services.globalprotect-monitor.fallbackSearchDomains via
+  # $GP_AUTO_CONFIG.
+  VPN_SEARCH_DOMAINS=("${CONFIGURED_FALLBACK_DOMAINS[@]}")
   echo "No VPN search domains from scutil — using known corporate domains as fallback"
 fi
 

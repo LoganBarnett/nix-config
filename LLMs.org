@@ -30,6 +30,16 @@ constraints; no restating of control flow.
 
 ** Code
 
+*** Command-line JSON
+
+Use ~jq~ for parsing or producing JSON from shell scripts and ad hoc CLI
+invocations.  Do not reach for ~python -c 'import json; ...'~ or other
+language runtimes — ~jq~ is universally available on shells provisioned by
+this repo (added as a ~runtimeInputs~ entry on each consuming derivation,
+or via ~environment.systemPackages~ on hosts that need it broadly), reads
+better in pipelines, and composes naturally with the rest of the standard
+shell toolkit.
+
 *** initialisms
 
 Use Pascal Initialisms (~Url~) instead of Preserved Initialisms (~URL~) when

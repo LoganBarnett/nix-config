@@ -1,6 +1,7 @@
 {
   bash,
   coreutils,
+  jq,
   writeShellApplication,
   callPackage,
   ...
@@ -17,6 +18,7 @@ writeShellApplication {
     bash
     coreutils
     dnsResolverHelper
+    jq
   ];
   text = builtins.readFile ../scripts/dns-vpn-scoping-fix;
 }

@@ -340,12 +340,25 @@ VPN_READY=false
 for _i in $(seq 1 90); do
   # Use a DNS query rather than ping: ICMP may be blocked by corporate
   # VPN policy even when the data plane is working.
-  DIG_OUT=$(dig +timeout=1 +tries=1 @10.198.51.37 stash.americas.nwea.pvt A 2>&1 || true)
+  # Test host comes from $GP_AUTO_CONFIG
+  # (services.globalprotect-monitor.testHost).  The first label of the
+  # FQDN ("stash" in the HMH case) is also reused as the awk prefix to
+  # pull the resolved IP back out of the dig answer line.
+  _TEST_HOST=$(jq -r '.testHost' "$GP_AUTO_CONFIG" \
+    2>/dev/null || echo "")
+  _TEST_HOST_LABEL=${_TEST_HOST%%.*}
+  if [ -z "$_TEST_HOST" ]; then
+    echo "  (skipping VPN data-plane probe — no testHost configured)"
+    break
+  fi
+  DIG_OUT=$(dig +timeout=1 +tries=1 @10.198.51.37 "$_TEST_HOST" A 2>&1 || true)
   # Only accept NOERROR with an actual answer — NXDOMAIN or SERVFAIL mean
-  # the DNS server responded but stash did not resolve, which is not a
-  # working data plane.
+  # the DNS server responded but the test host did not resolve, which is
+  # not a working data plane.
   if echo "$DIG_OUT" | grep -q "NOERROR"; then
-    _STASH_IP=$(echo "$DIG_OUT" | awk '/^stash\..*IN\s+A\s/ {print $NF}' | head -1)
+    _STASH_IP=$(echo "$DIG_OUT" \
+      | awk -v label="$_TEST_HOST_LABEL" '$0 ~ "^" label "\\..*IN[[:space:]]+A[[:space:]]" {print $NF}' \
+      | head -1)
     if [ -n "$_STASH_IP" ]; then
       echo "  ✓ VPN data plane ready after ${_i}s (stash → $_STASH_IP)"
     else

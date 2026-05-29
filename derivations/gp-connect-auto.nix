@@ -8,6 +8,7 @@
   pass,
   python3,
   writeShellApplication,
+  configFile ? "/etc/globalprotect-auto/config.json",
   ...
 }:
 
@@ -51,6 +52,15 @@ writeShellApplication {
 
   # The bash script with embedded Python script
   text = ''
+    # gp-connect-auto is invoked via sudo, which strips env by default, so
+    # GP_AUTO_CONFIG would not survive the user-shell → root transition
+    # without help.  Default to configFile here; if the user explicitly
+    # preserved an override (sudo --preserve-env=GP_AUTO_CONFIG ...) the
+    # ''${VAR:=...} form keeps it.  gpclient and the vpnc-script-macos it
+    # spawns inherit the resulting value.
+    : "''${GP_AUTO_CONFIG:=${configFile}}"
+    export GP_AUTO_CONFIG
+
     # Install Playwright browsers on first run (in user's home directory)
     if [ ! -d "$HOME/.cache/ms-playwright" ]; then
       echo "Installing Playwright browsers (first run only)..."
