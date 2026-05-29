@@ -50,6 +50,8 @@ PRE_VPN_DNS_FILE="/var/run/vpnc-pre-vpn-dns"
 # disconnect can clear the explicit entry to return control to DHCP.
 PRE_VPN_SERVICE_FILE="/var/run/vpnc-pre-vpn-service"
 
+# reason, TUNDEV, INTERNAL_IP4_*, CISCO_SPLIT_* come from gpclient/openconnect.
+# shellcheck disable=SC2154
 case "$reason" in
   connect)
     echo "VPN connecting on $TUNDEV..."
@@ -232,9 +234,13 @@ case "$reason" in
 
     # Set up DNS using scutil
     if [ -n "$INTERNAL_IP4_DNS" ]; then
-      # Convert space-separated DNS servers to array
-      DNS_SERVERS=($INTERNAL_IP4_DNS)
-      SEARCH_DOMAINS=($CISCO_SPLIT_DNS)
+      # Split the space-separated env values into arrays.
+      read -ra DNS_SERVERS <<< "$INTERNAL_IP4_DNS"
+      # SC2153 disabled because CISCO_SPLIT_DNS is supplied by gpclient
+      # and shellcheck heuristic-flags it as a misspelling of
+      # CISCO_SPLIT_INC.
+      # shellcheck disable=SC2153
+      read -ra SEARCH_DOMAINS <<< "$CISCO_SPLIT_DNS"
 
       if [ ${#SEARCH_DOMAINS[@]} -gt 0 ]; then
         # Configure scutil with SupplementalMatchDomains so VPN DNS is
@@ -266,8 +272,8 @@ d.add InterfaceName ${PRE_VPN_IF:-en10}
 set State:/Network/Service/vpn-corp-dns/IPv4
 quit
 EOF
-        echo "DNS configured: ${DNS_SERVERS[@]}"
-        echo "Search domains: ${SEARCH_DOMAINS[@]}"
+        echo "DNS configured: ${DNS_SERVERS[*]}"
+        echo "Search domains: ${SEARCH_DOMAINS[*]}"
 
         echo "Notifying system of DNS changes..."
         /usr/sbin/scutil << EOF
@@ -321,7 +327,7 @@ set State:/Network/Service/vpn-corp-dns/IPv4
 quit
 EOF
 
-        echo "DNS configured (fallback): ${DNS_SERVERS[@]}"
+        echo "DNS configured (fallback): ${DNS_SERVERS[*]}"
         echo "SupplementalMatchDomains: ${FALLBACK_DOMAINS[*]}"
 
         /usr/sbin/scutil << EOF
@@ -445,7 +451,7 @@ SCEOF
     if [ -n "$CISCO_SPLIT_INC" ]; then
       echo "Configuring $CISCO_SPLIT_INC routes..."
       i=0
-      while [ $i -lt $CISCO_SPLIT_INC ]; do
+      while [ "$i" -lt "$CISCO_SPLIT_INC" ]; do
         eval NETWORK="\${CISCO_SPLIT_INC_${i}_ADDR}"
         eval NETMASKLEN="\${CISCO_SPLIT_INC_${i}_MASKLEN}"
 
@@ -668,7 +674,6 @@ SCEOF
         route add -host "$VPN_SERVER_IP" "$PRE_VPN_GW" 2>/dev/null || true
       FIXUP_IP="$VPN_SERVER_IP"
       FIXUP_GW="$PRE_VPN_GW"
-      FIXUP_TUNDEV="$TUNDEV"
       LOCK_FILE="/var/run/gpclient.lock"
       (
         # Wait for gpclient to write its PID file before entering the loop.
@@ -744,6 +749,9 @@ SCEOF
     PF_RULES=$(pfctl -sr 2>/dev/null | head -20 || true)
     if [ -n "$PF_RULES" ]; then
       echo "  PF rules (first 20):"
+      # Multi-line prefix; bash builtin substitution doesn't compose
+      # across newlines as readably as sed does here.
+      # shellcheck disable=SC2001
       echo "$PF_RULES" | sed 's/^/    /'
     else
       echo "  PF: no active rules (or pf disabled)"
@@ -787,7 +795,7 @@ SCEOF
     if [ -n "$CISCO_SPLIT_INC" ]; then
       echo "Removing $CISCO_SPLIT_INC routes..."
       i=0
-      while [ $i -lt $CISCO_SPLIT_INC ]; do
+      while [ "$i" -lt "$CISCO_SPLIT_INC" ]; do
         eval NETWORK="\${CISCO_SPLIT_INC_${i}_ADDR}"
         eval NETMASKLEN="\${CISCO_SPLIT_INC_${i}_MASKLEN}"
 
