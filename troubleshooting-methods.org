@@ -1126,3 +1126,88 @@ and ~/etc/ssh/ssh_known_hosts~) are symlinks to the real files.  You can simply
 remove the symlinks and place a file of your choosing in its place.  This is
 your break-glass.  On NixOS, these files will be replaced when you switch to a
 new system profile.  You can even edit files with ~/run/agenix/~.
+
+** Unit memory appears to "leak" in ~systemctl status~
+
+You see ~systemctl status some-unit~ reporting ~Memory: 1.6G~ (or
+similar) for a service that obviously shouldn't be using that much,
+and the number grows over time, prompting a leak investigation.
+Restarting the service drops it to a few MB and slowly climbs back.
+This often *isn't* a leak — it's normal cgroup v2 page-cache
+accounting.
+
+*** What's actually happening
+
+~systemctl status~'s ~Memory:~ line (and the equivalent
+~systemctl show -P MemoryCurrent~) report the cgroup's
+~memory.current~ from cgroup v2.  With the default
+~MemoryAccounting=yes~, that figure includes *file-backed page
+cache* for files the cgroup's processes touched — read-only mmaps
+and plain ~read()~ of large files all count.  The pages are fully
+reclaimable; the kernel drops them the moment any other allocation
+needs the RAM.  But ~systemctl~ doesn't distinguish reclaimable
+cache from real anonymous memory, so the unit looks bloated.
+
+This is most visible for any service that streams from systemd's
+journal (~journalctl --follow~, ~vector~, ~fluent-bit~, ~promtail~,
+~loki-canary~, etc.).  ~journalctl~'s startup walk mmap's every
+journal file in ~/var/log/journal/~ to find its match cursor; on a
+host with multi-GB of accumulated journal data that can pin a
+couple of GB of page cache to the consuming unit's cgroup almost
+immediately.
+
+*** How to tell what's real
+
+| Question                                          | Look at                                                                     |
+|---------------------------------------------------+-----------------------------------------------------------------------------|
+| What's the unit's real anon memory?               | ~awk '/^VmRSS:/{print $2}' /proc/<pid>/status~                              |
+| Is the cgroup attribution real or cache?          | ~sudo cat /sys/fs/cgroup/system.slice/<unit>/memory.stat~ — ~anon~ vs ~file~ |
+| Is the host genuinely under memory pressure?      | ~/proc/pressure/memory~ (PSI); non-zero ~avg10~ / ~avg60~ means real stalls |
+| Is memory actually available for new allocations? | ~MemAvailable~ in ~/proc/meminfo~ (kernel's own estimate)                   |
+
+If the cgroup ~memory.stat~ shows ~file: 1.5G~ and ~anon: 10M~,
+there's nothing leaking — it's just cached file pages tagged to the
+cgroup.  ~MemAvailable~ already discounts them.
+
+*** Dashboard / Prometheus metric to trust
+
+#+begin_src promql :exports code
+(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100
+#+end_src
+
+This is the right headline metric.  ~MemAvailable~ is the kernel's
+own estimate of "what could a new allocation get after evicting
+reclaimable cache" and it already discounts the page-cache
+attribution.  But it's a single scalar that hides shape.  Worth
+pairing with:
+
+- *PSI memory pressure* —
+  ~rate(node_pressure_memory_waiting_seconds_total[5m])~.  Non-zero
+  only when processes are actually stalling on memory allocation.
+  The empirical "is memory really a problem right now" signal.
+- *Anon vs cache split* — ~node_memory_AnonPages_bytes~ and
+  ~node_memory_Cached_bytes~ separately.  Anon growth without cache
+  growth is a real leak; cache growth without anon growth is just
+  Linux being Linux.
+
+*** Don't be misled by
+
+- ~free~'s ~used~ column.  Definitions vary by version and tool;
+  ~available~ is the column to read.
+- ~htop~'s memory bar.  Includes cache by default unless configured
+  to hide it.
+- ~systemctl status~'s ~Memory:~ line for any unit that reads large
+  files.
+
+*** Deploy-time memory spike on the build host
+
+A common adjacent confusion: a ~proton-deploy switch~ to a host
+that builds its own derivations (via ~--build-host~) will
+*temporarily* inflate host memory during compilation — Rust LTO
+release builds in particular use 1-2 GB of anon memory.  After the
+build finishes that anon memory is freed and the dashboard shows a
+dramatic-looking "drop."  Without observing the preceding spike
+this can look like a leak being released.  If the
+~MemAvailable~-based dashboard shows a sudden drop that coincides
+with a deploy, check the prior ~5-10 minutes for an equal or
+larger rise — that's the signature of a build spike, not a leak.
