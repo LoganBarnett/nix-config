@@ -96,6 +96,9 @@ in
     # A `pass` wrapper that trims the trailing newline from the output,
     # so secrets can be used directly in shell pipelines.
     passn
+    # Allow access to Prometheus via the CLI with promtool, regardless of
+    # running the Prometheus server.
+    pkgs.prometheus
     # Show progress via a pipe, such as with dd.
     pkgs.pv
     # An n-curses based interface to du.  Shows disk usage in a way that makes
