@@ -194,3 +194,31 @@ binary cache.  Common causes include:
 A useful tool would accept a store path and explain why it was not a cache hit:
 diffing its closure against a known-cached equivalent, identifying the first
 ancestor whose hash diverges, and naming the overlay or input responsible.
+
+* Docs
+
+** TODO Audit document linking and placement
+
+There are ~20 ~.org~ files at the repo root (e.g. ~vpn.org~, ~ldap.org~,
+~rescue.org~, ~secrets.org~, ~security.org~) and most files under ~docs/~
+that ~README.org~ does not link to.  ~CONTRIBUTING.org~ now codifies the
+rule that every doc must be reachable from ~README.org~, but the existing
+backlog of orphans is not yet cleaned up.
+
+For each orphan:
+
+1. Decide whether it belongs in ~docs/~ (focused operational/runbook) or
+   at the repo root (cross-cutting reference) per the placement rule in
+   ~CONTRIBUTING.org~.  Move if needed.
+2. Add a link from ~README.org~ in the most relevant section, with a
+   one-line summary at the link site.
+3. If a doc is genuinely obsolete, move it to ~graveyard/~ with a
+   ~TOMBSTONE~ explaining the retirement.
+
+Also fix any further dead links in ~README.org~ — the
+~[[*Troubleshooting]]~ link was one example (now redirected to
+~troubleshooting-methods.org~); a sweep for ~[[*~ targets whose
+headings no longer exist would catch the rest.
+
+This is incremental work — fine to do a few orphans per session rather
+than all at once.

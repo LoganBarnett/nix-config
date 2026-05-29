@@ -1,0 +1,56 @@
+#+title:     Contributing
+#+author:    Logan Barnett
+#+email:     logustus@gmail.com
+#+date:      <2026-05-29 Fri>
+#+language:  en
+#+file_tags:
+#+tags:
+
+Conventions for adding to this repository.  Keep this short — link out
+to the specific doc or section that explains a topic in depth.
+
+* Documentation discoverability
+
+Every document in this repository must be reachable by following links
+from ~README.org~.  Transitively is fine: ~README.org~ → some focused
+doc → a deeper reference is a valid trail.  What is /not/ acceptable is
+an orphan doc that exists on disk but nothing points to it.
+
+The reason is operational: when something breaks at 2am, the person
+debugging (future you, an LLM, a guest) needs to be able to find the
+relevant runbook starting from one well-known entry point.  Files that
+no one links to don't exist.
+
+** Where new docs go
+
+- *Focused operational/runbook content* — one topic per file, narrow
+  scope (a single failure mode, a single service quirk).  Put these in
+  ~docs/~.  Existing examples: ~docs/dns-dhcp.org~,
+  ~docs/notifications.org~, ~docs/cellular-tether-clat.org~.
+- *Cross-cutting reference material* (architecture overviews, policy,
+  meta-conventions) — root of the repo as a ~.org~ file alongside
+  ~README.org~.  Examples: ~troubleshooting-methods.org~,
+  ~secrets.org~, ~security.org~.
+- *Diagrams and assets* — ~docs/~.
+
+When in doubt, prefer ~docs/~ over the root.
+
+** When you add a doc
+
+1. Write the doc.
+2. Add a link to it from ~README.org~ in the most relevant section
+   (~* Operations~, ~* Nix~, ~* Authentication~, etc.).  Include a
+   one-line summary at the link site so a reader can decide whether to
+   follow it without opening the file.
+3. ~git add~ both the new doc and the README change in the same commit.
+
+The one-line summary at each link site is the discoverability payload.
+A bare ~[[file:docs/foo.org]]~ link with no surrounding context fails
+the "can the reader decide whether to follow this" test.
+
+** When you remove or rename a doc
+
+Search for incoming links (~git grep 'docs/oldname'~,
+~git grep 'oldname.org'~) and update or delete them.  A broken link in
+~README.org~ is worse than no link, because it implies a trail that
+doesn't exist.

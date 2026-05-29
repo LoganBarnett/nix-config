@@ -1,0 +1,146 @@
+#+title:     Cellular tether CLAT/NAT64 breaks wg-routed traffic
+#+author:    Logan Barnett
+#+email:     logustus@gmail.com
+#+date:      <2026-05-29 Fri>
+#+language:  en
+#+file_tags:
+#+tags:
+
+* Symptom
+
+A Mac on cellular tether (iPhone Personal Hotspot, etc.) cannot reach a
+~.proton~ LAN host from an application that uses ~getaddrinfo()~, even though:
+
+- SSH to the same host works.
+- ~ping~, ~nc~, and ~curl~ (with a literal IP) to the same host:port work.
+- The Wireguard tunnel handshake is healthy and ~route -n get <host-ip>~
+  shows the route going through ~utun*~.
+
+In practice, the trigger that motivated this doc is Moonlight reporting
+=RTSP handshake failed — ports may be blocked= when connecting to
+~titanium.proton~'s Sunshine server.  The capture shows the failure path
+clearly, but the same shape applies to any Qt / Apple-framework / Go app on
+this network.
+
+* Root cause
+
+Most US cellular providers run an IPv6-only mobile core with 464XLAT
+(/RFC 6877/).  When a Mac is tethered to such a network, ~en0~ acquires:
+
+- An IPv6 prefix.
+- A NAT64 prefix (e.g. ~2607:7700:0:36:0:1::/96~).
+- The ~clat46~ interface flag.
+
+When an application calls ~getaddrinfo()~ for an IPv4 literal (or an
+A-only hostname), Apple's resolver /synthesizes/ a NAT64 IPv6 address by
+embedding the IPv4 address in the low 32 bits of the NAT64 prefix.  For
+~192.168.254.6~, this becomes:
+
+#+begin_example
+2607:7700:0:36:0:1:c0a8:fe06
+                   ^^^^ ^^^^
+                   192.168 .254.6
+#+end_example
+
+The application then ~connect()~-s to that IPv6 address.  The kernel
+routes IPv6 traffic out ~en0~ — the IPv4 route table that points
+~192.168.254.0/24~ at the Wireguard ~utun~ interface is /never consulted/.
+The packet hits the carrier's NAT64 gateway, which cannot route RFC1918
+destinations, and is silently dropped.
+
+Crucially, the Wireguard tunnel is unaffected.  This is purely an
+application-routing problem at the Mac, upstream of the tunnel.
+
+* Why some tools work and others don't
+
+| Tool                          | Path                                       | Outcome |
+|-------------------------------+--------------------------------------------+---------|
+| ~ssh titanium.proton~         | OpenSSH builds ~sockaddr_in~ directly      | Works   |
+| ~ping 192.168.254.6~          | Raw ICMP, literal IPv4                     | Works   |
+| ~nc 192.168.254.6 48010~      | ~connect()~ with IPv4 sockaddr             | Works   |
+| ~curl http://192.168.254.6/~  | Literal IP, no ~getaddrinfo()~ synthesis   | Works   |
+| Moonlight (Qt) RTSP           | ~getaddrinfo()~ → NAT64 synthesis → IPv6   | Fails   |
+
+If a tool bypasses ~getaddrinfo()~ synthesis (by feeding a struct
+~sockaddr_in~ to ~connect()~ directly), it routes via the IPv4 table and
+reaches the LAN host through the tunnel.  This is why "the VPN is working
+fine" can be true at the same time as "Moonlight times out".
+
+* Diagnosis
+
+1. Look at ~en0~:
+
+   #+begin_src bash
+   ifconfig en0 | grep -E 'inet|nat64|clat'
+   #+end_src
+
+   If you see ~nat64 prefix <prefix>::/96~ and ~clat46~, the network is
+   NAT64-only and synthesis is in play.
+
+2. Capture on ~en0~ while reproducing the failure:
+
+   #+begin_src bash
+   sudo tcpdump -nn -i en0 -tttt 'port <app-dest-port>'
+   #+end_src
+
+   If you see outgoing IPv6 ~SYN~ packets to ~<nat64-prefix>:<hex-IPv4>~
+   with no ~SYN-ACK~ coming back, that confirms synthesis is routing the
+   application out the wrong path.  Decode the last 32 bits of the IPv6
+   destination as hex to recover the IPv4 address it was synthesized from
+   (e.g. ~c0a8:fe06~ → ~192.168.254.6~).
+
+* Workaround
+
+Disable IPv6 on the tethered Wi-Fi service:
+
+#+begin_src bash
+networksetup -setv6off Wi-Fi
+#+end_src
+
+This removes the NAT64 prefix from ~en0~, so ~getaddrinfo()~ stops
+synthesizing.  ~192.168.254.6~ resolves as IPv4, the route table picks
+~utun*~, and the tunnel carries the traffic normally.
+
+Caveat: this changes ~en0~'s IPv4 address (e.g. from the IPv6-CLAT
+placeholder ~192.0.0.2~ to a real iPhone-hotspot lease like
+~172.20.10.5~).  The WireGuard userspace daemon on macOS does not always
+follow this transition cleanly — the tunnel can be left in a
+~UP,RUNNING~ state with no working handshake.  Toggle the tunnel off and
+on in the WireGuard.app menu-bar UI after running ~setv6off~ to restore
+the data path.
+
+To restore on a network where you do want IPv6:
+
+#+begin_src bash
+networksetup -setv6automatic Wi-Fi
+#+end_src
+
+* What not to chase
+
+When this issue presents, the following are red herrings:
+
+- *MTU / fragmentation.*  Path-MTU probes via the tunnel will pass
+  cleanly up to the wg interface MTU.  Adjusting MTU does nothing.
+- *Sunshine ~SUNSHINE_SERVER_BUSY~ state.*  Repeated failed RTSP
+  attempts can leave Sunshine refusing new launches, but this is a
+  /downstream/ consequence of the CLAT routing failure, not the cause.
+  Restarting Sunshine appears to help briefly only because it forces
+  ~/launch~ instead of ~/resume~ — the next attempt fails identically.
+- *Wireguard config (MTU, allowed-IPs, server-side firewall, NAT
+  masquerade).*  The tunnel is healthy throughout.  ~ssh~ and ~ping~ via
+  the tunnel will continue to work the entire time the application is
+  failing.
+
+The discriminating test is whether the application's traffic appears on
+~utun*~ at all.  If it doesn't, the problem is on the Mac side of the
+tunnel — almost certainly NAT64 synthesis on a cellular tether.
+
+* Why we don't "just add IPv6 to the home LAN"
+
+Dual-stacking ~titanium~ (or the wg overlay) so that synthesis is
+unnecessary is one possible long-term fix.  It is out of scope by design.
+The home network is IPv4 + NAT by choice: the simplicity of one routing
+table, RFC1918 invariants, and masquerade behavior are concrete benefits
+in this environment.  Per-client workarounds (such as the IPv6 toggle
+above) are preferred over adding an IPv6 dependency to home
+infrastructure.

@@ -15,6 +15,9 @@ This helps me close the many tabs I have open.  This is very incomplete and I
 have many more tabs to go.  I think I like this as a general "wut I do in Nix"
 scratch pad though.
 
+Conventions for adding to this repo (including where new docs live and how
+they get linked from here) are in [[file:CONTRIBUTING.org][CONTRIBUTING.org]].
+
 * creating new hosts
 ** create Nix host file
 
@@ -28,8 +31,8 @@ copy-closure mechanism to transfer store paths to the remote host securely.
 
 ~remote-deploy~ is a break-glass script for working around limitations of the
 copy-closure mechanism.  Known cases where it may be necessary are documented
-in [[*Troubleshooting][the troubleshooting section]].  After using
-~remote-deploy~ to recover, return to ~proton-deploy~ for subsequent
+in [[file:troubleshooting-methods.org][troubleshooting-methods.org]].  After
+using ~remote-deploy~ to recover, return to ~proton-deploy~ for subsequent
 deployments.
 
 ~remote-deploy~ works by rsyncing the entire repo to ~~/proton-nix~ on the
@@ -2052,6 +2055,18 @@ ssh titanium.proton curl -s http://localhost:11434/api/tags | jq '.models[].name
 - There is no transparent proxy fallback for non-queued routes.
 
 * Operations
+** Cellular tether breaking VPN-routed traffic on the Mac
+
+Symptom: an app on a tethered Mac times out connecting to a ~.proton~ LAN
+host (e.g. Moonlight → Sunshine on titanium reports "RTSP handshake
+failed") while ~ssh~ / ~ping~ to the same host work fine.
+
+Cause is macOS NAT64 synthesis on IPv6-only carrier tethers steering
+~getaddrinfo()~-using apps out the cellular interface instead of the wg
+tunnel.  Workaround is to disable IPv6 on the tethered Wi-Fi service.
+Full diagnosis, capture commands, and the exact ~networksetup~ command
+are in [[file:docs/cellular-tether-clat.org][docs/cellular-tether-clat.org]].
+
 ** File syncing
 
 Example invocation to sync over my music files.  Note that this preserves the
