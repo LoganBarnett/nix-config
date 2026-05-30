@@ -125,6 +125,10 @@
       url = "github:LoganBarnett/nix-hapi-provider-ldap";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    nix-hapi-provider-ntfy = {
+      url = "github:LoganBarnett/nix-hapi-provider-ntfy";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     nix-hapi-provider-porkbun = {
       url = "github:LoganBarnett/nix-hapi-provider-porkbun";
       inputs.nixpkgs.follows = "nixpkgs";
