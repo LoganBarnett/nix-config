@@ -83,3 +83,59 @@ uniformly?"  The choice this document is about is what the
 *destination* is.  Apprise could sit upstream of ntfy if the
 household ever needs a multi-destination fan-out, but it is not itself
 a delivery target.
+
+* iOS notification tier ceiling
+
+A wrinkle worth documenting up front, because it caps what any
+self-hosted notification stack can deliver to an iOS phone right now.
+
+iOS distinguishes three interruption tiers:
+
+1. *Normal* — silenced during any active Focus mode.
+2. *Time-Sensitive* — what ntfy's ~X-Priority: 5~ triggers.  Pierces
+   Focus modes /by default/, but only when the receiving Focus has
+   "Allow Time-Sensitive notifications" enabled for ntfy (per-app,
+   per-Focus).  Sleep Focus is the case to watch: a strict Sleep Focus
+   configuration will silence Time-Sensitive notifications, so a
+   3 AM disk-full alert can be muted unless the user has explicitly
+   allowed Time-Sensitive from ntfy in the Sleep Focus settings.
+3. *Critical Alerts* — pierces DND, Focus modes, and the mute switch
+   unconditionally.  Requires a per-team entitlement granted by Apple;
+   it is not a capability any developer can simply enable.
+
+ntfy's current state on this:
+
+- Apple has /already granted/ binwiederhier's developer team the
+  Critical Alerts entitlement.
+- The capability isn't yet wired into the iOS Xcode project, so
+  shipped ntfy iOS builds still max out at Time-Sensitive.  See
+  ntfy issues [[https://github.com/binwiederhier/ntfy/issues/1680][#1680]] (improvement plan), [[https://github.com/binwiederhier/ntfy/issues/1235][#1235]] (Critical Alerts
+  request), and [[https://github.com/binwiederhier/ntfy/issues/1431][#1431]].  Roadmap rank: Priority 2A behind reliability
+  fixes.  No PR or shipping timeline as of the time this doc was
+  written.
+- A locally built iOS app cannot unlock Critical Alerts: the
+  entitlement is bound to binwiederhier's developer team, not
+  transferable to a personal team ID.  A personal build can only ship
+  with whatever entitlements the personal team has, which won't
+  include Critical Alerts unless separately granted by Apple.
+
+Commercial-SaaS alternatives that /do/ ship with Critical Alerts:
+Pushover, PagerDuty, Opsgenie, VictorOps.  All proxy data through
+their own infrastructure, which violates the self-hosted posture
+established above.  The pragmatic middle ground if a household
+genuinely needs guaranteed wake-up reliability is to route
+~severity=critical~ alerts through Pushover-for-iOS while letting
+ntfy handle everything else; AlertManager can do this fanout
+declaratively with a single routing tree.
+
+Until ntfy ships the Critical Alerts wiring, the de facto severity
+contract is:
+
+- ~X-Priority: 5~ → Time-Sensitive on iOS / high-priority on Android.
+  Reliably pierces default Focus modes; user-configurable Sleep
+  Focus may still silence it.
+- Lower priorities → Normal delivery, silenced during Focus modes.
+
+No special handling of mute switch or DND is currently reachable from
+ntfy.  Plan AlertManager severity routing accordingly: assume
+Time-Sensitive is the loudest hammer in the toolbox.
