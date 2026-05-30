@@ -28,6 +28,7 @@ in
     ../nixos-configs/garage-queue-server.nix
     ../nixos-modules/nextcloud.nix
     ../nixos-configs/notes-sync.nix
+    ../nixos-configs/ntfy.nix
     ../nixos-configs/dns-server.nix
     ../nixos-configs/dns-smart-block.nix
     ../nixos-configs/unbound.nix
