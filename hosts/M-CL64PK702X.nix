@@ -87,6 +87,12 @@ in
         };
         home-manager.users."logan.barnett" = {
           imports = [
+            # Standard "logan" home-manager defaults (stateVersion, shell,
+            # editor, packages, sessionVariables, etc.).  Required for
+            # standalone eval of this host without the nix-config-hmh-private
+            # wrapper layered on top.  Mirrors how scandium and other hosts
+            # pull in ../home.nix for their primary user.
+            (import ../home.nix)
             ../home-configs/ghostty.nix
             ../home-configs/gh-cli.nix
             ../home-configs/copilot.nix
