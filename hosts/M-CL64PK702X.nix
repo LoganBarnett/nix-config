@@ -26,6 +26,12 @@ in
   services.garage-queue-worker.workers.ollama.settings.capabilities.scalars.vram_mb =
     24576;
   system.primaryUser = username;
+  # home-manager's nixos/common.nix derives home.homeDirectory from
+  # users.users.<name>.home, erroring with a null-vs-absolute-path
+  # mismatch when the user account has no home defined.  Standard macOS
+  # convention is /Users/<username>; setting it here keeps standalone
+  # eval of this host working without needing the private wrapper.
+  users.users.${username}.home = "/Users/${username}";
   # Something required for every macOS host after a nix-darwin migration.  This
   # value will be different per host.  Perhaps hosts stood up after that point
   # won't need it.
