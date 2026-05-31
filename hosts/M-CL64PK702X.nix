@@ -63,7 +63,12 @@ in
     ../nixos-configs/ollama-models-24gb-vram.nix
     ../nixos-configs/user-can-admin.nix
     ../nixos-configs/workstation.nix
-    ../nixos-configs/user-can-develop.nix
+    # user-can-develop.nix lives in nix-config-hmh-private's
+    # hosts/M-CL64PK702X.nix.  It pulls in nixos-modules/git-config.nix,
+    # which requires a `git-users` module arg; that arg is HMH/NWEA-
+    # specific (work email + signing key) and lives only in the private
+    # wrapper.  Keeping the import here would make the public host fail
+    # to evaluate on its own.
     ../headed-host.nix
     (
       {
