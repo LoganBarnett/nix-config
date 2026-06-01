@@ -30,7 +30,6 @@
       # GeForce RTX 3070
       cudaCapabilities = [ "8.6" ];
     })
-    ../nixos-configs/garage-queue-worker.nix
     ../nixos-configs/proc-siding-worker.nix
     ../nixos-configs/ollama.nix
     ../nixos-configs/ollama-models-8gb-vram.nix
@@ -102,7 +101,5 @@
   services.https.fqdns."${host-id}.${facts.network.domain}" = {
     internalPort = 8080;
   };
-  services.garage-queue-worker.workers.ollama.settings.capabilities.scalars.vram_mb =
-    8192;
   services.proc-siding.settings.detector_cmd = "${config.services.proc-siding.package}/share/proc-siding/detectors/nvidia-gpu.sh --exclude-unit ollama.service";
 }
