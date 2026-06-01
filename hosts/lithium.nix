@@ -55,7 +55,6 @@ in
       # 6GB) says 6.1.
       cudaCapabilities = [ "6.0" ];
     })
-    ../nixos-configs/fishnetwork-stockings.nix
     ../nixos-modules/linux-host.nix
     ../nixos-configs/shutdown-halt.nix
     (
