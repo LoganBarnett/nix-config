@@ -157,23 +157,6 @@
         "type": "github"
       }
     },
-    "brew-src": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1774235677,
-        "narHash": "sha256-0ryNYmzDAeRlrzPTAgmzGH/Cgc8iv/LBN6jWGUANvIk=",
-        "owner": "Homebrew",
-        "repo": "brew",
-        "rev": "894a3d23ac0c8aaf561b9874b528b9cb2e839201",
-        "type": "github"
-      },
-      "original": {
-        "owner": "Homebrew",
-        "ref": "5.1.1",
-        "repo": "brew",
-        "type": "github"
-      }
-    },
     "cl-nix-lite": {
       "inputs": {
         "flake-parts": "flake-parts_5",
@@ -1669,24 +1652,6 @@
         "type": "github"
       }
     },
-    "nix-homebrew": {
-      "inputs": {
-        "brew-src": "brew-src"
-      },
-      "locked": {
-        "lastModified": 1774720267,
-        "narHash": "sha256-YYftFe8jyfpQI649yfr0E+dqEXE2jznZNcYvy/lKV1U=",
-        "owner": "zhaofengli",
-        "repo": "nix-homebrew",
-        "rev": "a7760a3a83f7609f742861afb5732210fdc437ed",
-        "type": "github"
-      },
-      "original": {
-        "owner": "zhaofengli",
-        "repo": "nix-homebrew",
-        "type": "github"
-      }
-    },
     "nix-option-search": {
       "inputs": {
         "nixpkgs": [
@@ -2886,7 +2851,6 @@
         "nix-hapi-provider-ldap": "nix-hapi-provider-ldap",
         "nix-hapi-provider-ntfy": "nix-hapi-provider-ntfy",
         "nix-hapi-provider-porkbun": "nix-hapi-provider-porkbun",
-        "nix-homebrew": "nix-homebrew",
         "nix-option-search": "nix-option-search",
         "nix-remote-builder-doctor": "nix-remote-builder-doctor",
         "nixos-anywhere": "nixos-anywhere",

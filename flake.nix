@@ -133,7 +133,14 @@
       url = "github:LoganBarnett/nix-hapi-provider-porkbun";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    nix-homebrew.url = "github:zhaofengli/nix-homebrew";
+    # Homebrew removed: scandium's last two casks were migrated to Nix —
+    # alfred -> derivations/alfred.nix, steam -> programs.steam
+    # (darwin-modules/steam.nix); firefox/discord/etc. were already on nixpkgs.
+    # Dropping the integration also kills the brew `bundle`/`cleanup` activation
+    # steps that were failing on a brew cask-API parser bug.  Left commented
+    # (not deleted) so re-enabling is a one-liner if a cask ever lacks a Nix
+    # equivalent.
+    # nix-homebrew.url = "github:zhaofengli/nix-homebrew";
     nix-option-search = {
       url = "github:ciderale/nix-option-search";
       inputs.nixpkgs.follows = "nixpkgs";

@@ -127,14 +127,12 @@ in
         ...
       }:
       {
-        imports = [
-          flake-inputs.nix-homebrew.darwinModules.nix-homebrew
-        ];
         # documentation.option-search.enable = true;
         allowUnfreePackagePredicates = [
           (
             pkg:
             builtins.elem (lib.getName pkg) [
+              "alfred"
               "claude-code"
               "discord"
               "firefox-bin"
@@ -168,41 +166,17 @@ in
             # passApiKey = "claude-code-api-key";
           };
         };
-        # Enable Homebrew integration.
-        nix-homebrew = {
-          enable = true;
-          # If an existing homebrew is in the way, we just intelligently replace
-          # it.  This should retain everything that was installed via Homebrew,
-          # but only impacts Homebrew itself.
-          autoMigrate = true;
-          # Uh, what?  What if I need more than one user?
-          user = "logan";
-          # enableRosetta = true;  # if you want x86_64 brews too
-        };
-        homebrew = {
-          enable = true;
-          casks = [
-            "alfred"
-            # firefox managed via pkgs.firefox-bin overlay; see
-            # overlays/firefox-bin.nix and static.nix.
-            # "doxie"
-            # "openscad"
-            "steam"
-            "ultimaker-cura"
-            # "vlc"
-          ];
-
-          # Optional but recommended:
-          # auto-cleanup bottles/casks that are no longer declared.
-          onActivation.autoUpdate = false;
-          onActivation.cleanup = "uninstall"; # removes undeclared brews/casks
-          onActivation.upgrade = false; # upgrade on switch
-        };
+        # Steam via the macOS programs.steam analogue: a login LaunchAgent
+        # installs the Steam.app bootstrapper into /Applications and lets
+        # Steam self-update from there.  See darwin-modules/steam.nix.
+        programs.steam.enable = true;
         environment.systemPackages =
           (import ../personal-packages.nix {
             inherit pkgs;
           })
           ++ [
+            # Alfred launcher — replaces the homebrew `alfred` cask.
+            (pkgs.callPackage ../derivations/alfred.nix { })
             # Use latest to benefit from work done here:
             # https://github.com/Aider-AI/aider/issues/2318
             # pkgs.aider-chat
