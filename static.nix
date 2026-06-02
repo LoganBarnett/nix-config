@@ -25,11 +25,11 @@
   # Node.js bundle.  Each platform has its own npm package with a single
   # compiled executable.
   claude-code = {
-    version = "2.1.153";
-    aarch64-darwin.hash = "sha256-JiNUqF8Z+F7m3hAQgwT6TPR99/BFRNHG9VXW14toBy0=";
-    x86_64-darwin.hash = "sha256-BVAReyQjOMVPgnF/PmRdCWupkpHlNv4LowKJI2H1Q7A=";
-    x86_64-linux.hash = "sha256-kOXcCui5jMCIJgelpuWUjfv2tkupCBBuw9KLKs6JCv4=";
-    aarch64-linux.hash = "sha256-h87rkOK5XhM6ayZX68zEraqbaQ91wg+6WZS88fUJ3oc=";
+    version = "2.1.159";
+    aarch64-darwin.hash = "sha256-8zMTEk1RGEKnR7F/0V8Bo091Zrz4dsCJ6Gb1Ig4j9cg=";
+    x86_64-darwin.hash = "sha256-fN1ajWRBCuNpbJJWJp6fpuKuucaY9ad2EniZQdpH/XM=";
+    x86_64-linux.hash = "sha256-ZtdQBprIHTAXG6Bzo/dadR9Zqn9x2zsJ0Qh1G7Ilb48=";
+    aarch64-linux.hash = "sha256-jnUSkOW5MVHGnOz2Kp0c4k4cSkT07/u3/oshFaYoM5E=";
   };
 
   makemkv = {
