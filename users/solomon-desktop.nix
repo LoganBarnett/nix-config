@@ -1,7 +1,6 @@
 { pkgs, ... }:
 {
   imports = [
-    ../nixos-configs/3d-printing-desktop.nix
     ../nixos-configs/steam-gaming.nix
     ../nixos-configs/timezone-pacific.nix
     ../users/cassandra-desktop.nix
