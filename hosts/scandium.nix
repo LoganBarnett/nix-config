@@ -170,6 +170,11 @@ in
         # installs the Steam.app bootstrapper into /Applications and lets
         # Steam self-update from there.  See darwin-modules/steam.nix.
         programs.steam.enable = true;
+        # Microsoft Teams via the evergreen-install pattern: a boot LaunchDaemon
+        # runs Microsoft's official installer once and lets Microsoft AutoUpdate
+        # keep it current.  Replaces the homebrew `microsoft-teams` cask.  See
+        # darwin-modules/microsoft-teams.nix and README.org §Evergreen Packages.
+        programs.microsoft-teams.enable = true;
         environment.systemPackages =
           (import ../personal-packages.nix {
             inherit pkgs;

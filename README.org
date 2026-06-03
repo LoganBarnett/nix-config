@@ -332,6 +332,87 @@ nix-darwin-switch
 Current packages using this pattern: ~claude-code~, ~firefox-bin~,
 ~makemkv~, ~signal-desktop-bin~, ~yt-dlp~, ~zoom-us~.
 
+** Evergreen Packages
+
+The [[*Rapid Package Updates][Rapid Package Updates]] pattern above pins an exact ~version~ and ~hash~ and
+rebuilds when you bump them.  That depends on upstream publishing a /stable,
+addressable/ artifact: a URL that names a version, and bytes that do not change
+underneath it.  Some vendors do not cooperate.  They serve a single rolling,
+*unversioned* installer URL — names like ~latest~, ~lkg~ ("last known good"),
+or a bare ~download~ endpoint — and overwrite those bytes in place whenever they
+ship.  There is no version in the URL to record, and the hash changes silently
+and unpredictably.
+
+Pinning such a package by hash is actively harmful: every silent upstream
+rotation makes the hash mismatch, which *breaks the Nix build* at the worst
+possible time (mid-deploy, unrelated to your change).  Worse, some of these
+vendors force-update their app at runtime regardless of what you installed, so a
+pinned store copy would be stale the moment it launched.
+
+For these we invert the model.  Instead of pinning the artifact and owning the
+update cadence, we *install imperatively, once*, and *delegate updates to the
+vendor's own updater*.  The Nix configuration's job shrinks to "make sure it is
+installed"; staying current is the vendor's problem, exactly as it would be on a
+hand-managed machine.
+
+The pattern has three parts, all on the macOS (nix-darwin) side:
+
+- ~darwin-modules/<pkg>.nix~ :: A module exposing a ~programs.<pkg>.enable~
+  option (and usually ~appPath~ / ~installerUrl~ options with sensible
+  defaults).  Enabling it installs a ~launchd~ job; importing it without
+  enabling does nothing.  Wire the import into ~darwin.nix~ and set
+  ~programs.<pkg>.enable = true~ on the host that wants it.
+
+- The bootstrapper :: A ~writeShellScript~ the job runs.  It must be
+  *idempotent and self-healing*: first check whether the app already exists at
+  ~appPath~ and exit ~0~ immediately if so (this is the common case at every
+  boot/login — cheap, and it re-installs automatically if the app is ever
+  deleted).  Otherwise download the rolling URL to a scratch dir (use
+  ~curl --fail~ so a 4xx/5xx becomes a non-zero exit and retries instead of
+  "installing" an error page) and install it.  Fetch tools from nixpkgs
+  (~pkgs.curl~, ~pkgs.coreutils~) rather than the BSD ~/usr/bin~ versions so the
+  long-form flags exist and behave predictably.  The install step depends on the
+  artifact format:
+
+  - A ~.app~ in a ~.dmg~ or archive — unpack and copy with ~ditto~ (it
+    preserves the code signature and extended attributes a plain ~cp~ would
+    strip).  This needs no root, so the job can be a *LaunchAgent*.
+
+  - A ~.pkg~ installer — run it with ~/usr/sbin/installer -package <pkg>
+    -target /~.  This writes to root-owned locations and runs the vendor's
+    pre/post-install scripts, so it needs root and the job must be a
+    *LaunchDaemon*.
+
+- The ~launchd~ job :: Declared as ~launchd.agents.<name>~ (runs in the user's
+  GUI session, no root — pair with the ~ditto~ install) or
+  ~launchd.daemons.<name>~ (runs as root at boot — pair with the ~installer~
+  install).  Set ~RunAtLoad = true~ so it runs on each login/boot, and
+  ~KeepAlive = false~ for a one-shot.  If the install can fail transiently
+  (e.g. a daemon firing at boot before the network is up), use
+  ~KeepAlive = { SuccessfulExit = false; }~ instead — launchd then relaunches
+  only while the last run failed and stops once it exits ~0~ — and add a
+  ~ThrottleInterval~ (seconds) so a persistently dead URL does not loop tightly.
+  Log to ~/tmp/<name>.log~ via ~StandardOutPath~ / ~StandardErrorPath~ for
+  post-mortem.
+
+To use an evergreen package, enable it on the host and deploy; the bootstrapper
+installs it on the next login (agent) or boot (daemon), and the vendor's updater
+keeps it current thereafter.  To force a clean reinstall, delete the app bundle
+and re-trigger the job (log out/in, reboot, or reload the job) — the
+idempotent check will see it missing and fetch the current build.
+
+The trade-off versus Rapid Package Updates is deliberate: you give up
+reproducibility (two machines enabling the same package on different days can
+end up on different builds) in exchange for builds that never break on an
+upstream rotation and an app that actually stays current.  Reach for this
+*only* when the vendor leaves no stable, hashable artifact to pin; prefer Rapid
+Package Updates whenever a versioned URL exists.
+
+Current packages using this pattern: ~steam~ (a LaunchAgent that ~ditto~s
+Valve's rolling ~Steam.app~ launcher into ~/Applications~ and lets Steam
+self-update), and ~microsoft-teams~ (a LaunchDaemon that runs Microsoft's
+rolling ~.pkg~ installer and lets Microsoft AutoUpdate keep Teams current).
+
 ** Adding Services
 
 Short of any community standing on what these should be called, we have two
