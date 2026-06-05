@@ -51,7 +51,7 @@ if [ "$deploy_type" = "darwin" ]; then
     # switch` errors with "system activation must now be run as root" when
     # invoked unprivileged.
     echo "Building and activating $host locally..." >&2
-    sudo darwin-rebuild switch --flake ".#${host}"
+    sudo darwin-rebuild switch --flake ".#${host}" "$@"
   else
     # Archive the flake and all its locked inputs to the remote store
     # (source trees are content-addressed, so no store-signing issues),
