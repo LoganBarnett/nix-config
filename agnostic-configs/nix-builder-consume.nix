@@ -3,7 +3,6 @@
 ################################################################################
 {
   config,
-  flake-inputs,
   host-id,
   lib,
   pkgs,
@@ -122,8 +121,6 @@ in
   # security.sudo.extraConfig (raw sudoers) is available on both NixOS and
   # nix-darwin, unlike security.sudo.extraRules which is NixOS-only.
   security.sudo.extraConfig = ''
-    %wheel ALL=(root) NOPASSWD: ${
-      flake-inputs.nix-remote-builder-doctor.packages.${pkgs.system}.default
-    }/bin/nix-remote-builder-doctor
+    %wheel ALL=(root) NOPASSWD: ${pkgs.nix-remote-builder-doctor}/bin/nix-remote-builder-doctor
   '';
 }

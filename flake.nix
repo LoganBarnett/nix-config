@@ -318,6 +318,14 @@
                 inherit facts flake-inputs host-id;
               };
             }
+            {
+              nixpkgs.overlays = [
+                (final: prev: {
+                  nix-remote-builder-doctor =
+                    flake-inputs.nix-remote-builder-doctor.packages.${system}.default;
+                })
+              ];
+            }
           ];
         };
 
@@ -348,6 +356,8 @@
                 (final: prev: {
                   nixos-option =
                     flake-inputs.nixos-option-pr-369151.outputs.legacyPackages.${system}.nixos-option;
+                  nix-remote-builder-doctor =
+                    flake-inputs.nix-remote-builder-doctor.packages.${system}.default;
                 })
               ];
             }
