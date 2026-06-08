@@ -40,3 +40,6 @@ tmux-client-*.log
 
 # direnv emitted settings directory.
 .direnv/
+
+# Ignore the Nix build result symlink.
+/result
