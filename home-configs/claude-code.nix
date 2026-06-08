@@ -557,61 +557,6 @@ in
         directory" errors from Nix that do not mention git tracking as the
         cause.
       '';
-      task-plan = ''
-        ---
-        name: task-plan
-        description: Plan work into a tasks.org file, execute items sequentially, and commit each
-        disable-model-invocation: true
-        ---
-
-        Before starting any implementation work, create a `tasks.org` file
-        in the project root (or update the existing one) with org-mode TODO
-        items covering every step needed to complete the request.
-
-        If the `tasks.org` file already exists and there are open tasks on it,
-        ask about each task one at a time.
-
-        ## Planning phase
-
-        1. Analyze the request and break it into discrete, committable units
-           of work.
-        2. Write each unit as a TODO item in `tasks.org`:
-
-           ```org
-           * TODO Short imperative description
-             Context or acceptance criteria if needed.
-           ```
-
-        3. Order items so that dependencies come first.
-        4. Present the plan to the user and wait for approval before
-           proceeding.
-
-        ## Execution phase
-
-        For each item, in order:
-
-        1. Mark it `IN-PROGRESS`:
-           ```org
-           * IN-PROGRESS Short imperative description
-           ```
-        2. Implement the change.
-        3. Mark it `DONE`:
-           ```org
-           * DONE Short imperative description
-           ```
-        4. Stage the relevant files and create a git commit whose message
-           summarizes what was done for that item.
-        5. Move to the next item.
-
-        ## Rules
-
-        - One commit per task item — do not batch unrelated changes.
-        - If a task item turns out to need splitting, add sub-items before
-          continuing.
-        - If an item is blocked, mark it `BLOCKED`, note the reason, and
-          skip to the next unblocked item.
-        - Mark as done _before_ committing.
-      '';
     };
   };
   programs.claude-code.memory.source = ./claude-memory.org;

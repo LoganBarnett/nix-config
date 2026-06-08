@@ -75,6 +75,30 @@ activates the devshell automatically; just run the tool directly.
 Use ~jq~ for command-line JSON parsing.  It is available across all hosts.
 Do not use ~python3~ — it is not reliably on ~PATH~ in this Nix environment.
 
+* Git workflow
+
+** Leave changes unstaged — staging is the user's approval signal
+
+Do not stage changes (~git add~) as a matter of course.  Leave everything
+you change in the working tree, unstaged.  Staging is /the user's/ action:
+it is how the user marks a change as reviewed and approved during their
+review flow.  When you stage on the user's behalf, you erase that signal.
+
+Do not commit unless explicitly asked.  When the user does ask you to
+commit, commit only what they have staged — assume the staged set is the
+approved set; do not ~git add~ further files into the commit.  Push only
+when explicitly asked.
+
+*** The one exception: new files in a Nix flake repo
+
+Nix flakes only see files tracked by git, so a newly /created/ file in a
+project with a ~flake.nix~ at its root must be ~git add~-ed immediately —
+otherwise ~nix~ commands fail with opaque "file not found" errors that
+never mention git tracking as the cause.  This is the sole reason to run
+~git add~ unprompted, and it applies only to brand-new files needed for a
+~nix~ invocation — never to modifications of already-tracked files, which
+stay unstaged for the user to review.
+
 * Rust
 
 ** No ~unwrap~ or ~expect~ in non-test code
