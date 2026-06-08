@@ -56,11 +56,18 @@ let
     # non-zero exit; combined with the LaunchDaemon's KeepAlive policy below
     # that means a transient failure (e.g. network not yet up at boot) simply
     # retries instead of installing an error page.
+    #
+    # --cacert is required: this runs as a root LaunchDaemon whose environment
+    # has no SSL_CERT_FILE, and nixpkgs' curl has no built-in CA bundle, so
+    # without an explicit bundle every fetch fails TLS verification with
+    # "unable to get local issuer certificate".  Point it at the pinned
+    # cacert bundle rather than relying on /etc or the ambient environment.
     ${pkgs.curl}/bin/curl \
       --fail \
       --silent \
       --show-error \
       --location \
+      --cacert ${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt \
       --output MicrosoftTeams.pkg \
       "${cfg.installerUrl}"
 
