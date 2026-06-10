@@ -1,0 +1,43 @@
+# SQL accounting for the proton network.  Managed by nix-config
+# (nixos-configs/freeradius.nix); overlaid onto the upstream example raddb.
+#
+# Used only for accounting (session start/stop -> radacct).  Authorization
+# comes from LDAP, not SQL.  Connects to PostgreSQL over the local Unix socket
+# using peer auth: an empty server selects the default socket, and the radiusd
+# OS user "radius" maps to the same-named PostgreSQL role, so no password is
+# exchanged (same pattern as Authelia's storage backend).
+#
+# NOTE: the radacct schema must be loaded into the `radius` database before this
+# works.  The schema ships at
+# ${modconfdir}/sql/main/postgresql/schema.sql in this raddb — load it once as a
+# bootstrap (see the TODO in freeradius.nix).
+#
+# UNVALIDATED: needs `radiusd -X` iteration.
+sql {
+	dialect = "postgresql"
+	driver  = "rlm_sql_${dialect}"
+
+	server    = ""
+	port      = 0
+	login     = "radius"
+	password  = ""
+	radius_db = "radius"
+
+	# Accounting only; do not pull groups or profiles from SQL.
+	read_groups   = no
+	read_profiles = no
+	delete_stale_sessions = yes
+
+	pool {
+		start = 1
+		min   = 1
+		max   = 8
+		spare = 1
+		uses  = 0
+		lifetime     = 0
+		idle_timeout = 60
+	}
+
+	# Table and query definitions shipped upstream for PostgreSQL.
+	$INCLUDE ${modconfdir}/sql/main/postgresql/queries.conf
+}

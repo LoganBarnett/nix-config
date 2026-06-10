@@ -1,0 +1,56 @@
+# LDAP module for the proton network.  Managed by nix-config
+# (nixos-configs/freeradius.nix); overlaid onto the upstream example raddb.
+#
+# This module is used for two things: the authorize-phase lookup (resolve the
+# user DN and group membership) and the authenticate-phase bind.  It never
+# reads userPassword — the directory hashes with argon2 (one-way), so password
+# verification is performed by BINDING as the user with the cleartext supplied
+# in the TTLS/PAP inner tunnel.  See sites-available/inner-tunnel.
+#
+# UNVALIDATED: needs `radiusd -X` iteration against the live directory.
+ldap {
+	server   = 'ldaps://ldap.proton'
+	identity = 'uid=silicon-freeradius-service,ou=users,dc=proton,dc=org'
+
+	# Provides: password = "..."  — the bind passphrase, delivered via
+	# LoadCredential and kept out of the Nix store.  See freeradius.nix.
+	$INCLUDE /run/credentials/freeradius.service/ldap-bind
+
+	base_dn = 'dc=proton,dc=org'
+
+	user {
+		base_dn = "ou=users,${..base_dn}"
+		# Match on uid; strip any realm the supplicant appended.
+		filter  = "(uid=%{%{Stripped-User-Name}:-%{User-Name}})"
+	}
+
+	group {
+		base_dn = "ou=groups,${..base_dn}"
+		filter  = "(objectClass=groupOfNames)"
+		membership_attribute = 'memberOf'
+	}
+
+	options {
+		chase_referrals   = yes
+		rebind_to_resolve = yes
+		res_timeout       = 10
+		idle              = 60
+	}
+
+	# Verify the server cert against the internal CA injected into certs/.
+	tls {
+		ca_file      = ${certdir}/ca.pem
+		require_cert = 'demand'
+	}
+
+	pool {
+		start = 1
+		min   = 1
+		max   = 8
+		spare = 1
+		uses  = 0
+		retry_delay  = 30
+		lifetime     = 0
+		idle_timeout = 60
+	}
+}

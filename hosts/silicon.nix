@@ -42,6 +42,7 @@ in
     ../nixos-modules/prometheus-server.nix
     ../nixos-configs/loku.nix
     ../nixos-configs/authelia.nix
+    ../nixos-configs/freeradius.nix
     ../nixos-configs/immich.nix
     ../nixos-configs/ivatar.nix
     ../nixos-configs/mastodon.nix

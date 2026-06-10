@@ -1,0 +1,49 @@
+# Inner-tunnel virtual server for the proton network.  Managed by nix-config
+# (nixos-configs/freeradius.nix); overlaid onto the upstream example raddb.
+#
+# This is where EAP-TTLS deposits the inner PAP exchange.  The client has sent
+# its cleartext password inside the TLS tunnel; we resolve the user in LDAP,
+# then authenticate by BINDING to the directory as that user (the only method
+# compatible with argon2-hashed userPassword).  No password is ever read back.
+#
+# UNVALIDATED: the LDAP-bind authorize/authenticate wiring below is the canonical
+# recipe but must be confirmed with `radiusd -X`.
+server inner-tunnel {
+	listen {
+		type   = auth
+		ipaddr = 127.0.0.1
+		port   = 18120
+	}
+
+	authorize {
+		filter_username
+		# Resolve the user (DN, group membership).  Returns ok/updated if found.
+		ldap
+		# If the user resolved and we have a tunnelled password, authenticate by
+		# binding to LDAP as the user rather than comparing a (one-way) hash.
+		if ((ok || updated) && &User-Password) {
+			update control {
+				Auth-Type := LDAP
+			}
+		}
+		pap
+	}
+
+	authenticate {
+		# Bind to LDAP as the user with the supplied password.
+		Auth-Type LDAP {
+			ldap
+		}
+		Auth-Type PAP {
+			pap
+		}
+	}
+
+	post-auth {
+		Post-Auth-Type REJECT {
+			update outer.session-state {
+				&Module-Failure-Message := &request:Module-Failure-Message
+			}
+		}
+	}
+}
