@@ -76,6 +76,31 @@ let
   # radiusd parses its config at startup.
   ldap-bind-include = "${host-id}-freeradius-ldap-bind.conf";
 
+  # Two overrides on the stock freeradius:
+  #
+  #  1. Pin 3.2.10.  nixpkgs ships 3.2.7, which cannot load *any* TLS
+  #     certificate under OpenSSL 3.5+ (we run 3.6.0): rlm_eap_tls fails to
+  #     initialise with "decode error / ee key too small" on every cert,
+  #     because OpenSSL 3.5 tightened key/cert import validation (FIPS 140-3
+  #     pairwise consistency checks) in a way 3.2.7 mishandles.  Fixed upstream
+  #     in 3.2.8.  See openwrt/packages#28161 and freeradius-server#5631.
+  #  2. withPostgresql = true.  The driver (rlm_sql_postgresql) is off by
+  #     default in nixpkgs; we need it for accounting.  LDAP is already on.
+  #
+  # Used as both the raddb base and the service package, so there is a single
+  # freeradius build.
+  freeradius-pkg =
+    (pkgs.freeradius.override { withPostgresql = true; }).overrideAttrs
+      (old: {
+        version = "3.2.10";
+        src = pkgs.fetchFromGitHub {
+          owner = "FreeRADIUS";
+          repo = "freeradius-server";
+          tag = "release_3_2_10";
+          hash = "sha256-+pFV6dDnL7T5G309cLACa+/0vGppCEdk3ghOQhgSjTs=";
+        };
+      });
+
   # The assembled raddb.  The NixOS freeradius module is deliberately thin — it
   # only runs `radiusd -d <configDir>` — so we build the config tree here by
   # overlaying our six decision files (./freeradius/*) onto the upstream example
@@ -93,7 +118,7 @@ let
   # before building.  And it is UNVALIDATED until landed with `radiusd -X`
   # against a live authenticator — there is no AP to test against yet.
   raddb = pkgs.runCommandLocal "freeradius-raddb" { } ''
-    cp -a ${pkgs.freeradius}/etc/raddb $out
+    cp -a ${freeradius-pkg}/etc/raddb $out
     chmod -R u+w $out
 
     install -m 0644 ${./freeradius/mods-available/eap}           $out/mods-available/eap
@@ -160,6 +185,7 @@ in
 
   services.freeradius = {
     enable = true;
+    package = freeradius-pkg;
     configDir = raddb;
   };
 

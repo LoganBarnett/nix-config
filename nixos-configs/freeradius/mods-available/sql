@@ -23,6 +23,26 @@ sql {
 	password  = ""
 	radius_db = "radius"
 
+	# Table names referenced by the upstream queries.conf.  These must be
+	# defined even though we only use accounting: queries.conf parses every
+	# section and resolves these by relative reference (${....acct_table1} and
+	# friends), so omitting them is a parse error regardless of which queries
+	# actually run.
+	acct_table1      = "radacct"
+	acct_table2      = "radacct"
+	postauth_table   = "radpostauth"
+	authcheck_table  = "radcheck"
+	authreply_table  = "radreply"
+	groupcheck_table = "radgroupcheck"
+	groupreply_table = "radgroupreply"
+	usergroup_table  = "radusergroup"
+	group_attribute  = "SQL-Group"
+
+	# Clients come from clients.conf / freeradius-facts.nix, not SQL — but the
+	# table name must still be defined for queries.conf to parse.
+	read_clients = no
+	client_table = "nas"
+
 	# Accounting only; do not pull groups or profiles from SQL.
 	read_groups   = no
 	read_profiles = no

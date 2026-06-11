@@ -31,10 +31,8 @@ ldap {
 	}
 
 	options {
-		chase_referrals   = yes
-		rebind_to_resolve = yes
-		res_timeout       = 10
-		idle              = 60
+		chase_referrals = yes
+		res_timeout     = 10
 	}
 
 	# Verify the server cert against the internal CA injected into certs/.
