@@ -101,6 +101,73 @@ The realistic scope is: a few months of focused work to reach production
 quality, with the long tail being edge cases in blocklist format parsing and
 DNS framing rather than resolver correctness.
 
+* TLS / PKI
+
+** TODO Regenerate the PKI, migrate to .internal, and add a cross-network TLS bridge
+
+The long-deferred "rip the bandaid off" certificate-chain rework.  It is one
+coordinated effort because the three pieces share a cutover: the root CA, the
+domain every leaf is issued for, and the trust model that lets two networks
+join all change together.
+
+*** Why now
+
+Newer OpenSSL (we run 3.6.0) and other consumers have tightened X.509 spec
+enforcement.  The currently-deployed ~proton-ca~ root predates the fix in the
+~tls-ca-root~ / ~tls-signed-certificate~ generators (~agenix/tls-secret.nix~)
+and lacks the extensions a CA needs to be accepted as a leaf issuer under the
+stricter validators — so it can effectively no longer mint usable leaf certs.
+The generators themselves are already fixed; the deployed chain is not.  Since
+every leaf is signed by this root, fixing it means regenerating the /whole/
+chain (root + every ~tls-*~ leaf), not patching a single cert.
+
+*** Scope 1 — regenerate the whole chain
+
+- Regenerate the ~proton-ca~ root with the corrected generator so it carries
+  the extensions required to issue leaves under strict validators.
+- Re-issue every ~tls-*~ leaf against the new root.
+- Roll the new root into every host's trust store and re-deploy — the old root
+  will stop validating anything, so this is a coordinated cutover, not a
+  rolling one.
+
+*** Scope 2 — migrate .proton -> .internal
+
+Switch the internal domain from ~.proton~ to ~.internal~.  ~.internal~ is the
+ICANN-reserved private-use TLD (reserved 2024), so it is the correct,
+collision-safe choice; ~.proton~ is unreserved and brand-adjacent.
+
+The deliberate trick: scope the root CA's ~nameConstraints~ to the /entire/
+~.internal~ TLD rather than to this network's ~network-a.internal~ subtree.
+That makes a single "blessed" root authoritative for any ~*.internal~ name —
+including ~network-b.internal~ — which is the foundation for joining networks
+(Scope 3).
+
+This is a wide cutover: it touches DNS (~facts.nix~ host names, ~dnsAliases~),
+every service FQDN and OIDC redirect URI, every TLS leaf ~fqdn~, and the agenix
+secret names derived from them.  Open question: big-bang vs phased (e.g. serve
+both domains during a transition window).
+
+*** Scope 3 — cross-network TLS bridge
+
+Goal: a client on ~network-a~ can reach ~foo.network-b.internal~ without
+reconfiguring trust on the client device (painful, especially for phones/IoT).
+
+Mechanism: a TLS dual-bridge across the VPN link between the two networks — an
+nginx instance at each end that terminates and re-presents TLS, acting as a
+trust-translating proxy.  Because both networks' roots are scoped to
+~.internal~ (Scope 2), a client that already trusts its own ~.internal~ root
+accepts the bridged ~network-b.internal~ names too; the bridge serves the cert
+on the local side so no client-side trust change is needed.  This is the
+mechanism that federates ~network-a.internal~ and ~network-b.internal~ into one
+reachable namespace over the VPN.
+
+*** Dependencies / sequencing
+
+- Relates to the multi-network federation direction (OIDC brokering, identity
+  = (sub, iss)); the ~.internal~ trust scoping is the TLS half of that story.
+- Decide the cutover strategy before starting Scope 2 — the domain rename is
+  the widest-blast-radius step.
+
 * Nix
 
 ** TODO Consolidate internal derivations out of overlays
