@@ -195,12 +195,11 @@ in
   programs.nix-index.enable = true;
   security.pam.services.sudo_local.touchIdAuth = true;
   security.pki.keychain.trustNixTlsCertificates = true;
-  # TODO: look up my user first.
   security.sudo.extraConfig = ''
-    logan.barnett ALL=(root) NOPASSWD: /run/current-system/sw/bin/darwin-rebuild
-    logan.barnett ALL=(root) NOPASSWD: SETENV: /run/current-system/sw/bin/gp-connect-auto
-    logan.barnett ALL=(root) NOPASSWD: /usr/sbin/scutil
-    logan ALL=(root) NOPASSWD: /run/current-system/sw/bin/darwin-rebuild
+    ${config.system.primaryUser} ALL=(root) NOPASSWD: /run/current-system/sw/bin/darwin-rebuild
+    ${config.system.primaryUser} ALL=(root) NOPASSWD: SETENV: /run/current-system/sw/bin/gp-connect-auto
+    ${config.system.primaryUser} ALL=(root) NOPASSWD: /usr/sbin/scutil
+    ${config.system.primaryUser} ALL=(root) NOPASSWD: /bin/launchctl print *
   '';
   security.pki.keychain.certificateFiles = [
     ./secrets/proton-ca.crt
