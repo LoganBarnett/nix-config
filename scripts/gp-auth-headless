@@ -239,6 +239,7 @@ def authenticate(auth_url, username, password, totp_code):
             # a couple of seconds, so probe inside the wait loop rather than
             # one-shot before it.
             skip_clicked = False
+            dumped_expired = False
             for i in range(30):
                 current_url = page.url
                 log(f"Current URL [{i}]: {current_url}")
@@ -264,23 +265,57 @@ def authenticate(auth_url, username, password, totp_code):
                     continue
 
                 if not skip_clicked:
+                    found_in = None
                     try:
-                        skip_link = page.locator('[data-se="skip-link"]')
-                        skip_count = skip_link.count()
-                        if skip_count > 0:
-                            log(f"Skip-link present on {current_url}; clicking to defer")
-                            page.screenshot(path="/tmp/gp-auth-pre-skip.png")
-                            skip_link.first.click(timeout=10000)
-                            skip_clicked = True
-                            try:
-                                page.wait_for_load_state('networkidle', timeout=10000)
-                            except Exception as e:
-                                log(f"Post-click networkidle wait raised: {e}")
-                            page.screenshot(path="/tmp/gp-auth-post-skip.png")
-                            log(f"Post-skip URL: {page.url}")
-                            continue
+                        if page.locator('[data-se="skip-link"]').count() > 0:
+                            found_in = page
+                            log("Skip-link present on main page")
                     except Exception as e:
-                        log(f"Skip-link probe raised: {e}")
+                        log(f"Main-page skip-link probe raised: {e}")
+                    if found_in is None:
+                        for fi, frame in enumerate(page.frames):
+                            try:
+                                if frame.locator('[data-se="skip-link"]').count() > 0:
+                                    found_in = frame
+                                    log(f"Skip-link present in frame {fi}: {frame.url}")
+                                    break
+                            except Exception as e:
+                                log(f"Frame {fi} skip-link probe raised: {e}")
+                    if found_in is not None:
+                        log(f"Clicking skip-link on {current_url}")
+                        page.screenshot(path="/tmp/gp-auth-pre-skip.png")
+                        found_in.locator('[data-se="skip-link"]').first.click(timeout=10000)
+                        skip_clicked = True
+                        try:
+                            page.wait_for_load_state('networkidle', timeout=10000)
+                        except Exception as e:
+                            log(f"Post-click networkidle wait raised: {e}")
+                        page.screenshot(path="/tmp/gp-auth-post-skip.png")
+                        log(f"Post-skip URL: {page.url}")
+                        continue
+                    elif 'password-expired' in current_url and not dumped_expired:
+                        # On the right page but the attribute selector matched
+                        # nothing anywhere — dump page state once so we can
+                        # diagnose offline.
+                        try:
+                            page.screenshot(path="/tmp/gp-auth-expired-full.png", full_page=True)
+                            log("Dumped full-page screenshot to /tmp/gp-auth-expired-full.png")
+                        except Exception as e:
+                            log(f"Full-page screenshot failed: {e}")
+                        try:
+                            with open("/tmp/gp-auth-expired.html", "w") as f:
+                                f.write(page.content())
+                            log(f"Dumped main-page HTML to /tmp/gp-auth-expired.html ({len(page.frames)} frames total)")
+                        except Exception as e:
+                            log(f"HTML dump failed: {e}")
+                        for fi, frame in enumerate(page.frames):
+                            try:
+                                with open(f"/tmp/gp-auth-expired-frame-{fi}.html", "w") as f:
+                                    f.write(frame.content())
+                                log(f"Dumped frame {fi} ({frame.url}) HTML")
+                            except Exception as e:
+                                log(f"Frame {fi} HTML dump failed: {e}")
+                        dumped_expired = True
 
                 # Check for "Authentication Complete" text on the page
                 try:
