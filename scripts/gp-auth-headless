@@ -229,6 +229,24 @@ def authenticate(auth_url, username, password, totp_code):
             if not totp_filled:
                 log("WARNING: Could not find TOTP field - it may not be required")
 
+            # After TOTP, Okta may interrupt with an interstitial — e.g. the
+            # "password expiring soon" warning that has no callback URL.  When
+            # present, that page exposes a skip control with data-se="skip-link"
+            # that defers the rotation and continues to the callback.  Match by
+            # attribute, not text — the label varies across deployments.
+            try:
+                page.wait_for_load_state('networkidle', timeout=5000)
+            except Exception:
+                pass
+            try:
+                skip_link = page.locator('[data-se="skip-link"]')
+                if skip_link.count() > 0:
+                    log("Detected post-TOTP interstitial; clicking skip-link to continue")
+                    skip_link.first.click()
+                    time.sleep(2)
+            except Exception as e:
+                log(f"Skip-link probe raised: {e}")
+
             # Wait for callback to complete
             log("Waiting for authentication callback to complete...")
             for i in range(30):
