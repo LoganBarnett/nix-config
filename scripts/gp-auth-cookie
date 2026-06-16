@@ -155,6 +155,10 @@ def main():
     callback_url = saml.stdout.strip()
     if not callback_url:
         log("Playwright SAML driver exited 0 but did not emit a callback URL")
+        if saml.stderr:
+            log("Replaying SAML driver stderr for diagnosis:")
+            for line in saml.stderr.splitlines():
+                log(f"  saml-stderr: {line}")
         proc.terminate()
         return 1
     if not callback_url.startswith("globalprotectcallback:"):

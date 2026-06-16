@@ -240,10 +240,19 @@ def authenticate(auth_url, username, password, totp_code):
                 pass
             try:
                 skip_link = page.locator('[data-se="skip-link"]')
-                if skip_link.count() > 0:
-                    log("Detected post-TOTP interstitial; clicking skip-link to continue")
-                    skip_link.first.click()
-                    time.sleep(2)
+                skip_count = skip_link.count()
+                log(f"Skip-link probe: matched {skip_count} element(s); URL is {page.url}")
+                page.screenshot(path="/tmp/gp-auth-pre-skip.png")
+                if skip_count > 0:
+                    log("Clicking skip-link to defer the interstitial")
+                    skip_link.first.click(timeout=10000)
+                    log("Skip-link clicked; waiting for navigation")
+                    try:
+                        page.wait_for_load_state('networkidle', timeout=10000)
+                    except Exception as e:
+                        log(f"Post-click networkidle wait raised: {e}")
+                    page.screenshot(path="/tmp/gp-auth-post-skip.png")
+                    log(f"Post-skip URL: {page.url}")
             except Exception as e:
                 log(f"Skip-link probe raised: {e}")
 
