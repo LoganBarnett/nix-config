@@ -52,6 +52,10 @@ readonly PING=/sbin/ping
 readonly SCUTIL=/usr/sbin/scutil
 readonly STAT=/usr/bin/stat
 
+# Lock directory.  Global (not a main-local) so the EXIT trap, which fires in
+# the global scope after main returns, can still reference it under `set -u`.
+readonly LOCK_DIR="$STATE_DIR/reconcile.lock"
+
 log() {
   printf '[vpn-reconcile] %s\n' "$*"
 }
@@ -222,11 +226,10 @@ main() {
 
   # Serialize concurrent runs (a timer tick racing an event).  mkdir is atomic;
   # a lock older than 5 minutes is treated as stale and stolen.
-  local lock="$STATE_DIR/reconcile.lock"
-  if ! mkdir "$lock" 2>/dev/null; then
+  if ! mkdir "$LOCK_DIR" 2>/dev/null; then
     local now lock_mtime age
     now="$(date +%s)"
-    lock_mtime="$("$STAT" -f %m "$lock" 2>/dev/null || echo 0)"
+    lock_mtime="$("$STAT" -f %m "$LOCK_DIR" 2>/dev/null || echo 0)"
     age=$(( now - lock_mtime ))
     if (( age < 300 )); then
       log "another reconcile holds the lock; skipping"
@@ -234,7 +237,7 @@ main() {
     fi
     log "stealing stale lock (${age}s old)"
   fi
-  trap 'rmdir "$lock" 2>/dev/null || true' EXIT
+  trap 'rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT
 
   if at_home; then
     log "on home LAN; ensuring tunnel is down"
