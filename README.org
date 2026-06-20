@@ -330,7 +330,40 @@ nix-darwin-switch
 #+end_src
 
 Current packages using this pattern: ~claude-code~, ~firefox-bin~,
-~makemkv~, ~signal-desktop-bin~, ~yt-dlp~, ~zoom-us~.
+~makemkv~, ~opencode~, ~opencode-bun~, ~signal-desktop-bin~, ~yt-dlp~,
+~zoom-us~.
+
+*** Prefer from-source builds over direct binary downloads
+
+This pattern comes in two shapes, and the choice between them is a /policy/, not
+a convenience call:
+
+- *From-source (preferred, default).* Pin ~version~ plus whatever
+  fixed-output hashes the build needs (e.g. a ~srcHash~ and a vendored-deps
+  hash such as ~nodeModulesHash~ or ~cargoHash~), and build the package from
+  its published source.  When nixpkgs already builds the package from source,
+  vendor its derivation under ~derivations/<pkg>/default.nix~ (an unaltered
+  copy, save a header comment, is fine) and override the pinned fields from
+  ~static.nix~.  ~opencode~ is the exemplar.
+
+- *Direct binary download (exception, requires sign-off).* Fetch a prebuilt
+  artifact and install it without compiling.  Only choose this when *both* of
+  the following hold, *and a human has explicitly approved it*:
+
+  1. We trust the source /enough/ to run its bytes unbuilt (a first-party
+     vendor artifact — npm package, signed release — not a random mirror), and
+  2. Building from source is genuinely impractical — the source is closed
+     (e.g. ~claude-code~), or the from-source build is infeasible for reasons
+     that must be spelled out *in loads of comments* in the overlay/derivation.
+
+  The justification belongs in the file as comments, not just in a commit
+  message.  Absent an approved, documented reason, default to from-source even
+  when a prebuilt binary would be less work.
+
+The reason for the bias: a from-source build is auditable and reproducible from
+inputs we can read; a prebuilt binary asks us to trust opaque bytes and usually
+must be re-pinned per platform.  "It was easier" is not a sufficient reason to
+take that trade.
 
 ** Evergreen Packages
 

@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+
+################################################################################
+# Updates static.nix with a new version + per-platform zip hashes for the Bun
+# pinned solely to build opencode (static.nix.opencode-bun; consumed by
+# overlays/opencode.nix and handed to the derivation via callPackage).  The
+# global pkgs.bun is unaffected.
+#
+# Bun ships as prebuilt release zips, so each hash is a flat file hash (no
+# --unpack).  Defaults to the latest Bun release; pass a version (e.g. 1.3.13)
+# to pin a specific one.
+################################################################################
+
+set -euo pipefail
+
+repo_root="$PWD"
+
+version="${1:-}"
+if [ -z "${version}" ]; then
+  version="$(curl --fail --silent --location \
+    https://api.github.com/repos/oven-sh/bun/releases/latest \
+      | jq --raw-output '.tag_name | ltrimstr("bun-v")'
+  )"
+fi
+
+echo "Bun version: ${version}"
+
+# Platform-specific zip names (note the x86_64-darwin "baseline" variant),
+# matching nixpkgs's own bun derivation.
+declare -A files=(
+  [aarch64-darwin]=bun-darwin-aarch64.zip
+  [x86_64-darwin]=bun-darwin-x64-baseline.zip
+  [aarch64-linux]=bun-linux-aarch64.zip
+  [x86_64-linux]=bun-linux-x64.zip
+)
+
+declare -A hashes
+
+for nix_system in "${!files[@]}"; do
+  url="https://github.com/oven-sh/bun/releases/download/bun-v${version}/${files[$nix_system]}"
+  echo "Fetching ${nix_system}..."
+  hash_32="$(nix-prefetch-url "${url}")"
+  hashes[${nix_system}]="$(nix hash to-sri --type sha256 "${hash_32}")"
+  echo "  ${nix_system}: ${hashes[$nix_system]}"
+done
+
+cd "${repo_root}"
+
+nix-editor static.nix 'opencode-bun.version' --val "\"${version}\"" --inplace
+
+for nix_system in "${!hashes[@]}"; do
+  nix-editor \
+    static.nix \
+    "opencode-bun.${nix_system}.hash" \
+    --val "\"${hashes[$nix_system]}\"" \
+    --inplace
+done
+
+# Final formatting pass.
+nix-editor static.nix 'opencode-bun.version' --val "\"${version}\"" --inplace --format
+
+echo "Done.  Updated static.nix to opencode-bun ${version}."

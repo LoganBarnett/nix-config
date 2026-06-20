@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+
+################################################################################
+# Updates static.nix with the new version, source hash, and node_modules hash
+# for opencode (a from-source build — see overlays/opencode.nix and
+# derivations/opencode/default.nix).
+#
+# Unlike the prebuilt-binary updaters (e.g. claude-code-update), these hashes
+# cannot be prefetched from a URL: both fetchFromGitHub and the bun-install
+# fixed-output derivation produce NAR hashes you only learn by building.  So we
+# set each hash to a placeholder, build, and read the real hash nix reports as
+# "got:".
+#
+# If the build later fails on a missing Bun feature (opencode's bundle step
+# needs a recent Bun), bump the scoped Bun first with scripts/opencode-bun-update,
+# then re-run this.
+################################################################################
+
+set -euo pipefail
+
+repo_root="$PWD"
+
+# lib.fakeHash — a syntactically valid SRI that will never match, forcing nix to
+# report the real hash.
+fake="sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+
+# Build opencode's node_modules attribute under the opencode overlay and echo
+# the sha256 nix reports.  On a hash mismatch nix prints "got: sha256-..."; on
+# success it prints nothing here (meaning the placeholder happened to be right,
+# which never occurs in practice).
+build_node_modules_got() {
+  local log
+  log="$(mktemp)"
+  nix build --no-link --impure --expr '
+    let
+      flake = builtins.getFlake (toString ./.);
+      system = builtins.currentSystem;
+      pkgs = import flake.inputs.nixpkgs {
+        inherit system;
+        overlays = [ (import ./overlays/opencode.nix { inherit system; }) ];
+      };
+    in
+    pkgs.opencode.node_modules
+  ' >/dev/null 2>"$log" || true
+  grep --only-matching --extended-regexp 'got:[[:space:]]+sha256-[A-Za-z0-9+/=]+' "$log" \
+    | grep --only-matching --extended-regexp 'sha256-[A-Za-z0-9+/=]+' \
+    | head -1
+}
+
+# Latest version from GitHub releases.
+version="$(curl --fail --silent --location \
+  https://api.github.com/repos/anomalyco/opencode/releases/latest \
+    | jq --raw-output '.tag_name | ltrimstr("v")'
+)"
+
+echo "Version: ${version}"
+
+cd "${repo_root}"
+
+nix-editor static.nix 'opencode.version'         --val "\"${version}\"" --inplace
+nix-editor static.nix 'opencode.srcHash'         --val "\"${fake}\""    --inplace
+nix-editor static.nix 'opencode.nodeModulesHash' --val "\"${fake}\""    --inplace
+
+# 1. Source hash: with a placeholder srcHash, the fetchFromGitHub that feeds
+#    node_modules fails first and reports the real source hash.
+echo "Resolving source hash..."
+src_sri="$(build_node_modules_got)"
+[ -n "${src_sri}" ] || {
+  echo "Failed to resolve srcHash from build output." >&2
+  exit 1
+}
+echo "  srcHash: ${src_sri}"
+nix-editor static.nix 'opencode.srcHash' --val "\"${src_sri}\"" --inplace
+
+# 2. node_modules hash: with the real src in place, the bun-install FOD builds
+#    and reports the real node_modules hash.
+echo "Resolving node_modules hash (runs bun install)..."
+nm_sri="$(build_node_modules_got)"
+[ -n "${nm_sri}" ] || {
+  echo "Failed to resolve nodeModulesHash from build output." >&2
+  exit 1
+}
+echo "  nodeModulesHash: ${nm_sri}"
+nix-editor static.nix 'opencode.nodeModulesHash' --val "\"${nm_sri}\"" --inplace
+
+# Final formatting pass.
+nix-editor static.nix 'opencode.version' --val "\"${version}\"" --inplace --format
+
+echo "Done.  Updated static.nix to opencode ${version}.  Build to verify, then redeploy."

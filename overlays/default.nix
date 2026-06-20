@@ -37,6 +37,7 @@
   (import ./gpclient.nix)
   (import ./signal-desktop.nix { inherit flake-inputs system; })
   (import ./claude-code.nix { inherit flake-inputs system; })
+  (import ./opencode.nix { inherit system; })
   (import ./makemkv.nix)
   # (import (builtins.fetchTarball
   #   "https://github.com/oxalica/rust-overlay/archive/master.tar.gz"))

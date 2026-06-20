@@ -32,6 +32,33 @@
     aarch64-linux.hash = "sha256-jnUSkOW5MVHGnOz2Kp0c4k4cSkT07/u3/oshFaYoM5E=";
   };
 
+  # opencode is built from source via the vendored derivation
+  # (../derivations/opencode/default.nix), overridden by overlays/opencode.nix.
+  # Pinned independently of nixpkgs because the Emacs client (emacs-opencode)
+  # tracks opencode's HTTP API on the latest release, many minor versions ahead
+  # of what the pinned nixpkgs ships.  `srcHash` is the fetchFromGitHub hash;
+  # `nodeModulesHash` is the bun-install fixed-output hash (both change per
+  # release).  Initial values match the vendored master copy.
+  opencode = {
+    version = "1.17.8";
+    srcHash = "sha256-iReCFIJeJIOIs95v0ReVR/X1PnT5dSnR9O0TniyvPR8=";
+    nodeModulesHash = "sha256-ERywlcNEF9EUW3JDGH8987g+GAj76RylUtegqMvStyg=";
+  };
+
+  # A Bun pinned *only* for building opencode (overlays/opencode.nix passes it
+  # via callPackage; the global pkgs.bun is untouched).  opencode 1.17.x's build
+  # embeds its web UI through a Bun virtual-module entrypoint that needs a newer
+  # Bun than 25.11 ships (1.3.2); this pins the version nixpkgs master builds
+  # opencode against.  Bun is distributed only as prebuilt release zips, so this
+  # is one flat file hash per platform.
+  opencode-bun = {
+    version = "1.3.13";
+    aarch64-darwin.hash = "sha256-VGfj9l26Umuf6pjwzOBO+vwMY+Fpcz7Ce4dqOtMtoZA=";
+    x86_64-darwin.hash = "sha256-qYumpIDyL9qbNDYmuQak4mqlNhi/hdK8WSjs8rpF8O0=";
+    aarch64-linux.hash = "sha256-cLrkGzkIsKEg4eWMXIrzDnSvrjuNEbDT/djnh937SyI=";
+    x86_64-linux.hash = "sha256-ecB3H6i5LDOq5B4VoODTB+qZ0OLwAxfHHGxTI3p44lo=";
+  };
+
   makemkv = {
     version = "1.18.3";
     # MakeMKV has two components: oss (open source) and bin (proprietary).
