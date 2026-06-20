@@ -74,9 +74,13 @@ let
     ];
     mandatoryFeatures = [ ];
   };
-  # Darwin hosts build natively for aarch64-darwin and don't benefit from the
-  # ARM Linux builders.  Only include rpi-build for NixOS hosts.
-  allBuilders = lib.optionals (!pkgs.stdenv.isDarwin) [ rpi-build ] ++ [
+  # cobalt (rpi-build) is our general aarch64-linux builder, available to every
+  # host including Darwin.  Darwin hosts build aarch64-darwin natively, but they
+  # still need a Linux builder for aarch64-linux (and the other ARM Linux
+  # systems); offloading those to cobalt beats grinding them through the local
+  # nix.linux-builder VM.
+  allBuilders = [
+    rpi-build
     silicon
   ];
 in
