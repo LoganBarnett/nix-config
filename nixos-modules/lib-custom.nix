@@ -28,6 +28,16 @@
             in
             "${subnet}.${toString host.ipv4}";
 
+          # Returns the lowercased MAC addresses of the host designated as the
+          # network gateway (network.gateway-host).  vpn-reconcile uses these to
+          # recognize the home network at L2, independent of the VPN tunnel's
+          # state.  Empty when the gateway host has no MACs recorded yet.
+          networkGatewayMacs =
+            facts:
+            map final.lib.toLower (
+              facts.network.hosts.${facts.network.gateway-host}.macAddresses or [ ]
+            );
+
           monitor-to-exporter-name =
             monitor:
             {

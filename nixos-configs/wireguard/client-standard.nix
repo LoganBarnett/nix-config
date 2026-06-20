@@ -71,7 +71,10 @@
                 "192.168.102.0/24"
               ];
               endpoint = "vpn.logustus.com:51820";
-              persistentKeepalive = null;
+              # 25s keepalive holds the NAT mapping open and keeps handshakes
+              # fresh, so vpn-reconcile can detect a dead tunnel by handshake
+              # age rather than waiting for the next outbound packet.
+              persistentKeepalive = 25;
               presharedKeyFile = null;
               publicKey = builtins.readFile ../../secrets/silicon-wireguard-server.pub;
             }
@@ -96,7 +99,10 @@
                 "0.0.0.0/0"
               ];
               endpoint = "vpn.logustus.com:51820";
-              persistentKeepalive = null;
+              # 25s keepalive holds the NAT mapping open and keeps handshakes
+              # fresh, so vpn-reconcile can detect a dead tunnel by handshake
+              # age rather than waiting for the next outbound packet.
+              persistentKeepalive = 25;
               presharedKeyFile = null;
               publicKey = builtins.readFile ../../secrets/silicon-wireguard-server.pub;
             }

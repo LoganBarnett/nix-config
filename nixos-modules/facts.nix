@@ -13,6 +13,13 @@
     # The host-id of the machine that serves DNS for the home network.  Used
     # by pkgs.lib.custom.networkDnsIp to derive the server's full IP address.
     dns-host = "silicon";
+    # The host-id of the machine acting as the network's default gateway
+    # (router).  vpn-reconcile reads this host's macAddresses (via
+    # pkgs.lib.custom.networkGatewayMacs) to recognize the home network at L2,
+    # independent of the VPN tunnel's state.  Currently the consumer router;
+    # flip to "silicon" when network-gateway.nix is enabled there (its MAC is
+    # already recorded).
+    gateway-host = "gateway";
     # These are just stringly prefixes for IP addresses.  At some point I should
     # turn these into real subnets with masks.
     subnets = {
@@ -188,6 +195,14 @@
       gateway = {
         controlledHost = false;
         ipv4 = 254;
+        # The consumer router's LAN-side MAC.  vpn-reconcile uses the MAC(s) of
+        # whichever host network.gateway-host points at to recognize the home
+        # network at L2 (independent of the tunnel's state).  When silicon
+        # becomes the router, flip network.gateway-host to "silicon" and this
+        # entry's MAC becomes irrelevant.
+        macAddresses = [
+          "c8:63:fc:63:53:20"
+        ];
         monitors = [ ];
       };
       lithium = {

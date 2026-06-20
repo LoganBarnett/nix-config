@@ -1,0 +1,88 @@
+#+title:     NOPASSWD sudo rules should reference store paths
+#+language:  en
+
+* Summary
+
+When granting a user passwordless ~sudo~ to a Nix-built helper, the
+~Cmnd~ in the sudoers rule should be the tool's exact store path
+(~${pkg}/bin/tool~), /not/ the ~/run/current-system/sw/bin/tool~
+activation symlink (nor a Home Manager ~~/.nix-profile/bin~ path).
+
+This is the convention for packaged helper tools we elevate, e.g.
+~vpn-reconcile~ in ~darwin-configs/sytter.nix~.
+
+* Why the store path
+
+** It decouples the rule from how the binary reaches PATH
+
+A symlink-path rule silently depends on the tool being provided through
+one particular channel — nix-darwin's ~environment.systemPackages~
+(~/run/current-system/sw/bin~) versus a Home Manager profile
+(~/etc/profiles/per-user/...~ or ~~/.nix-profile/bin~).  Move the package
+between those and the rule's target path changes out from under it.  The
+store path does not care: it is the same regardless of which profile, if
+any, also exposes the tool on ~PATH~.
+
+** It pins NOPASSWD to one specific, audited build
+
+A store path names exactly one realized derivation.  The grant therefore
+applies to /that build/ and nothing else — not to "whatever currently
+answers to this name on ~PATH~".  A future, unrelated package that
+happens to install a same-named binary into ~/run/current-system/sw/bin~
+cannot inherit the passwordless grant.
+
+** You lose nothing in ergonomics, because sudo canonicalizes
+
+~sudo~ resolves the invoked command to its real path (via ~realpath~)
+before matching it against the sudoers ~Cmnd~.  So a hand-run
+~sudo tool~ — found on ~PATH~ at a symlink such as
+~/run/current-system/sw/bin/tool~ — still matches a rule that lists the
+store path, because both sides resolve to the same realized binary.
+
+Verified on ~sudo~ 1.9.13p2 (the version shipped with macOS at time of
+writing): a rule listing only the ~/run/current-system/sw/bin~ symlink
+path matched an invocation given the fully-resolved store path.  To
+re-check on a future version:
+
+#+begin_src sh
+  link=/run/current-system/sw/bin/darwin-rebuild   # has a symlink-path rule
+  sudo -n -l "$link"                  # permitted (lists the path)
+  sudo -n -l "$(readlink -f "$link")" # also permitted ⇒ sudo canonicalizes
+#+end_src
+
+If a future ~sudo~ ever stops canonicalizing, hand-running by bare name
+would start prompting for a password, but the sytt/daemon invocation
+(which already uses the store path directly) would be unaffected.
+
+* The one trade-off
+
+The sudoers file is regenerated whenever the tool's build changes — a new
+derivation hash means a new path in the rule.  Activation diffs will show
+the rule churning.  That is expected and correct: the rule is tracking the
+specific blessed build.  If a stable, never-churning sudoers entry is more
+important than pinning (rare), the ~/run/current-system/sw/bin~ symlink is
+the alternative, with the coupling and looser-grant caveats above.  Some
+older rules in this repo (e.g. ~darwin-rebuild~) use the symlink form for
+that reason; new packaged-helper grants should prefer the store path.
+
+* Hand-runnability is orthogonal
+
+Pinning the rule to the store path does not mean the tool is hard to run
+by hand.  Add it to ~environment.systemPackages~ (or ~home.packages~)
+purely for ~PATH~ convenience; the canonicalization above ensures
+~sudo tool~ still matches the store-path rule.  The package listing and
+the sudo rule are independent concerns.
+
+* Example
+
+From ~darwin-configs/sytter.nix~:
+
+#+begin_src nix
+  # On PATH for hand-running (orthogonal to the rule below).
+  environment.systemPackages = [ vpn-reconcile ];
+
+  # Passwordless grant pinned to the exact build.
+  security.sudo.extraConfig = ''
+    logan ALL=(root) NOPASSWD: ${vpn-reconcile}/bin/vpn-reconcile
+  '';
+#+end_src

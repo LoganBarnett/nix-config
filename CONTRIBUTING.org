@@ -54,3 +54,15 @@ Search for incoming links (~git grep 'docs/oldname'~,
 ~git grep 'oldname.org'~) and update or delete them.  A broken link in
 ~README.org~ is worse than no link, because it implies a trail that
 doesn't exist.
+
+* Nix conventions
+
+- *Passwordless sudo grants* — when a helper needs a scoped ~NOPASSWD~
+  sudo rule, bless the tool's exact store path, not the
+  ~/run/current-system/sw/bin~ symlink.  See
+  [[file:docs/nix-sudo-store-paths.org][docs/nix-sudo-store-paths.org]].
+- *Rapid package updaters* — how to author a version-pinned updater, and
+  the policy that from-source builds are preferred over direct binary
+  downloads (a binary download is an exception needing human sign-off and
+  in-file justification).  See
+  [[file:README.org::*Rapid Package Updates][README.org → Rapid Package Updates]].
