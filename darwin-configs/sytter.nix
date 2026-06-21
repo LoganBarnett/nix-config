@@ -53,6 +53,13 @@ in
             device_types = [ "any" ];
           }
         ];
+        # sytter requires at least one condition; "true" means always run.
+        conditions = [
+          {
+            kind = "shell";
+            script = "true";
+          }
+        ];
         executors = [
           {
             kind = "shell";
@@ -86,6 +93,13 @@ in
             kind = "device-connection";
             events = [ "Add" ];
             device_types = [ "network" ];
+          }
+        ];
+        # sytter requires at least one condition; "true" means always run.
+        conditions = [
+          {
+            kind = "shell";
+            script = "true";
           }
         ];
         executors = [
