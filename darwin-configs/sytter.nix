@@ -39,6 +39,9 @@ in
   '';
   services.sytter = {
     enable = true;
+    # Default 8080 is occupied on at least scandium; move sytter's internal
+    # HTTP/IPC server to a free port so it can bind and start.
+    http-port = 8422;
     sytters = {
       keyboard-remap = {
         name = "macOS keyboard remap";
