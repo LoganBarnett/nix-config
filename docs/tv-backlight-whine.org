@@ -1,0 +1,105 @@
+#+title:     TV backlight coil whine (living-room Philips)
+#+language:  en
+
+* Overview
+
+A high-pitched buzz / whine from the living-room Philips TV — a *TV hardware*
+issue, fully independent of =krypton= / Kodi.  Documented because the diagnosis
+is non-obvious and it surfaced during unrelated CEC debugging (see
+[[file:kodi-cec-troubleshooting.org][kodi-cec-troubleshooting.org]]).
+
+* Matching symptoms
+
+- High-pitched buzz / whine from behind the panel, *below-center* (the
+  power-supply / backlight-driver board), not the speakers.
+- Independent of Kodi — muting Kodi (over JSON-RPC or otherwise) changes
+  nothing.
+- Independent of *TV* volume / mute, and of the TV-speakers-vs-external-audio
+  setting.
+- Present on *real* inputs (HDMI, *and* the tuner — even a black tuner screen)
+  but *not* on the TV's internal smart-UI / apps.
+- Cupping a hand over a tall transformer / inductor (black bobbin, yellow
+  insulation tape) on that board damps it.
+- Whine pitch / rate *tracks the backlight level*; gone at 100% backlight,
+  degrades to a *clicking* at very low backlight.
+
+* Root cause
+
+*PWM backlight-dimming coil whine.*  Below 100% backlight the TV dims the LED
+backlight by *pulsing* it (PWM); that pulsing current makes the
+backlight-driver inductor mechanically resonate.  At *100% backlight* the drive
+is continuous — no pulsing — so the inductor is silent.
+
+A factory reset re-enables eco / auto-brightness defaults and a lower (PWM)
+backlight, which turns a normally-faint whine loud.  It is not *new* after a
+reset — just louder, and no longer masked by program audio.
+
+* Fix
+
+1. Set *Backlight = 100%* — the silent, no-PWM operating point.
+2. If 100% is too bright, dim the *picture*, not the backlight: lower
+   *Contrast* / *Brightness*, or use a *Movie/Cinema* picture mode.  These
+   scale the video signal, not the LED PWM, so they darken the image while the
+   backlight stays at silent full-duty.
+3. Turn *OFF* everything that auto-dims the backlight, or PWM (and the whine)
+   returns even with the slider at 100%:
+   - Ambient light sensor / auto-brightness
+   - Eco / energy-saving mode
+   - Local dimming / contrast enhancement
+
+* Identified component (for possible replacement)
+
+The whine originates from a single magnetic component on the TV's power-supply
+/ backlight-driver board, confirmed by damping it with a hand — the buzz stops
+while the part is touched / covered.
+
+Printed on part:
+
+#+begin_quote
+JSIS2.0 LTT3PCOXB070
+F247881 BCK-33-194T
+#+end_quote
+
+Physical description:
+
+- Tall through-hole component standing proud of the PCB.
+- Black plastic bobbin / housing with a *yellow band*, and *yellow insulation
+  tape* (Mylar / polyester) wrapped near the base toward the PCB.
+- Located *below-center* on the board behind the panel.
+- Function: the backlight LED-driver inductor / transformer.  Its current is
+  PWM-modulated whenever the backlight is below 100%, which is what makes it
+  sing (see [[Root cause]]).
+
+
+Caveats before replacing it:
+
+- This is a "working but mechanically resonant" part, *not* a failed one — the
+  non-invasive fix (backlight 100% + auto-dimming off; see [[Fix]]) is
+  preferred.  Swapping the magnetic is not guaranteed to silence it, and an
+  exact replacement may resonate the same.
+- Coil whine on a healthy magnetic is more commonly addressed by *staking* — a
+  dab of non-conductive adhesive / varnish to mechanically damp the windings —
+  than by replacement.
+
+To source a replacement, capture the following (TV *unplugged and discharged* —
+see [[Notes]] for the hazard):
+
+1. The TV's *model number* (rear label).
+2. The *board's* printed part number.  Philips / TPV power / backlight boards
+   usually carry a =715G...= or =PLTV...= identifier, silkscreened or on a
+   sticker.
+3. The component's *reference designator* (silkscreen, e.g. =T1= / =L1= /
+   =PT...=) and any markings printed on the part itself.
+
+With the board part number and the designator, the board's service manual /
+parts list maps it to an orderable component.
+
+* Notes
+
+- Do *not* use a backlight-*dimming* idle screensaver — dimming is exactly what
+  causes the whine.  A plain black screensaver is fine (the backlight stays
+  full).
+- Working on the PSU / backlight board *live* is a shock hazard: the primary
+  side and bulk capacitors carry lethal voltage and stay charged for minutes
+  after unplugging.  Do all of the adjustment above from the on-screen menus,
+  not inside the chassis.

@@ -1,0 +1,218 @@
+#+title:     Kodi / CEC Troubleshooting (krypton)
+#+language:  en
+
+* Overview
+
+The =krypton= host (Mac Mini 7,1) runs Kodi in standalone mode on the
+living-room Philips Android TV.  HDMI-CEC (so the TV remote drives Kodi) is
+provided by a Pulse-Eight USB-CEC adapter, not the TV's own controls.
+
+Key facts (see [[Reference: setup facts]] for the full list):
+
+- Adapter: Pulse-Eight USB-CEC, USB id =2548:1002=, exposed as =/dev/ttyACM0=.
+- Plugged into TV *HDMI port 3*; CEC physical address *3.0.0.0*.
+- libCEC talks the P8_USB protocol over the serial device.  The =kodi= user
+  (uid 1001) must be in the =dialout= group to open it.
+- Kodi runs as a systemd *--user* service owned by the =kodi= user.
+
+This doc covers CEC remote control dying
+([[Symptom: TV remote won't drive Kodi]]).  The second section,
+[[CEC health check (cec-client diagnostics)]], is a general-purpose toolkit for
+poking at the CEC bus from the command line.
+
+A separate, unrelated TV hardware fault (a power-supply / backlight whine) that
+surfaced during this debugging is written up in
+[[file:tv-backlight-whine.org][tv-backlight-whine.org]].
+
+* Symptom: TV remote won't drive Kodi
+
+** Matching symptoms
+
+- The TV's input / CEC-device list shows generic *"HDMI 1"*, *"HDMI 3"* instead
+  of device *names* ("Roku", "Kodi").  Historically the names appear.
+- TV remote buttons don't navigate Kodi; pressing OK pops the *TV's own* menu
+  (the TV is consuming the key locally instead of forwarding it).
+- Some *other* CEC device on the TV (here, an old Roku) shows an *HDCP error*
+  around the same time.
+- It worked before and nothing was deployed / no config changed.
+
+** Root cause (working theory)
+
+CEC is a *single shared bus* across all the TV's HDMI ports.  When one device
+faults — the Roku was simultaneously throwing HDCP errors — it appears to wedge
+the bus so the TV cannot complete physical-address / device-name registration
+for *any* device, and it falls back to generic port labels.  The TV only
+forwards remote keys to a *registered, active-source* device, so with
+registration broken, no device gets the remote.
+
+This is why the symptom hits *every* device at once (both Roku and Kodi), not
+just Kodi — the common element is the bus, not any one source.
+
+** Known-good fix
+
+1. Power-cycle / reboot the *faulted* device — the one showing the HDCP error
+   (the Roku), not Kodi.
+2. Disconnect *all* source devices from the TV.
+3. Reconnect them *one at a time*, letting each re-handshake.  Expect to press
+   the TV power / input button a couple of times; the input may briefly show
+   "no input" before it settles.
+4. Confirm each device now appears *by name* in the TV's input list.
+
+This forces a clean CEC bus renegotiation from an empty bus.  Note what does
+*not* work, because the faulted device/state stays on the bus the whole time:
+a Kodi service restart, a full =krypton= reboot, and even a TV *factory reset*
+all left the symptom in place.  The disconnect-all / reconnect-one sequence is
+the thing that fixed it.
+
+** Possible shortcut (unverified)
+
+It is plausible that simply rebooting the faulted device, or re-handshaking only
+=krypton= (unplug/replug its HDMI and press power twice), is enough — the active
+ingredient seems to be clearing the faulted device and re-running the bus
+handshake.  Only the full disconnect-all / reconnect-one-after-reboot procedure
+above is *confirmed* to work; treat the shortcuts as worth-a-try, not proven.
+
+* CEC health check (cec-client diagnostics)
+
+A layered checklist, cheapest first.  Run from a sudo-capable admin login (not
+the =kodi= user).  This is the toolkit used to prove, top to bottom, that the
+adapter / USB / permissions / libCEC were all healthy and the fault was on the
+TV side.
+
+** 1. Adapter present on USB
+
+#+begin_src sh
+lsusb | grep -i 2548        # Pulse-Eight CEC Adapter = 2548:1002
+#+end_src
+
+** 2. Serial device exists with correct ownership
+
+#+begin_src sh
+ls -la /dev/ttyACM0         # expect: crw-rw---- root dialout
+#+end_src
+
+** 3. The kodi user can open it
+
+#+begin_src sh
+id kodi                     # group list must include 27(dialout)
+#+end_src
+
+** 4. Who currently holds the port
+
+#+begin_src sh
+sudo lsof /dev/ttyACM0      # normally kodi-x11 (Kodi has it open)
+#+end_src
+
+** 5. Kernel USB history (did the adapter drop / re-enumerate?)
+
+#+begin_src sh
+sudo journalctl -k | grep -iE "ttyACM|cdc_acm|2548|disconnect"
+#+end_src
+
+A single enumeration at boot with no later =disconnect= lines means the USB
+side has been stable.
+
+** 6. Kodi's own CEC log
+
+#+begin_src sh
+sudo grep -iE "cec|adapter|ttyACM" /home/kodi/.kodi/temp/kodi.log | tail
+#+end_src
+
+Look for =new cec device registered on cec->/dev/ttyACM0=.  For verbose libCEC
+output, toggle Kodi debug logging over JSON-RPC (no restart needed for the
+setting; restart Kodi to capture a fresh CEC init):
+
+#+begin_src sh
+# enable
+curl -s -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"Settings.SetSettingValue","params":{"setting":"debug.showloginfo","value":true},"id":1}' \
+  http://localhost:8080/jsonrpc
+# disable (value:false) when done — it is noisy
+#+end_src
+
+** Deep bus probe with cec-client
+
+cec-client needs *exclusive* access to =/dev/ttyACM0=, so Kodi must be stopped
+first (Kodi holds the port whenever it is running).
+
+*** Stop Kodi (it is a --user service)
+
+#+begin_src sh
+sudo -u kodi XDG_RUNTIME_DIR=/run/user/1001 systemctl --user stop kodi.service
+#+end_src
+
+*** Scan the bus — who is on it, and at what address
+
+#+begin_src sh
+echo scan | sudo cec-client -s -d 8 /dev/ttyACM0
+#+end_src
+
+Healthy output lists =device #0: TV= at =0.0.0.0= and the adapter as
+=Recorder 1= at =3.0.0.0=.
+
+*** Adapter info + physical-address detection
+
+#+begin_src sh
+( sleep 7; echo i; sleep 2; echo scan; sleep 8; echo q ) \
+  | sudo cec-client -d 31 /dev/ttyACM0
+#+end_src
+
+Look for =using auto-detected physical address 3000= and
+=CEC client registered: ... physical address: 3.0.0.0=.  This proves the
+adapter knows its port and can announce itself correctly.
+
+*** Active-source + remote-key-forwarding test
+
+#+begin_src sh
+( echo as; sleep 60 ) | sudo cec-client -t p -p 3 -d 8 /dev/ttyACM0
+#+end_src
+
+- =as= = make the adapter the active source; =-t p= = announce as a *Playback*
+  device; =-p 3= = HDMI port 3.
+- While it runs, press TV-remote buttons and watch for incoming
+  =>> ..:44= frames (CEC opcode 0x44 = User Control Pressed).
+- Frames arrive ⇒ the TV *is* forwarding keys.  Zero frames ⇒ the TV is *not*
+  forwarding — an active-source / registration / TV-side problem, not Kodi.
+
+*** Restart Kodi — ALWAYS do this afterward
+
+#+begin_src sh
+sudo -u kodi XDG_RUNTIME_DIR=/run/user/1001 systemctl --user start kodi.service
+#+end_src
+
+** Gotchas
+
+- *Permission denied* opening =/dev/ttyACM0= from cec-client ⇒ you forgot
+  =sudo= (or the running user is not in =dialout=).  Not an adapter fault.
+- A *stray cec-client* can keep holding the port after a session and block Kodi
+  from reopening it.  Kill it with the *exact-name* matcher:
+  #+begin_src sh
+  sudo pkill -x cec-client     # -x = exact process name
+  #+end_src
+  Never =pkill -f cec-client= over SSH — =-f= matches the full command line,
+  which includes your *own* ssh invocation, and kills your session.
+- If stopping Kodi leaves the unit *failed*:
+  #+begin_src sh
+  sudo -u kodi XDG_RUNTIME_DIR=/run/user/1001 systemctl --user reset-failed kodi.service
+  sudo -u kodi XDG_RUNTIME_DIR=/run/user/1001 systemctl --user start kodi.service
+  #+end_src
+- Decoding frames in =-d 8= traffic: =<< Xf:82:pp:pp= = Active Source broadcast
+  (=pp:pp= = physical address); =>> X0:90:..= = TV reports power status;
+  =>> X.:83= = give physical address; =..:44= = User Control Pressed.
+- *Device type* can matter: =-t r= = Recording (libCEC default), =-t p= =
+  Playback.  Some TVs only forward keys to one type.  On this TV neither type
+  helped — the real fault was the wedged bus (see the symptom section above),
+  not the device type.
+
+* Reference: setup facts
+
+- Host: =krypton= (Mac Mini 7,1), NixOS, Kodi standalone, living-room Philips
+  Android TV.
+- CEC adapter: Pulse-Eight USB-CEC, =2548:1002=, firmware v12 → =/dev/ttyACM0=,
+  TV HDMI port 3, physical address 3.0.0.0.
+- libCEC 7.1.1 (system =cec-client= and Kodi-bundled =peripheral.cec= match);
+  Kodi 21.3 (Omega).
+- =kodi= user uid 1001, =XDG_RUNTIME_DIR=/run/user/1001=, member of =dialout=
+  (group 27).
+- CEC config lives in =nixos-configs/cec-adapter.nix=; the per-host HDMI port
+  override (=cec_hdmi_port = "3"=) is in =hosts/krypton.nix=.

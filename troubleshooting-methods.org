@@ -1211,3 +1211,18 @@ this can look like a leak being released.  If the
 ~MemAvailable~-based dashboard shows a sudden drop that coincides
 with a deploy, check the prior ~5-10 minutes for an equal or
 larger rise — that's the signature of a build spike, not a leak.
+
+** Kodi CEC remote stops working (devices show as "HDMI N", not by name)
+
+The TV remote no longer drives Kodi (=krypton=), and the TV's input list shows
+generic "HDMI 1" / "HDMI 3" instead of device names.  Usually a wedged CEC bus
+caused by another faulted device on the same TV (e.g. a Roku throwing HDCP
+errors).  Full symptom-matching, the known-good fix (reboot the faulted device,
+then reconnect sources one at a time), and a =cec-client= health-check toolkit
+are in [[file:docs/kodi-cec-troubleshooting.org][docs/kodi-cec-troubleshooting.org]].
+
+** Living-room TV high-pitched buzz / whine
+
+A whine from the TV itself (not Kodi), worst on a silent menu.  It is PWM
+backlight-dimming coil whine; the fix is backlight 100% with auto-dimming off.
+See [[file:docs/tv-backlight-whine.org][docs/tv-backlight-whine.org]].
