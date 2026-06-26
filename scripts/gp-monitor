@@ -200,12 +200,25 @@ connect() {
     if is_connected; then
       log "VPN connection established successfully"
 
-      # Fix DNS scoping on macOS
+      # Fix DNS scoping on macOS.  is_connected can flip true before
+      # scutil's Setup: keys for the VPN service are populated, in which
+      # case dns-vpn-scoping-fix exits non-zero on "No VPN DNS servers
+      # found in current configuration" — and never reaches its internal
+      # cache flush, leaving any pre-VPN NXDOMAINs cached.  Retry with
+      # 1s backoff until scutil catches up.
       log "Fixing DNS scoping for VPN interface..."
-      if dns-vpn-scoping-fix >> "$GP_MONITOR_LOG" 2>&1; then
-        log "DNS scoping fixed successfully"
-      else
-        log "WARNING: Failed to fix DNS scoping"
+      SCOPING_TRIES=0
+      SCOPING_MAX=15
+      while [ "$SCOPING_TRIES" -lt "$SCOPING_MAX" ]; do
+        if dns-vpn-scoping-fix >> "$GP_MONITOR_LOG" 2>&1; then
+          log "DNS scoping fixed after ${SCOPING_TRIES}s"
+          break
+        fi
+        SCOPING_TRIES=$((SCOPING_TRIES + 1))
+        sleep 1
+      done
+      if [ "$SCOPING_TRIES" -ge "$SCOPING_MAX" ]; then
+        log "WARNING: Failed to fix DNS scoping after ${SCOPING_MAX}s"
       fi
 
       return 0
