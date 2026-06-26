@@ -333,6 +333,21 @@ Current packages using this pattern: ~claude-code~, ~firefox-bin~,
 ~makemkv~, ~opencode~, ~opencode-bun~, ~signal-desktop-bin~, ~yt-dlp~,
 ~zoom-us~.
 
+~blackhole~ (the BlackHole 2ch macOS audio driver) pins version + hash in
+~static.nix~ with a ~scripts/blackhole-update~ bump script in this same spirit,
+but deviates from the three-part shape above: it has no ~overlays/<pkg>.nix~
+because the artifact is not a usable nixpkgs package but a notarized ~.pkg~ that
+Apple's ~installer~ lays into ~/Library/Audio/Plug-Ins/HAL~ as root.  It is
+therefore installed by a ~darwin-modules/blackhole.nix~ LaunchDaemon (the
+*mechanism* from §Evergreen Packages) while keeping the pinned-version
+*philosophy* here — a hybrid, because BlackHole both publishes a versioned,
+hashable URL (so we pin) and ships no self-updater (so a bump must come from
+Nix, and the bootstrapper's idempotency check is version-aware, not
+existence-only).  The from-source default is waived for it under the
+binary-download exception below: a CoreAudio HAL driver must be Developer-ID
+signed and notarized to load under SIP, which we cannot reproduce — see the
+module header for the full justification.
+
 *** Prefer from-source builds over direct binary downloads
 
 This pattern comes in two shapes, and the choice between them is a /policy/, not

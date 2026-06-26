@@ -175,6 +175,11 @@ in
         # keep it current.  Replaces the homebrew `microsoft-teams` cask.  See
         # darwin-modules/microsoft-teams.nix and README.org §Evergreen Packages.
         programs.microsoft-teams.enable = true;
+        # BlackHole 2ch virtual audio driver: a boot LaunchDaemon installs the
+        # pinned, notarized .pkg.  Used to route app audio (e.g. Apple Music
+        # mixed with the mic in OBS) into a virtual "microphone" Discord can
+        # select.  Pinned, not evergreen — see darwin-modules/blackhole.nix.
+        programs.blackhole.enable = true;
         environment.systemPackages =
           (import ../personal-packages.nix {
             inherit pkgs;

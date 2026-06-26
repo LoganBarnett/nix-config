@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+
+################################################################################
+# Updates static.nix with the new version and hash for `blackhole` (the
+# BlackHole 2ch macOS audio driver, installed by darwin-modules/blackhole.nix).
+#
+# BlackHole tags releases on GitHub (vX.Y.Z) but attaches no binary assets; the
+# signed, notarized .pkg is served from existential.audio at a stable,
+# versioned URL.  So we read the latest version from the GitHub release tag and
+# prefetch the matching .pkg from existential.audio.
+################################################################################
+
+set -euo pipefail
+
+version="$(curl --location --silent \
+  "https://api.github.com/repos/ExistentialAudio/BlackHole/releases/latest" \
+    | jq --raw-output '.tag_name' \
+    | sed 's/^v//'
+)"
+
+if [[ -z "$version" || "$version" == "null" ]]; then
+  echo "ERROR: Could not determine latest BlackHole version" >&2
+  exit 1
+fi
+
+echo "Latest version: ${version}"
+
+hash_32="$(nix-prefetch-url \
+  --type sha256 \
+  --name "BlackHole2ch-${version}.pkg" \
+  "https://existential.audio/downloads/BlackHole2ch-${version}.pkg"
+)"
+hash_sri="$(nix hash to-sri --type sha256 "${hash_32}")"
+
+echo "Hash: ${hash_sri}"
+
+nix-editor \
+  static.nix \
+  'blackhole.version' \
+  --val "\"$version\"" \
+  --inplace
+
+nix-editor \
+  static.nix \
+  'blackhole.hash' \
+  --val "\"$hash_sri\"" \
+  --inplace \
+  --format
+
+echo "Updated static.nix successfully"

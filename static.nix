@@ -126,4 +126,16 @@
     cargoHash = "sha256-WAzkVrXxI72FhbPmF9q4b2mKpx53NMSIX/Ze/GvwQdY=";
   };
 
+  # BlackHole 2ch — open-source (GPL-3.0) virtual CoreAudio loopback driver,
+  # installed imperatively by darwin-modules/blackhole.nix (NOT via an overlay:
+  # it is a notarized .pkg laid into /Library/Audio/Plug-Ins/HAL by Apple's
+  # `installer`, with no nixpkgs package to override).  Pinned here rather than
+  # treated as evergreen (steam/microsoft-teams) because Existential Audio ships
+  # stable, versioned, hashable artifacts AND no self-updater — the version bump
+  # has to come from us.  Bump with scripts/blackhole-update.
+  blackhole = {
+    version = "0.7.0";
+    hash = "sha256-pKRK48KolXewRohqVgX3bceKOgimJ9WfIurWD2Q0w3w=";
+  };
+
 }
