@@ -237,6 +237,10 @@ connect() {
         log "DNS scoping fix found no VPN DNS in scutil — vpnc-script-macos already configured /etc/resolver, continuing"
       fi
       log "Flushing DNS cache and HUPing mDNSResponder..."
+      # $GP_MONITOR_LOG is owned by the user running gp-monitor; the
+      # redirect lands in that user's file, not root's — sudo affecting
+      # only the inner command is correct here.
+      # shellcheck disable=SC2024
       if sudo dns-resolver-helper flush-cache >> "$GP_MONITOR_LOG" 2>&1; then
         log "DNS cache flushed"
       else
