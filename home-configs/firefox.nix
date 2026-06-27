@@ -49,6 +49,19 @@
           addons.ghosttext
           addons."tab-counter-plus"
           addons.vimium
+          # AboveVTT is not in the NUR rycee firefox-addons collection, so we
+          # package its signed AMO .xpi directly with the same builder NUR uses
+          # for its generated entries.  Bumping it means updating version, url,
+          # and sha256 together from the AMO listing
+          # (https://addons.mozilla.org/firefox/addon/abovevtt/).
+          (addons.buildFirefoxXpiAddon {
+            pname = "abovevtt";
+            version = "1.55";
+            addonId = "{52e126d4-d2d7-483a-a0a1-6e8aace23253}";
+            url = "https://addons.mozilla.org/firefox/downloads/file/4840085/abovevtt-1.55.xpi";
+            sha256 = "sha256-lmVDzIrlVbcB1mlHVl4JwMGw+6UrRKWmRX6SHe8wBZg=";
+            meta = { };
+          })
         ];
       settings = {
         # 0 = dark, 1 = light, 2 = follow OS (broken on macOS — OS reports
