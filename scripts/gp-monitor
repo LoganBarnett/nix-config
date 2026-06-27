@@ -200,15 +200,31 @@ connect() {
     if is_connected; then
       log "VPN connection established successfully"
 
-      # Fix DNS scoping on macOS.  is_connected can flip true before
-      # scutil's Setup: keys for the VPN service are populated, in which
-      # case dns-vpn-scoping-fix exits non-zero on "No VPN DNS servers
-      # found in current configuration" — and never reaches its internal
-      # cache flush, leaving any pre-VPN NXDOMAINs cached.  Retry with
-      # 1s backoff until scutil catches up.
+      # Fix DNS scoping on macOS.  Two parts:
+      #
+      #   1. dns-vpn-scoping-fix discovers VPN DNS servers via scutil --dns
+      #      and writes /etc/resolver entries for them.  It's expected to
+      #      succeed when the gateway pushes CISCO_SPLIT_DNS entries with
+      #      DNS servers outside the tunnel-IP range (10.89.x.x here).  On
+      #      gateways that fall back to the tunnel-IP DNS (10.89.34.1),
+      #      scutil contains no matching entries and the script exits 1;
+      #      that's fine because vpnc-script-macos already wrote the same
+      #      /etc/resolver files during connect.  Retry briefly with a 1s
+      #      backoff for the scutil-populates-late race, but treat the
+      #      no-servers exit as informational.
+      #
+      #   2. Restart mDNSResponder.  vpnc-script-macos deferred this on
+      #      purpose — the tunnel data plane wasn't ready while it ran, so
+      #      restarting mDNSResponder then would have evaluated VPN DNS
+      #      reachability with a dead tunnel and marked the servers down.
+      #      The data plane is now confirmed up (is_connected returned
+      #      true), so we are the "harness" referenced in the deferred
+      #      message.  Flush dscacheutil + HUP mDNSResponder so any
+      #      pre-VPN NXDOMAINs (or stale resolutions across a reconnect)
+      #      are cleared.
       log "Fixing DNS scoping for VPN interface..."
       SCOPING_TRIES=0
-      SCOPING_MAX=15
+      SCOPING_MAX=5
       while [ "$SCOPING_TRIES" -lt "$SCOPING_MAX" ]; do
         if dns-vpn-scoping-fix >> "$GP_MONITOR_LOG" 2>&1; then
           log "DNS scoping fixed after ${SCOPING_TRIES}s"
@@ -218,7 +234,13 @@ connect() {
         sleep 1
       done
       if [ "$SCOPING_TRIES" -ge "$SCOPING_MAX" ]; then
-        log "WARNING: Failed to fix DNS scoping after ${SCOPING_MAX}s"
+        log "DNS scoping fix found no VPN DNS in scutil — vpnc-script-macos already configured /etc/resolver, continuing"
+      fi
+      log "Flushing DNS cache and HUPing mDNSResponder..."
+      if sudo dns-resolver-helper flush-cache >> "$GP_MONITOR_LOG" 2>&1; then
+        log "DNS cache flushed"
+      else
+        log "WARNING: dns-resolver-helper flush-cache failed"
       fi
 
       return 0
