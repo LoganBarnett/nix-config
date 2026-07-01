@@ -75,6 +75,13 @@ in
         defaultMode = "bypassPermissions";
       };
       skipDangerousModePermissionPrompt = true;
+      # Pin the classic main-screen renderer.  The "fullscreen" renderer
+      # enables terminal mouse capture, which intercepts click-and-drag and
+      # breaks native select-to-copy (and PRIMARY/middle-click paste).  The
+      # "default" value keeps both native drag-to-copy and wheel scrolling
+      # working.  Set explicitly so we stay on classic even if Claude Code
+      # flips the default to fullscreen upstream.
+      tui = "default";
       # Omitted — Claude Code defaults to Opus 4.6.
       mcp = {
         allowedDirectories = {
