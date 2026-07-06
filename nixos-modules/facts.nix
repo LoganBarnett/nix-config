@@ -264,6 +264,13 @@
         monitors = [ ];
         system = "x86_64-linux";
       };
+      # No hostname here.  Bogus.
+      patrick-lappy = {
+        blockProfiles = [ "adult" ];
+        controlledHost = false;
+        ipv4 = 188;
+        macAddresses = [ "14:ac:60:46:7d:af" ];
+      };
       # rpi-installer = {
       #   controlledHost = false;
       #   flake-input-overrides = {
@@ -467,11 +474,6 @@
         ipv4 = 148;
         mac = "b0:a7:37:96:c6:33";
       };
-      # No hostname here.  Bogus.
-      # patrick-lappy = {
-      #   controlledHost = false;
-      #   ipv4 = 188;
-      # };
     };
 
     ##
