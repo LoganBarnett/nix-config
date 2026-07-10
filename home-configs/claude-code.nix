@@ -82,6 +82,11 @@ in
       # working.  Set explicitly so we stay on classic even if Claude Code
       # flips the default to fullscreen upstream.
       tui = "default";
+      # Pin the reasoning effort to the maximum.  The interactive
+      # effort selector drifts back down to "high" across sessions;
+      # persisting it here keeps every session at "xhigh" so the model
+      # stops taking shortcuts and heavy assumptions.
+      effortLevel = "xhigh";
       # Omitted — Claude Code defaults to Opus 4.6.
       mcp = {
         allowedDirectories = {
