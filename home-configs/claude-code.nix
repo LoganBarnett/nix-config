@@ -84,8 +84,15 @@ in
       tui = "default";
       # Pin the reasoning effort to the maximum.  The interactive
       # effort selector drifts back down to "high" across sessions;
-      # persisting it here keeps every session at "xhigh" so the model
-      # stops taking shortcuts and heavy assumptions.
+      # persisting it here is meant to keep every session at "xhigh" so
+      # the model stops taking shortcuts and heavy assumptions.
+      #
+      # NOTE: as of claude-code 2.1.159 this field is silently overridden
+      # by the Growthbook flag `tengu_grey_step2` and does NOT take effect
+      # (see anthropics/claude-code#65651 and #47139).  Actual enforcement
+      # is the `--effort xhigh` launch flag on the `claude` alias in
+      # `home.shellAliases` below.  Kept here so it starts working again
+      # for free once the upstream bug is fixed.
       effortLevel = "xhigh";
       # Omitted — Claude Code defaults to Opus 4.6.
       mcp = {
@@ -579,7 +586,18 @@ in
     # said "Git is your undo button.  Godspeed.".  The alias is now redundant
     # (settings.json handles it declaratively), but kept as a fallback for
     # shells that load before home-manager's profile.
-    claude = "claude --dangerously-skip-permissions";
+    #
+    # `--effort xhigh` is here because the declarative
+    # `settings.effortLevel = "xhigh"` is silently ignored: the Growthbook
+    # feature flag `tengu_grey_step2` ("We recommend medium effort for Opus")
+    # overrides the persisted setting, and the model's fallback default was
+    # lowered from xhigh to high.  See anthropics/claude-code#65651 (settings
+    # effortLevel dropped at session start) and #47139/#43322 (feature flag
+    # overrides explicit effortLevel).  The launch flag beats the flag and
+    # starts every session at xhigh; `/effort` can still change it (up to
+    # `max`, or down) within a session.  Remove once the upstream bug is fixed
+    # and `settings.effortLevel` is honored again.
+    claude = "claude --dangerously-skip-permissions --effort xhigh";
   };
 
   home.sessionVariables = {
