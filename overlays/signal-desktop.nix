@@ -27,6 +27,19 @@ final: prev: {
             url = "https://updates.signal.org/desktop/signal-desktop-mac-universal-${version}.dmg";
             inherit hash;
           };
+          # As of 8.18.0 Signal renamed the DMG volume from "Signal" to
+          # "Signal Installer", so 7z unpacks Signal.app one level down under a
+          # "Signal Installer/" wrapper directory.  The stock nixpkgs derivation
+          # assumes sourceRoot="." with Signal.app at the root and fails with
+          # `cp: cannot stat 'Signal.app'`.  Locate Signal.app wherever it lands
+          # so a future volume rename doesn't break us again.
+          installPhase = ''
+            runHook preInstall
+            mkdir -p "$out/Applications"
+            cp -r "$(find . -maxdepth 2 -name Signal.app -print -quit)" \
+              "$out/Applications/"
+            runHook postInstall
+          '';
         }
       );
 }
