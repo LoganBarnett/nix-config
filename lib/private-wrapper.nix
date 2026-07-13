@@ -100,6 +100,11 @@ let
       lib.filterAttrs (name: _: base ? ${name}) hostExtensions
     );
 
+  finalDarwin =
+    nix-config.darwinConfigurations // overlayFor nix-config.darwinConfigurations;
+  finalNixos =
+    nix-config.nixosConfigurations // overlayFor nix-config.nixosConfigurations;
+
   unmatched = lib.filterAttrs (
     name: _:
     !(nix-config.darwinConfigurations ? ${name})
@@ -111,8 +116,15 @@ if unmatched != { } then
 else
   nix-config
   // {
-    darwinConfigurations =
-      nix-config.darwinConfigurations // overlayFor nix-config.darwinConfigurations;
-    nixosConfigurations =
-      nix-config.nixosConfigurations // overlayFor nix-config.nixosConfigurations;
+    darwinConfigurations = finalDarwin;
+    nixosConfigurations = finalNixos;
+    # proton-deploy resolves the deploy strategy from `.#hostSystems."<host>"'
+    # -- a cheap host -> "darwin"/"nixos" map that avoids evaluating a full
+    # system config.  Public nix-config exposes the *Configurations sets but
+    # not this map, and it must also cover the private host extensions, so
+    # synthesise it here over the extended sets (mirroring the hand-written
+    # producer in the non-wrapper lenses).
+    hostSystems =
+      lib.mapAttrs (_: _: "darwin") finalDarwin
+      // lib.mapAttrs (_: _: "nixos") finalNixos;
   }
