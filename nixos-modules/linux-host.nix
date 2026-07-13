@@ -169,6 +169,10 @@
     pkgs.file
     # Diagnostic tool for troubleshooting Nix remote build configurations.
     flake-inputs.nix-remote-builder-doctor.packages.${system}.default
+    # tramp-rpc server, provisioned declaratively so a remote Emacs client can
+    # reach this host via /rpc: without pushing a binary over Tramp (client uses
+    # tramp-rpc-deploy-never-deploy + /run/current-system/sw/bin/tramp-rpc-server).
+    flake-inputs.emacs-config.packages.${system}.tramp-rpc-server
     # Gives us ldapsearch et. al. for debugging LDAP issues.
     pkgs.openldap
     # Allow us to debug TLS issues.

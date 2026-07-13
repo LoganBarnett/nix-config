@@ -91,6 +91,12 @@ in
     systemPackages = [
       # Open Nix-managed .app bundles by short name from the command line.
       app
+      # tramp-rpc server, provisioned declaratively so a remote Emacs client can
+      # reach this host via /rpc: without pushing a binary over Tramp.  Lands at
+      # /run/current-system/sw/bin/tramp-rpc-server; the client is set to
+      # tramp-rpc-deploy-never-deploy and points there.  Version-locked to the
+      # client through the shared emacs-config / emacs-tramp-rpc rev.
+      flake-inputs.emacs-config.packages.${system}.tramp-rpc-server
       # Write certificates out - these aren't present on macOS in a freely
       # available way.
       pkgs.cacert
