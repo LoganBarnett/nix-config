@@ -1,17 +1,61 @@
 #!/usr/bin/env bash
-# Format only staged files using treefmt, leaving unstaged edits alone.
-root=$(git rev-parse --show-toplevel)
-staged=$(git diff --cached --name-only --diff-filter=d)
-if [ -z "$staged" ]; then
+# Format staged content on commit, without disturbing unstaged edits.
+#
+# The obvious implementation — run treefmt across the working tree, then
+# `git add` the files — is wrong for a partially-staged file: `git add <file>`
+# stages the *entire* working-tree copy, so any unstaged hunks get swept into
+# the commit.  (treefmt reporting "0 changed" does not save you; the re-add is
+# unconditional.)
+#
+# Instead, in two independent steps:
+#
+#   1. Format the working tree, so what is on disk stays tidy.  Operates on
+#      whole files.
+#   2. Rebuild each staged file's *index* entry from its formatted *staged
+#      blob* — `git show :FILE | treefmt --stdin FILE` — and write only that
+#      back with `git update-index`.  The working tree is never re-added, so
+#      unstaged hunks never enter the commit.
+#
+# Both steps hand the formatter a COMPLETE file: step 1 the on-disk file, step
+# 2 the staged blob (HEAD plus the staged hunks applied — itself a whole,
+# parseable file, never a fragment).  A formatter needs the full AST to
+# indent correctly; neither step ever gives it arbitrary lines.
+set -o errexit -o nounset -o pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+
+# Staged, non-deleted paths, NUL-delimited so names with spaces survive.
+# --diff-filter=d drops staged deletions: nothing to format, and
+# `git show :FILE` would fail on them.
+mapfile -d '' staged < <(git diff --cached --name-only --diff-filter=d -z)
+if [ "${#staged[@]}" -eq 0 ]; then
   echo "No staged files." >&2
   exit 0
 fi
-cd "$root" || exit 1
-# Pass paths NUL-delimited so names containing spaces are handled correctly.
-# Disable errexit around treefmt: it exits non-zero when it modifies files,
-# which would abort the script before re-staging if set -e were active.
-set +e
-git diff --cached --name-only --diff-filter=d -z | xargs -0 treefmt
-set -e
-# Re-stage the formatted files so the commit includes the formatted versions.
-git diff --cached --name-only --diff-filter=d -z | xargs -0 git add
+
+# Step 1 — tidy the working tree.  treefmt exits non-zero when it changes a
+# file or a formatter errors; neither should abort the commit, hence `|| true`.
+printf '%s\0' "${staged[@]}" | xargs -0 treefmt || true
+
+# Step 2 — re-stage by formatting each staged blob in isolation.
+for f in "${staged[@]}"; do
+  # Index entry format: "<mode> <blob> <stage>\t<path>"; take mode + blob.
+  read -r mode oldblob _ < <(git ls-files --stage -- "$f")
+
+  # Format the complete staged blob into a temp file (a real file preserves
+  # exact bytes, including the trailing newline that command substitution
+  # would strip).  If treefmt fails to parse — e.g. you staged half of a
+  # paired edit and the staged blob is syntactically broken — the pipeline
+  # returns non-zero, the branch is skipped, and the original staged content
+  # is committed untouched.  Broken in, broken out; never silently mangled.
+  tmp=$(mktemp)
+  if git show ":$f" | treefmt --stdin "$f" >"$tmp" 2>/dev/null; then
+    # --path applies the same gitattributes filters a normal `git add` would,
+    # so the blob is byte-identical to hand-staging this formatted content.
+    newblob=$(git hash-object -w --path "$f" --stdin <"$tmp")
+    if [ "$newblob" != "$oldblob" ]; then
+      git update-index --cacheinfo "$mode,$newblob,$f"
+    fi
+  fi
+  rm -f "$tmp"
+done
