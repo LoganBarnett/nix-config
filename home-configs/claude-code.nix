@@ -94,7 +94,10 @@ in
       # `home.shellAliases` below.  Kept here so it starts working again
       # for free once the upstream bug is fixed.
       effortLevel = "xhigh";
-      # Omitted — Claude Code defaults to Opus 4.6.
+      # Disable auto-memory globally.  Claude will neither read from nor
+      # write to the auto-memory directory
+      # (~/.claude/projects/<sanitized-cwd>/memory/).
+      autoMemoryEnabled = false;
       mcp = {
         allowedDirectories = {
           read = [ "/nix/store" ];
