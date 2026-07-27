@@ -13,17 +13,17 @@
 
   services.https.fqdns."loku.${facts.network.domain}" = {
     enable = true;
-    # loku-web uses systemd socket activation; the socket lives at
-    # /run/loku-web/loku-web.sock, which matches the serviceNameForSocket
-    # convention.  https.nix adds nginx to the loku-web group so it can
+    # loku-server uses systemd socket activation; the socket lives at
+    # /run/loku-server/loku-server.sock, which matches the serviceNameForSocket
+    # convention.  https.nix adds nginx to the loku-server group so it can
     # connect to the group-readable socket.
-    serviceNameForSocket = "loku-web";
+    serviceNameForSocket = "loku-server";
   };
 
   # Ensure the media directory is mounted and initialised before the service
   # starts.  setup-media-dir.service creates /tank/data/media and sets the
   # media-shared ACLs.
-  systemd.services.loku-web = {
+  systemd.services.loku-server = {
     after = [
       "tank-data.mount"
       "setup-media-dir.service"
@@ -31,8 +31,8 @@
     requires = [ "tank-data.mount" ];
   };
 
-  # Grant loku-web read access to files created under the media-shared group
+  # Grant loku-server read access to files created under the media-shared group
   # ACL.  Without this the service user cannot read downloads that were written
   # by other members of media-shared (e.g. metube).
-  users.users.loku-web.extraGroups = [ "media-shared" ];
+  users.users.loku-server.extraGroups = [ "media-shared" ];
 }
