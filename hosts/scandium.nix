@@ -87,6 +87,21 @@ in
       nixpkgs.hostPlatform = system;
       nixpkgs.config.allowUnsupportedSystem = true;
       networking.hostName = host-id;
+      # nixpkgs' curl links c-ares, whose userspace resolver does not
+      # replicate macOS getaddrinfo's RFC 6724 reachability/scope selection.
+      # On an IPv6-transport tether (NAT64/CLAT) c-ares picks a black-holed
+      # IPv6 address and hangs — breaking both the curl CLI and nix-daemon
+      # (Lix's downloader links the same libcurl, and this host uses
+      # lixFromNixpkgs, so pkgs.lix rebuilds against this override too).
+      # Dropping c-ares falls back to curl's threaded resolver, which defers
+      # to getaddrinfo and inherits the OS's correct address selection.
+      # Scoped to scandium so the work host's c-ares + dnsmasq split-DNS
+      # design stays intact.  See https://github.com/curl/curl/issues/808
+      nixpkgs.overlays = [
+        (final: prev: {
+          curl = prev.curl.override { c-aresSupport = false; };
+        })
+      ];
     }
     ../darwin-configs/hyuqueue.nix
     ../darwin-configs/sytter.nix
