@@ -94,10 +94,17 @@ in
       # `home.shellAliases` below.  Kept here so it starts working again
       # for free once the upstream bug is fixed.
       effortLevel = "xhigh";
-      # Disable auto-memory globally.  Claude will neither read from nor
-      # write to the auto-memory directory
-      # (~/.claude/projects/<sanitized-cwd>/memory/).
+      # Disable auto-memory and background memory consolidation
+      # (auto-dream) entirely.  Even high-reasoning Opus models do not
+      # reliably obey instructions to write memories judiciously: they
+      # persist anything they judge *important* to remember, rather than
+      # only what is specific to this clone/session (the kind of durable,
+      # broadly-applicable fact that belongs in CLAUDE.md or an
+      # equivalent checked-in document instead).  Turning the feature
+      # off removes that unreliable side channel; lasting guidance goes
+      # in CLAUDE.md by hand.
       autoMemoryEnabled = false;
+      autoDreamEnabled = false;
       mcp = {
         allowedDirectories = {
           read = [ "/nix/store" ];
