@@ -113,27 +113,174 @@ is_connected() {
   return 1
 }
 
-# Check if VPN DNS is working for internal domains
+# The internal host every DNS probe below resolves.  Comes from
+# $GP_AUTO_CONFIG (services.globalprotect-monitor.testHost).  Empty when
+# unset, in which case callers skip probing.
+dns_test_host() {
+  jq -r '.testHost' "$GP_AUTO_CONFIG" 2>/dev/null || echo ""
+}
+
+################################################################################
+# Three DNS resolution paths, three probes.
+#
+# This host resolves corporate names by three different routes, configured by
+# three different mechanisms, which fail independently:
+#
+#   1. mDNSResponder     — what ping, curl, and macOS applications use.
+#                          Configured by /etc/resolver/<domain> files and the
+#                          synthetic scutil services vpnc-script-macos creates.
+#   2. dnsmasq           — /etc/resolv.conf points at 127.0.0.1, so anything
+#                          reading resolv.conf directly instead of going
+#                          through getaddrinfo lands here.  That is most
+#                          Nix-built tooling: dig, curl built against c-ares,
+#                          and similar.  Configured by
+#                          /var/run/dnsmasq-vpn-servers.conf plus a SIGHUP.
+#   3. The VPN nameserver itself — the upstream both of the above forward to.
+#
+# Probing only one of these reports healthy while a whole class of program is
+# broken.  A cached NXDOMAIN in mDNSResponder once survived ~19 hours behind a
+# dig-only probe, because dig never touches mDNSResponder.  The reverse is
+# equally possible: a stale dnsmasq servers-file breaks every Nix tool while
+# macOS applications resolve fine.
+#
+# The three probes exist to tell those apart, because they need different
+# remedies — see the escalation ladder in the monitor loop.
+################################################################################
+
+# Path 2: through /etc/resolv.conf -> 127.0.0.1 -> dnsmasq.  Note this is NOT
+# a direct query to the VPN nameserver; dig only reaches it via the forwarder.
+forwarder_path_ok() {
+  local test_domain="$1"
+  if ! command -v dig >/dev/null 2>&1; then
+    return 1
+  fi
+  dig +short +time=2 +tries=1 "$test_domain" >/dev/null 2>&1
+}
+
+# Path 1: through mDNSResponder, the macOS system resolver.  dig cannot see
+# this path at all.
+#
+# Short arguments only: dscacheutil has no long-option form.  -q selects the
+# category to query, -a the key to match on.
+system_resolver_path_ok() {
+  local test_domain="$1"
+  local result
+  # dscacheutil exits 0 even when the lookup finds nothing, so check the
+  # output for an address line rather than trusting the exit status.
+  result=$(dscacheutil -q host -a name "$test_domain" 2>/dev/null || echo "")
+  case "$result" in
+    # Matches both ip_address: and ipv6_address:.
+    *_address:*) return 0 ;;
+  esac
+  return 1
+}
+
+# The VPN nameserver the other two paths forward to.  Read from the resolver
+# files vpnc-script-macos wrote at connect, which is the same value that goes
+# into the dnsmasq servers-file.
+vpn_nameserver() {
+  local domain
+  domain=$(dns_test_host)
+  [ -z "$domain" ] && return 1
+  # /etc/resolver matches on suffix, so walk the labels off the test host
+  # until a resolver file exists for the remaining domain.
+  while [ -n "$domain" ]; do
+    if [ -r "/etc/resolver/$domain" ]; then
+      awk '/^nameserver/ {print $2; exit}' "/etc/resolver/$domain"
+      return 0
+    fi
+    case "$domain" in
+      *.*) domain="${domain#*.}" ;;
+      *) break ;;
+    esac
+  done
+  return 1
+}
+
+# Path 3: straight at the VPN nameserver, bypassing both forwarders.  This is
+# what distinguishes "a forwarder is misconfigured" from "the tunnel is down".
+upstream_nameserver_ok() {
+  local test_domain="$1"
+  local server
+  if ! command -v dig >/dev/null 2>&1; then
+    return 1
+  fi
+  server=$(vpn_nameserver) || return 1
+  [ -z "$server" ] && return 1
+  dig +short +time=2 +tries=1 "@$server" "$test_domain" >/dev/null 2>&1
+}
+
+# Check if VPN DNS is working for internal domains across every path a
+# program might take.  Any one failing is a real outage for some class of
+# program, so all must pass.
 is_dns_working() {
-  # Try to resolve a known internal domain using the VPN DNS.
-  # This is more reliable than just checking if the tunnel is up.
-  # Pick a domain that should always exist on the VPN.
-  # Test host comes from $GP_AUTO_CONFIG
-  # (services.globalprotect-monitor.testHost).
   local test_domain
-  test_domain=$(jq -r '.testHost' "$GP_AUTO_CONFIG" \
-    2>/dev/null || echo "")
+  test_domain=$(dns_test_host)
   if [ -z "$test_domain" ]; then
     echo "is_dns_working: no testHost configured — skipping probe" >&2
     return 1
   fi
-
-  # Use dig to test DNS resolution with a short timeout.
-  if command -v dig >/dev/null 2>&1; then
-    if dig +short +time=2 +tries=1 "$test_domain" >/dev/null 2>&1; then
-      return 0
-    fi
+  if forwarder_path_ok "$test_domain" \
+    && system_resolver_path_ok "$test_domain"; then
+    return 0
   fi
+  return 1
+}
+
+# Flush the system DNS cache and restart mDNSResponder.
+#
+# $GP_MONITOR_LOG is owned by the user running gp-monitor; the redirect
+# lands in that user's file, not root's — sudo affecting only the inner
+# command is correct here.
+flush_dns_cache() {
+  # shellcheck disable=SC2024
+  if sudo dns-resolver-helper flush-cache >> "$GP_MONITOR_LOG" 2>&1; then
+    log "DNS cache flushed"
+    return 0
+  fi
+  log "WARNING: dns-resolver-helper flush-cache failed"
+  return 1
+}
+
+# Byte offset into $GP_MONITOR_LOG that rekey_detected has already scanned.
+GP_LOG_OFFSET=0
+if [ -f "$GP_MONITOR_LOG" ]; then
+  GP_LOG_OFFSET=$(wc --bytes < "$GP_MONITOR_LOG" | tr --delete ' ')
+fi
+
+# Detect an openconnect session rekey since the last call.
+#
+# gp-connect-auto is backgrounded with stdout/stderr redirected into
+# $GP_MONITOR_LOG, so openconnect's own reconnect chatter lands there.  Those
+# rekeys (roughly hourly) drop and re-establish the tunnel *without* gpclient
+# exiting, so is_connected never goes false and connect()'s post-connect
+# flush never fires.  Any name looked up during that window can pick up a
+# cached NXDOMAIN, and repeated querying then keeps the entry hot in
+# mDNSResponder well past the zone's negative TTL.
+#
+# The symptom probe in the monitor loop only covers testHost, but any name
+# can be the one that got poisoned — so watch for the rekey itself and flush
+# regardless of which name was in flight.
+rekey_detected() {
+  local size new
+  size=$(wc --bytes < "$GP_MONITOR_LOG" | tr --delete ' ') || return 1
+  # Rotated or truncated out from under us — resync and skip a round.
+  if [ "$size" -lt "$GP_LOG_OFFSET" ]; then
+    GP_LOG_OFFSET="$size"
+    return 1
+  fi
+  if [ "$size" -eq "$GP_LOG_OFFSET" ]; then
+    return 1
+  fi
+  # --bytes=+N is 1-indexed from the start of the file.
+  new=$(tail --bytes=+$((GP_LOG_OFFSET + 1)) "$GP_MONITOR_LOG" 2>/dev/null \
+    || echo "")
+  GP_LOG_OFFSET="$size"
+  # Keep this marker out of the messages this script logs itself, or the
+  # next poll would read its own line back and flush forever.
+  case "$new" in
+    *attempt-reconnect*) return 0 ;;
+  esac
   return 1
 }
 
@@ -237,15 +384,7 @@ connect() {
         log "DNS scoping fix found no VPN DNS in scutil — vpnc-script-macos already configured /etc/resolver, continuing"
       fi
       log "Flushing DNS cache and HUPing mDNSResponder..."
-      # $GP_MONITOR_LOG is owned by the user running gp-monitor; the
-      # redirect lands in that user's file, not root's — sudo affecting
-      # only the inner command is correct here.
-      # shellcheck disable=SC2024
-      if sudo dns-resolver-helper flush-cache >> "$GP_MONITOR_LOG" 2>&1; then
-        log "DNS cache flushed"
-      else
-        log "WARNING: dns-resolver-helper flush-cache failed"
-      fi
+      flush_dns_cache || true
 
       return 0
     fi
@@ -282,7 +421,80 @@ while true; do
     disconnect
     sleep 2
     connect
-  elif ! is_dns_working; then
+    continue
+  fi
+
+  # A session rekey re-established the tunnel underneath us without ever
+  # going through connect().  Flush now, before the next lookup inherits an
+  # NXDOMAIN cached during the window the rekey left behind.
+  if rekey_detected; then
+    log "openconnect session rekey seen, flushing DNS cache..."
+    flush_dns_cache || true
+  fi
+
+  TEST_HOST=$(dns_test_host)
+
+  # Escalation ladder, cheapest repair first.  The two forwarder paths fail
+  # independently and need different remedies, so decide from the pair which
+  # one is actually broken rather than reconnecting on any DNS fault.
+  #
+  #   forwarder | system resolver | meaning              | remedy
+  #   ----------+-----------------+----------------------+------------------
+  #   ok        | ok              | healthy              | none
+  #   ok        | broken          | mDNSResponder cache  | flush
+  #   broken    | ok              | dnsmasq stale/down   | HUP, then escalate
+  #   broken    | broken          | tunnel or scoping    | scoping fix/reconnect
+  if [ -n "$TEST_HOST" ]; then
+    FORWARDER_OK=false
+    SYSRES_OK=false
+    forwarder_path_ok "$TEST_HOST" && FORWARDER_OK=true
+    system_resolver_path_ok "$TEST_HOST" && SYSRES_OK=true
+
+    # mDNSResponder holds a stale or poisoned entry while everything else
+    # resolves.  Flush rather than tearing down a working VPN.
+    if [ "$FORWARDER_OK" = true ] && [ "$SYSRES_OK" = false ]; then
+      log "Forwarder resolves $TEST_HOST but the macOS system resolver does" \
+        "not — flushing stale DNS cache..."
+      flush_dns_cache || true
+      sleep 2
+      if system_resolver_path_ok "$TEST_HOST"; then
+        log "DNS resolution restored by cache flush"
+        continue
+      fi
+      log "System resolver still failing after flush, escalating..."
+    fi
+
+    # The macOS side resolves but the dnsmasq side does not, so the tunnel is
+    # fine and only Nix-built tooling is broken.  If the VPN nameserver still
+    # answers directly, dnsmasq is the faulty link — reload it before
+    # considering anything as disruptive as a reconnect.
+    if [ "$FORWARDER_OK" = false ] && [ "$SYSRES_OK" = true ]; then
+      if upstream_nameserver_ok "$TEST_HOST"; then
+        log "VPN nameserver answers directly but the dnsmasq forwarder does" \
+          "not — reloading dnsmasq..."
+        # Absolute path and exact arguments so this matches the NOPASSWD rule
+        # in global-protect-persistent.nix; --non-interactive so a rule that
+        # ever stops matching fails fast instead of hanging the daemon on a
+        # password prompt.
+        if sudo --non-interactive /usr/bin/killall -HUP dnsmasq 2>/dev/null; then
+          sleep 2
+          if forwarder_path_ok "$TEST_HOST"; then
+            log "Forwarder resolution restored by dnsmasq reload"
+            continue
+          fi
+        fi
+        # A reload cannot fix a servers-file whose contents are stale; only
+        # re-running vpnc-script-macos rewrites it, which means a reconnect.
+        log "dnsmasq still failing after reload — servers-file is likely" \
+          "stale, escalating..."
+      else
+        log "Neither the dnsmasq forwarder nor the VPN nameserver answers" \
+          "for $TEST_HOST, escalating..."
+      fi
+    fi
+  fi
+
+  if ! is_dns_working; then
     log "VPN DNS resolution is broken, attempting to fix..."
     # Try to fix DNS scoping first without full reconnect.
     if dns-vpn-scoping-fix >> "$GP_MONITOR_LOG" 2>&1; then

@@ -1,0 +1,687 @@
+#+title:     GlobalProtect tooling — Rust rewrite specification
+#+author:    Logan Barnett
+#+language:  en
+
+* Purpose of this document
+
+This is a behavioural specification for reimplementing the GlobalProtect /
+OpenConnect automation currently written as ~2,800 lines of Bash across ~20
+scripts in ~nix-config/scripts~.  It is deliberately language-agnostic: it
+describes /what the software must do/ and /what the surrounding machinery
+will not let us do/, not how to structure the implementation.
+
+It exists because the domain knowledge in those scripts is almost entirely
+undocumented workarounds for misbehaviour in ~gpclient~, ~openconnect~, and
+macOS ~configd~ / ~mDNSResponder~.  Every one of the constraints in
+[[*Hard constraints][Hard constraints]] was discovered by something breaking in production.  A
+reimplementation that does not honour them will appear to work and then fail
+in ways that take days to diagnose.
+
+Out of scope, by request:
+
+- Rust-specific design, crate selection, module layout, error types.
+- Logging design.  Settled: the logger is configurable per executable and
+  emits to stderr by default.  The only logging-adjacent /constraint/ worth
+  carrying forward is in [[*Process and file-descriptor hygiene][Process and file-descriptor hygiene]].
+
+* Current inventory
+
+** Shell
+
+| Script                  | Lines | Role                                                  |
+|-------------------------+-------+-------------------------------------------------------|
+| ~vpnc-script-macos~     |  1001 | Network configuration callback invoked by openconnect |
+| ~vpn-test-harness~      |   460 | Connect + verify + recover harness                    |
+| ~gp-monitor~            |   421 | Long-running supervisor daemon                        |
+| ~gp-connect-auto~       |   288 | Credential retrieval + connection orchestration       |
+| ~test-vpn-connectivity~ |   245 | Diagnostic probe suite                                |
+| ~dns-vpn-scoping-fix~   |   121 | Post-connect ~/etc/resolver~ reconciliation           |
+| ~dns-resolver-helper~   |    72 | Privileged helper behind ~sudo~                       |
+
+Plus one-off diagnostics: ~cleanup-vpn~, ~dns-cleanup-temp~,
+~dns-dynamic-ip-home~, ~dns-fix-complete~, ~dns-test~, ~dnsflush~,
+~vpn-dns-recover~, ~vpn-test-harness-recover~, ~gp-connect~,
+~gp-auth-headless~, ~gp-connect-remote-example~.
+
+** Python
+
+| Script            | Role                                                  |
+|-------------------+-------------------------------------------------------|
+| ~gp-auth-cookie~  | Drives ~gpauth --browser remote~, emits cookie blob   |
+| ~gp-connect-pty~  | Legacy portal flow, drives ~gpclient~ under a PTY     |
+| ~gp-auth-headless~| Playwright SAML walk-through, emits callback URL      |
+
+The Playwright dependency is the one piece with no obvious native
+replacement.  See [[*Open questions][Open questions]].
+
+* Subsystems the application must provide
+
+Suggested as modes of one binary; the decomposition matters more than the
+packaging.
+
+1. *Supervisor* (~gp-monitor~).  Long-running.  Owns connection state,
+   health probing, and repair escalation.
+2. *Connector* (~gp-connect-auto~ + ~gp-auth-cookie~).  Retrieves
+   credentials, performs SAML, obtains a cookie, creates the tunnel.
+3. *Network callback* (~vpnc-script-macos~).  Invoked by openconnect with
+   a reason and a pile of environment variables.  Configures interfaces,
+   routes, and DNS.
+4. *DNS scoping* (~dns-vpn-scoping-fix~).  Post-connect reconciliation of
+   ~/etc/resolver~ against what the gateway actually pushed.
+5. *Privileged helper* (~dns-resolver-helper~).  The only component behind
+   ~sudo~ that takes arbitrary-ish input.  Keep it small and separately
+   auditable regardless of language.
+6. *Diagnostics* (~test-vpn-connectivity~, ~vpn-test-harness~).  Probe
+   suites; natural subcommands.
+
+* Hard constraints
+
+** The openconnect callback contract
+
+~vpnc-script~ is =exec=-ed by openconnect.  A compiled binary is fine —
+openconnect only needs a path it can execute with environment set.
+
+- Dispatch is on the ~reason~ environment variable.  Observed values:
+  ~pre-init~, ~connect~, ~disconnect~, ~attempt-reconnect~, ~reconnect~.
+  Unknown reasons must be tolerated, not fatal.
+- Inputs arrive *only* as environment variables: ~TUNDEV~,
+  ~INTERNAL_IP4_ADDRESS~, ~INTERNAL_IP4_DNS~ (space-separated),
+  ~INTERNAL_IP4_MTU~, ~CISCO_SPLIT_DNS~ (space-separated),
+  ~CISCO_SPLIT_INC~ (count), ~CISCO_SPLIT_INC_%d_ADDR~ / ~_MASK~ /
+  ~_MASKLEN~, ~VPNGATEWAY~.
+- *Must exit zero unconditionally.*  The current script ends with a bare
+  ~exit 0~ after the dispatch.  A non-zero exit risks aborting the
+  connection.  Failures are reported, not propagated.
+- Runs as root, spawned by ~gpclient~.
+- ~sudo~ strips the environment.  ~GP_AUTO_CONFIG~ must be explicitly
+  re-exported along the ~sudo~ path or the callback cannot find its config.
+- ~pre-init~, ~connect~, and ~disconnect~ are *separate process
+  invocations*.  All state shared between them must go through the files in
+  [[*The /var/run state contract][The /var/run state contract]].  This does not go away in a rewrite.
+
+** gpclient misbehaviours that must be compensated
+
+These are the expensive ones.  Each is a workaround for the client doing
+something wrong or racy.
+
+1. *~TUNDEV~ is frequently wrong.*  ~gpclient~ passes a pre-auth interface
+   name to both ~connect~ and ~disconnect~, and the two differ.  The real
+   tunnel must be detected and persisted at connect so ~disconnect~ can
+   clean up the right one.
+2. *The VPN IP may be assigned before or after the callback runs* —
+   behaviour varies by version.  Three strategies in order: configure
+   ~TUNDEV~ directly from ~INTERNAL_IP4_ADDRESS~; poll ~TUNDEV~ for up to
+   30 s; scan UP ~utun~ interfaces for a ~10.x~ address.
+3. *Stale ~utun~ interfaces from previous sessions must be skipped.*  Only
+   consider interfaces with ~IFF_UP~ — dead ones linger because orphaned
+   watchdogs still hold their file descriptors.
+4. *~gpclient~ strips the physical interface's IPv4* via
+   ~ipconfig set <iface> NONE~ between ~pre-init~ and ~connect~.
+   Consequences, all of which have bitten:
+   - openconnect's already-bound ESP socket cannot ARP for the gateway, so
+     it silently drops all outbound ESP.  The tunnel establishes and is
+     dead.
+   - macOS rejects IPv4 route adds via an interface with no address
+     ("Network is unreachable").
+   - The interface's network service loses its ~State:~ entry in configd,
+     so ~mDNSResponder~ ignores DNS set on it.
+   Mitigation is a *200 ms watchdog started in ~pre-init~* that re-applies
+   the address until ~gpclient~ writes its lock file (max 60 s).
+5. *~gpclient~ continuously re-routes the VPN server IP through the tunnel*,
+   which loops its own keepalives and triggers dead-peer detection at
+   ~24 s.  Mitigation is a *1 s watchdog for the life of the connection*
+   that re-applies a host route for the VPN server via the pre-VPN gateway,
+   and re-applies the physical interface's address if it disappears again.
+6. *Do not take the default route.*  ~gpclient~ and ~configd~ continuously
+   reclaim it, causing routing churn.  For full-tunnel (~0.0.0.0/0~) the
+   working approach is to add broad RFC-1918 routes (~10.0.0.0/8~,
+   ~172.16.0.0/12~) via the tunnel and *restore* the default route to the
+   physical gateway.
+7. *Session rekeys happen roughly hourly without ~gpclient~ exiting.*  The
+   process stays alive and its PID file stays valid, so any liveness check
+   based on the PID will not observe them.  The data plane drops briefly.
+   This is the cause of the DNS cache-poisoning bug described below.
+
+** There are three DNS resolution paths, not one
+
+This is the single most important thing to internalise before touching
+anything DNS-related, and it is the axis along which the current code has
+repeatedly been wrong.  A corporate name is resolvable by three different
+routes, configured by three different mechanisms, which *fail
+independently*:
+
+| # | Path                        | Used by                              | Configured by                                       |
+|---+-----------------------------+--------------------------------------+-----------------------------------------------------|
+| 1 | ~mDNSResponder~             | ~ping~, system ~curl~, macOS apps    | ~/etc/resolver/<domain>~ + synthetic scutil services |
+| 2 | ~dnsmasq~ on ~127.0.0.1~    | Nix-built tooling                    | ~/var/run/dnsmasq-vpn-servers.conf~ + ~SIGHUP~       |
+| 3 | The VPN nameserver directly | whatever the above forward to        | pushed by the gateway as ~INTERNAL_IP4_DNS~          |
+
+Path 2 exists because ~/etc/resolv.conf~ contains ~nameserver 127.0.0.1~.
+Anything that reads ~resolv.conf~ directly rather than going through
+~getaddrinfo~ lands on ~dnsmasq~ — which is most Nix-built tooling: ~dig~,
+~curl~ built against c-ares, and similar.  Note the consequence for
+diagnostics: *a bare ~dig~ does not query the VPN nameserver*, it queries
+~dnsmasq~.  Reaching path 3 requires an explicit ~@server~.
+
+Both failure directions have been observed or are readily reachable:
+
+- Path 1 broken, path 2 fine — a cached NXDOMAIN in ~mDNSResponder~.  Every
+  macOS program fails; every Nix tool works.  This is the ~19-hour outage.
+- Path 2 broken, path 1 fine — a stale or unloaded
+  ~dnsmasq-vpn-servers.conf~.  Every Nix tool fails; macOS programs work.
+
+*Health checks must probe all three*, and must map the result to a remedy
+rather than reconnecting on any DNS fault:
+
+| Path 2 | Path 1 | Meaning                        | Remedy                       |
+|--------+--------+--------------------------------+------------------------------|
+| ok     | ok     | healthy                        | none                         |
+| ok     | broken | ~mDNSResponder~ cache          | flush cache                  |
+| broken | ok     | ~dnsmasq~ stale or not reloaded| ~SIGHUP~, then escalate      |
+| broken | broken | tunnel or scoping              | scoping fix, then reconnect  |
+
+Path 3 is what disambiguates the third row: if the VPN nameserver answers
+directly but ~dnsmasq~ does not, ~dnsmasq~ is the faulty link and tearing
+down a working VPN is the wrong response.
+
+A ~SIGHUP~ makes ~dnsmasq~ re-read its servers-file; it cannot repair a
+servers-file whose *contents* are stale.  Only re-running the network
+callback rewrites that file, which today means a reconnect.  A rewrite
+should expose a way to regenerate it without one.
+
+** dnsmasq constraints
+
+1. The servers-file is written as ~server=/<domain>/<dns-ip>~, one line per
+   (domain, server) pair, and applied with ~killall -HUP dnsmasq~.  It is
+   *truncated and re-HUPed on disconnect* so corporate domains stop
+   resolving.
+2. Everything touching ~dnsmasq~ is guarded with ~pgrep -x dnsmasq~ so the
+   tooling still functions on hosts without it.  Keep that optionality —
+   ~dnsmasq~ is a host-level choice, not a requirement of this software.
+3. ~dnsmasq~ binds ~127.0.0.1~ specifically to avoid colliding with
+   ~mDNSResponder~ on the wildcard address.
+4. On disconnect, DNS for the physical service is pointed back at
+   ~127.0.0.1~ when ~dnsmasq~ is running, and set to ~Empty~ (returning
+   control to DHCP) when it is not.  Getting this backwards leaves the host
+   with no working resolver after disconnect.
+5. The nameserver addresses written into both the servers-file and
+   ~/etc/resolver~ are *tunnel-range* addresses (e.g. ~10.89.x.1~).  They
+   are only valid for the tunnel that was up when the callback ran.  Neither
+   file is rewritten on a rekey.
+
+** macOS DNS constraints
+
+The single most treacherous area.  In rough order of how much time each cost:
+
+1. *~mDNSResponder~ refuses DNS servers associated with ~utun~
+   interfaces*, marking them "Not Reachable".  The working construction is
+   a synthetic configd service (~State:/Network/Service/vpn-corp-dns/~)
+   whose ~IPv4~ dictionary names the *physical* interface, while the ~DNS~
+   dictionary carries the VPN servers.  The kernel still routes to the
+   ~10.x~ servers via the tunnel; configd merely has to believe they are
+   reachable.
+2. *Never restart ~mDNSResponder~ from inside the ~connect~ callback.*  The
+   data plane is not up yet (TLS handshake incomplete), so the restart
+   evaluates VPN DNS reachability against unreachable servers and caches
+   "Not Reachable" permanently.  The restart must be deferred to a caller
+   that has *confirmed the data plane works*.
+3. *~scutil~ ~SupplementalMatchDomains~ is unreliable.*  ~/etc/resolver/<domain>~
+   files are the authoritative mechanism for per-domain server selection.
+   Write both; trust the files.
+4. *Without domain scoping, all DNS goes through the VPN resolver*, and
+   public domains return NXDOMAIN from the corporate server.  If the
+   gateway pushes no ~CISCO_SPLIT_DNS~, a configured fallback domain list
+   must be used instead — an empty scope is worse than no VPN DNS.
+5. *~mDNSResponder~ only consults DNS from /active services/.*  Restoring
+   public DNS requires ~networksetup -setdnsservers~, which writes to the
+   ~Setup:~ namespace.  A synthetic ~State:~ service is ignored for this
+   purpose.  (Both are used today: ~Setup:~ via ~networksetup~ for the real
+   service, plus a synthetic ~State:~ service as a belt-and-braces global
+   resolver.)
+6. *Negative DNS caching survives past the zone's negative TTL when the
+   name is queried repeatedly.*  A single NXDOMAIN cached during a rekey
+   window stayed pinned for ~19 hours against a 3600 s negative TTL,
+   because a health probe re-queried it every 15 s.  The cache must be
+   flushed after connect *and after every rekey*, not just after connect.
+7. *~dig~ does not use ~mDNSResponder~.*  Any health check built only on
+   ~dig~ is structurally incapable of detecting a poisoned system-resolver
+   cache, and will report healthy while ~ping~, ~curl~, and every ordinary
+   program fail.  See [[*There are three DNS resolution paths, not one][There are three DNS resolution paths, not one]] for the
+   full probe-to-remedy mapping — and note that a bare ~dig~ reaches
+   ~dnsmasq~, not the VPN nameserver.
+8. *~dscacheutil~ exits 0 even when a lookup finds nothing.*  Parse the
+   output; do not trust the status.
+9. ~/etc/resolver/<domain>~ matches subdomains, so one file per pushed
+   search domain suffices.
+
+** Routing constraints
+
+1. *Delete before add.*  Stale ~WASCLONED~ host routes derived from a
+   previous session's parent route are not updated by ~route change~, and
+   ~route add~ fails against them.  An unconditional ~route delete~ first
+   is the only reliable sequence.
+2. *~route add~ has trustworthy exit codes; ~route change~ does not* — it
+   can return 0 while printing "not in table".  Use ~add~ as the primary
+   operation and ~change~ as the fallback, never the reverse.
+3. *Prefer gateway-IP routes over interface-only routes.*  The kernel ARPs
+   for the destination on an interface-only route, which fails for remote
+   addresses off the local subnet.  Interface-only is correct only when the
+   next hop genuinely has no IP (e.g. running behind another VPN's ~utun~,
+   where ~route -n get default~ yields no gateway address).
+4. *macOS will not route through an interface without ~IFF_UP~*, even when
+   ~IFF_RUNNING~ is set.
+5. *~ifconfig~ is synchronous and kernel-direct; ~ipconfig set MANUAL~ is
+   asynchronous through configd.*  When a route add must succeed
+   immediately after restoring an address, use ~ifconfig~ — the configd
+   path has not landed yet.  When configd needs to *know* about the address
+   (so it creates a ~State:~ entry for DNS), use ~ipconfig set MANUAL~.
+   Both are needed, in different places, for different reasons.
+
+** Host tooling constraints
+
+1. *Nix's GNU ~inetutils~ ~ifconfig~ silently returns empty output for
+   macOS interfaces* and rejects ~utun~ configuration arguments.  The
+   system binary at ~/sbin/ifconfig~ must be used explicitly.  A rewrite
+   that shells out inherits this; one that uses native syscalls or a
+   route-socket crate sidesteps it.
+2. *macOS ~ps~ requires entitlements for several fields* (~%mem~, ~vsz~,
+   ~rss~, ~time~) and ~ps -p~ can exit non-zero even when the process
+   exists.  Liveness checks today use ~ps -o pid= -p <pid>~ and test for
+   non-empty output rather than exit status.
+3. The system binaries relied on are at fixed paths and are BSD variants:
+   ~scutil~, ~networksetup~, ~ipconfig~, ~route~, ~arp~, ~pfctl~,
+   ~dscacheutil~, ~killall~, ~ifconfig~.  Nix-provided GNU equivalents are
+   not interchangeable.
+
+** Authentication flow constraints
+
+1. *~gpauth~ refuses to run as root when it would open a webview.*  This is
+   deliberate upstream behaviour — a webview is a JS runtime and SAML pages
+   execute third-party script.  ~--browser remote~ opens no webview and is
+   therefore exempt.  See ~docs/gpauth-root-restriction.org~.
+2. *The portal → gateway cookie handoff is broken on Prisma Access
+   deployments since early 2026* (upstream ~yuezk/GlobalProtect-openconnect#572~),
+   surfacing as "Authentication failure: Invalid username or password" at
+   the gateway.  The working path authenticates *directly against the
+   gateway* with ~--as-gateway~, bypassing the portal.
+3. *The ~gpauth --browser remote~ protocol* is non-obvious and must be
+   reproduced exactly:
+   - ~gpauth~ prints a local auth-server URL to *stderr*.
+   - That auth server is a SAML /bootstrapper/: one GET, returns a 302 to
+     the IdP, then stops.  It never receives the callback.
+   - The SAML walk-through happens elsewhere (Playwright today) and yields
+     a ~globalprotectcallback:...~ URL.
+   - That URL is written to ~gpauth~'s *stdin*; it is read with a single
+     ~read_line~.  The "please paste the authentication data back to this
+     terminal" banner is this step.
+   - ~gpauth~ then emits a *single-line JSON cookie blob on stdout*.
+   - That blob is piped to ~gpclient connect --cookie-on-stdin --as-gateway~.
+4. *No PTY is required for the ~--as-gateway~ flow* — ~gpauth~ reads stdin
+   with ~read_line~ and ~gpclient --cookie-on-stdin~ never prompts.  The
+   legacy portal flow /does/ need a PTY.  Dropping the legacy flow would
+   remove the PTY dependency entirely; confirm it is genuinely dead first.
+5. *A HIP (Host Integrity Protection) report is required to unlock
+   data-plane traffic.*  Supplied via ~--csd-wrapper~ (absolute store path)
+   or ~--hip~.  Without it the tunnel comes up and carries nothing.
+6. *Authentication (unprivileged) must stay separated from tunnel creation
+   (root).*  This is the structural reason the ~--as-gateway~ flow is
+   preferred over the dormant ~gpauth~ sudo-wrapper overlay.
+7. Credentials come from ~pass~: ~pass show <entry>~ for the password,
+   ~pass otp <entry>~ for TOTP.
+
+** The /var/run state contract
+
+Because ~pre-init~, ~connect~, and ~disconnect~ are separate processes,
+these files are the IPC.  A rewrite must preserve the *semantics*; the
+encoding is free to change, but note that a partially-migrated system will
+have old and new components reading the same paths.
+
+| Path                              | Written | Purpose                                     |
+|-----------------------------------+---------+---------------------------------------------|
+| ~vpnc-pre-vpn-state~              | pre-init| ~if ip mask gw~ before gpclient interferes   |
+| ~vpnc-pre-vpn-dns~                | pre-init| DHCP nameservers, for public-DNS restore    |
+| ~vpnc-pre-vpn-service~            | pre-init| networksetup service name for ~Setup:~ DNS  |
+| ~vpnc-preinit-watchdog.pid~       | pre-init| 200 ms IP keep-alive watchdog               |
+| ~vpnc-actual-tundev~              | connect | Real tunnel interface for disconnect        |
+| ~vpnc-dns-domains~                | connect | Domains whose ~/etc/resolver~ files we own  |
+| ~vpnc-vpn-gateway~                | connect | VPN server IP for the bypass host route     |
+| ~vpnc-pre-vpn-if~                 | connect | Physical interface, for DHCP restore        |
+| ~vpnc-default-gateway~            | connect | Original default route, for crash recovery  |
+| ~vpnc-connect-watchdog.pid~       | connect | 1 s bypass-route watchdog                   |
+| ~vpnc-public-dns-service~         | connect | Synthetic public DNS service key            |
+| ~gpclient.lock~                   | gpclient| PID file; watchdog lifetime is tied to it   |
+| ~dnsmasq-vpn-servers.conf~        | connect | dnsmasq per-domain forwarding, HUP to apply |
+
+*Disconnect must clean up all of it*, including killing both watchdogs by
+PID — they hold inherited ~utun~ file descriptors, and the kernel will not
+destroy the interface until they are released.
+
+** Privilege boundary
+
+The current ~sudoers~ grants (see ~global-protect-persistent.nix~):
+
+- ~dns-resolver-helper *~ — wildcard over *all arguments*.  The rewrite
+  should narrow this to explicit subcommands.
+- ~gp-connect-auto~ with ~SETENV:~.
+- A list of specific ~networksetup~ / ~ipconfig~ invocations.
+- ~dscacheutil -flushcache~, ~killall -HUP mDNSResponder~,
+  ~killall -HUP dnsmasq~.
+
+Two things to fix while here:
+
+1. The wildcard on the privileged helper is the widest grant in the set and
+   the helper is precisely the component that takes semi-arbitrary input.
+2. There is a rule in the committed configuration marked
+   =DO NOT COMMIT - TEMPORARY DEVELOPMENT RULE - REMOVE BEFORE MERGE=
+   granting ~vpn-test-harness *~.  It is committed.  Decide whether it
+   stays deliberately or goes.
+
+** Process and file-descriptor hygiene
+
+Not logging design — a correctness constraint that the current design gets
+wrong and that the rewrite must not reproduce.
+
+A long-lived child (~gpclient~) inherits whatever file descriptor it is
+given for stdout/stderr and holds it for the *entire VPN session* —
+observed at 19+ hours.  If that descriptor is a file opened by a shell
+redirect, the file cannot be rotated by rename, its inode is pinned even
+after unlinking, and its disk is never reclaimed.  Give long-lived children
+a pipe and own the read loop.  This also makes the rekey signal in
+constraint 7 of [[*gpclient misbehaviours that must be compensated][gpclient misbehaviours]] available directly, instead of by
+scraping a log file after the fact.
+
+* Proposed target architecture: dnsmasq as the single resolver
+
+Status: /proposed/, not decided.  Recorded here because it changes what the
+network callback should be built to do, and that component is the one this
+most affects.
+
+** The goal
+
+One source of truth for DNS.  Not "poisoning becomes impossible" — dnsmasq
+can hold a bad entry like anything else — but *everyone gets the same
+answer, right or wrong, at the same time*, and there is exactly one place
+to flush a cache and one place to add a scoping rule.
+
+Today there are three scoping mechanisms and two caches that fail
+independently.  That independence is why Nix tooling kept working through
+the ~19-hour ~mDNSResponder~ outage — and also why the outage was invisible
+to a health check that only probed one path.
+
+** What is already in place
+
+More than it appears.  ~global-protect-persistent.nix~ has an activation
+script that points *every* network service at ~127.0.0.1~, with the stated
+intent "so every tool (Nix and native) resolves through dnsmasq".  The
+~dnsmasq~ daemon is already ~KeepAlive = true; RunAtLoad = true~ and its
+comment already treats it as inseparable from the VPN service.
+~mDNSResponder~ therefore *already* defers to ~dnsmasq~ by default.
+
+What prevents it being unconditional is two override layers added at
+connect time, both of which route corporate domains *around* ~dnsmasq~
+straight to the VPN nameserver:
+
+1. ~/etc/resolver/<domain>~ files.
+2. The synthetic scutil service with ~SupplementalMatchDomains~.
+
+The consolidation is therefore mostly a *deletion*, not new machinery.
+
+** What collapses
+
+Removing those two layers retires four of the constraints in
+[[*macOS DNS constraints][macOS DNS constraints]], including the two most expensive:
+
+- ~mDNSResponder~ refusing utun-associated servers — moot; its only
+  nameserver is loopback, which is trivially reachable.
+- "Never restart ~mDNSResponder~ during connect" — moot for the same
+  reason; there is no 10.x reachability for it to misjudge.
+- ~Setup:~ vs ~State:~ namespace for public DNS restore — moot; dnsmasq's
+  general upstream handles public names.
+- ~SupplementalMatchDomains~ unreliability — moot; not used.
+
+The DNS half of the network callback goes from scutil synthetic services,
+an ~/etc/resolver~ write loop, a ~networksetup~ DNS restore, and a
+synthetic public-DNS service, down to: *write the servers-file, write the
+search domains, send one signal.*
+
+** Prerequisite to verify first
+
+~mDNSResponder~'s cache *cannot be disabled* — its launchd plist carries no
+arguments at all, and SIP is enabled, so there is nowhere to add a flag.
+
+The available lever is ~dnsmasq --max-ttl=0~, which caps the TTL handed to
+clients so a conforming resolver will not cache.  Cost is negligible: every
+lookup crosses loopback, and dnsmasq keeps its own cache so upstream load is
+unchanged.
+
+*The entire single-flush-point claim rests on this working.*
+~mDNSResponder~ does proactive cache refresh and has internal minimums, so
+whether it honours TTL 0 strictly must be tested, not assumed.  If it does
+not, there are still two caches and the main benefit is lost.
+
+** The disconnect form matters
+
+Do not truncate the servers-file on disconnect.  An empty file means
+corporate domains match no ~server=~ line, fall through to the general
+upstream, and receive an *authoritative NXDOMAIN* from public DNS — which
+is cacheable and correct by DNS rules.  That is precisely how the original
+poisoning happened, and consolidation would give it a wider blast radius.
+
+Write ~server=/<domain>/~ with no address instead.  Per the dnsmasq man
+page those queries are "rejected with a REFUSED error" — a failure, not a
+negative answer, and therefore not negatively cached anywhere.  Corporate
+names then resolve when connected and REFUSE when not, and can never reach
+a public resolver in any state.
+
+Wrinkle: ~--local=/domain/~ is shorthand for ~server=/domain/~ with an
+empty address.  Do not put a static ~local=~ in the base config *and* a
+~server=/domain/<ip>~ in the servers-file — two entries for one domain make
+dnsmasq use both.  Keep the servers-file the single source and have it
+write one form or the other according to VPN state.
+
+** What does not consolidate
+
+*Search domains.*  They are a client-side resolver concept; a forwarder
+cannot hand them back.  They must still be applied with
+~networksetup -setsearchdomains~ (sudoers already carries a rule for the
+~Empty~ variant).
+
+This is two /appliers/ driven from one /input/ — the pushed domain list
+feeds both the servers-file and the search-domain call — so the single
+source of truth survives even though the mechanism does not unify.
+
+Note also that the search list is currently *derived*: the network service
+has no search domains set, yet ~State:/Network/Global/DNS~ carries seven,
+which macOS mirrors into ~/etc/resolv.conf~.  They appear to come from the
+synthetic service's ~SupplementalMatchDomains~ — meaning deleting that
+service would empty the search list on *both* paths at once.  Confirm this
+before deleting anything.
+
+** Accepted consequences
+
+- *Single point of failure.*  Today a dead ~dnsmasq~ still leaves corporate
+  domains resolving via ~/etc/resolver~.  After consolidation it takes down
+  all DNS, since the default resolver is ~127.0.0.1~.  Mitigated by the
+  existing ~KeepAlive~; accept deliberately rather than by omission.
+- *Correlated failure.*  One bad ~dnsmasq~ entry breaks every consumer
+  simultaneously.  This is the point — uniformity is the goal — but it does
+  remove the accidental redundancy that made the original outage partial
+  rather than total.
+- ~.local~ is unaffected and must stay on its mDNS resolver entry; it is
+  never routed to ~dnsmasq~.
+
+* Test cases
+
+Grouped by what they protect.  The starred ones are regressions that have
+actually occurred.
+
+** Connection lifecycle
+
+1. Cold connect with no prior VPN state.
+2. Connect when a previous session was killed with ~SIGKILL~ — orphaned
+   ~utun~, stale routes, stale state files.  Must recover, not wedge. ★
+3. Connect while already behind another VPN (e.g. Proton).  The pre-VPN
+   default route is *interface-only with no gateway IP*; the bypass host
+   route must still be installed. ★
+4. Disconnect leaves the machine with working internet — default gateway
+   restored, DHCP management returned to the physical interface. ★
+5. Disconnect after the tunnel already collapsed (no clean teardown).
+6. Two connects in a row without an intervening disconnect (idempotency).
+7. Sleep/wake across a connected session.
+
+** The rekey path
+
+8. Survive an openconnect session rekey: tunnel stays up, ~gpclient~ never
+   exits, PID file stays valid.  Assert DNS still resolves through *all
+   three paths* afterwards — neither ~/etc/resolver~ nor the ~dnsmasq~
+   servers-file is rewritten by a rekey, so both are only as valid as the
+   tunnel addresses they were written with. ★
+9. Poison the negative cache deliberately: query an internal name while the
+   tunnel is down, restore the tunnel, assert the name resolves within one
+   health-check interval rather than one negative-TTL. ★
+
+** DNS correctness
+
+10. Corporate name resolves through *all three* paths: ~dnsmasq~ (bare
+    ~dig~), ~mDNSResponder~ (~dscacheutil~ / ~getaddrinfo~), and the VPN
+    nameserver directly (~dig @server~).  Asserting only one is the bug
+    that hid a 19-hour outage. ★
+10a. Break ~mDNSResponder~ only (poison its cache) → assert the health
+    check reports unhealthy, flushes, and does *not* reconnect. ★
+10b. Break ~dnsmasq~ only (truncate its servers-file, or stop it) → assert
+    Nix tooling fails, macOS resolution still works, and the health check
+    reports unhealthy rather than healthy.
+10c. Same as 10b, but assert the remedy is a ~dnsmasq~ reload/regeneration
+    and not a VPN teardown — the tunnel is fine in this state.
+10d. ~dnsmasq~ not installed at all → every ~dnsmasq~ code path is skipped
+    cleanly and the tooling still functions.
+11. Public name (e.g. ~yahoo.com~) still resolves while connected — not
+    NXDOMAIN from the corporate resolver. ★
+12. Gateway pushes no ~CISCO_SPLIT_DNS~ → fallback domain list is used and
+    scoping is still applied. ★
+13. Gateway pushes DNS servers *inside the tunnel IP range* (~10.89.x~),
+    which the scoping filter excludes.  Must be treated as "already
+    configured by the callback", not as failure. ★
+14. Every domain in the pushed search list gets an ~/etc/resolver~ entry
+    *and* a ~dnsmasq~ ~server=~ line, and both are removed on disconnect.
+14a. After disconnect with ~dnsmasq~ running, the physical service's DNS
+    points at ~127.0.0.1~; with ~dnsmasq~ absent, it is set to ~Empty~.
+    Assert the host still resolves public names either way. ★
+15. A subdomain of a pushed domain resolves (validates suffix matching).
+16. ~mDNSResponder~ does *not* mark VPN DNS servers unreachable after a
+    connect — i.e. the synthetic service is bound to the physical
+    interface. ★
+17. ~testHost~ unset → probes skip cleanly rather than reporting failure.
+
+** Routing
+
+18. Full-tunnel (~0.0.0.0/0~) advertisement produces RFC-1918 routes via
+    the tunnel *and* a restored default route via the physical gateway. ★
+19. Split-tunnel advertisement produces exactly the advertised routes.
+20. The VPN server host route survives ~gpclient~ re-routing it through the
+    tunnel — i.e. the watchdog works.  Assert no dead-peer disconnect at
+    ~24 s. ★
+21. Stale ~WASCLONED~ host route from a previous session is replaced, not
+    silently skipped. ★
+22. Physical interface address stripped mid-session → watchdog restores it
+    and ESP keeps flowing. ★
+
+** Interface selection
+
+23. A stale, not-UP ~utun~ from a previous session is *not* selected as the
+    tunnel. ★
+24. ~TUNDEV~ passed by ~gpclient~ disagrees with the real tunnel at both
+    connect and disconnect; the right interface is used for each. ★
+25. VPN IP assigned *after* the callback returns — the deferred route-fixer
+    installs routes once it appears. ★
+
+** Auth
+
+26. Full SAML + TOTP flow end to end against the gateway.
+27. ~gpauth~ never invoked as root on a webview path.
+28. HIP report submitted; data plane actually carries traffic (not just
+    tunnel established). ★
+29. Cookie blob is a single line and reaches ~gpclient~ stdin intact.
+30. Auth failure is reported as an auth failure, not as a downstream
+    broken-pipe error from the consumer of the pipe. ★
+
+** If the dnsmasq-as-single-resolver architecture is adopted
+
+These replace, rather than add to, several of the DNS cases above.
+
+35. ~max-ttl=0~ actually prevents ~mDNSResponder~ caching: resolve a name,
+    change what ~dnsmasq~ answers, resolve again, assert the new answer.
+    *This gates the whole architecture.* ★
+36. Flushing ~dnsmasq~ alone is sufficient — no ~mDNSResponder~ flush
+    anywhere in the flow, and no stale answers survive it.
+37. A scoping rule added in exactly one place (the servers-file) takes
+    effect for both macOS applications and Nix tooling.
+38. Disconnect writes ~server=/<domain>/~ rather than truncating; assert a
+    corporate lookup returns REFUSED, *not* a public-DNS NXDOMAIN, and that
+    nothing caches it. ★
+39. Reconnect after that state resolves immediately, with no flush needed.
+40. Search domains survive deletion of the synthetic scutil service — bare
+    hostname resolution still works on both paths. ★
+41. ~.local~ still resolves via mDNS and is never sent to ~dnsmasq~.
+42. ~dnsmasq~ stopped → the failure is total and obvious, not partial and
+    silent.
+
+** Supervisor behaviour
+
+31. Each cell of the probe matrix in [[*There are three DNS resolution paths, not one][There are three DNS resolution paths,
+    not one]] produces its mapped remedy, and no other.  In particular,
+    neither single-forwarder failure results in a reconnect. ★
+32. All forwarder paths broken → scoping fix, then reconnect if still
+    broken.
+33. Tunnel down → reconnect.
+34. Health check never reports healthy while *any* class of program cannot
+    resolve a corporate name — macOS applications and Nix tooling count
+    separately. ★
+
+* Migration sequencing
+
+The machine this runs on depends on the VPN for work.  A big-bang cutover
+is not acceptable.  Suggested order, each step independently shippable:
+
+1. *Supervisor* first.  It owns the state machine and the health-probe
+   logic where the recent bugs live, and it can shell out to the existing
+   scripts unchanged.  Highest value, smallest blast radius.
+2. *DNS scoping + privileged helper.*  Small, highly testable, and the
+   right moment to narrow the ~sudoers~ wildcard.
+3. *Connector and auth.*  Trickiest because of Playwright and the PTY
+   legacy path.  Resolve [[*Open questions][Open questions]] first.
+4. *Network callback* last, or never.  It is the largest single file, the
+   hardest to test, and the most damaging to get wrong.  It is also the
+   most mechanical, so it benefits least from the rewrite.
+5. Fold the one-off diagnostics into subcommands as their dependencies are
+   replaced.
+
+* Open questions
+
+1. *Playwright.*  ~gp-auth-headless~ drives a real browser through the
+   IdP's SAML flow.  There is no comfortable native substitute.  Options:
+   keep it as a Python sidecar invoked as a subprocess (lowest risk);
+   drive a browser via CDP directly; or investigate whether the IdP flow
+   can be completed with plain HTTP requests.  This decision gates step 3.
+2. *Is the legacy portal flow dead?*  If yes, the PTY handling and
+   ~gp-connect-pty~ can be dropped outright, removing a whole class of
+   complexity.
+3. *Repository location.*  The tooling is generic GlobalProtect
+   automation with no employer-specific identifiers, so it does not belong
+   in the private wrapper.  Standalone repository consumed as a flake
+   input is the natural fit.
+4. *Does the network callback stay shell?*  It is the one component where
+   "mechanical translation of a pile of ~route~ and ~scutil~ invocations"
+   describes the whole job.  Worth deciding deliberately rather than by
+   default.
+5. *Rust scaffold is missing.*  ~~/dev/rust-template/new-project.sh~,
+   referenced by the global instructions, does not exist on this host and
+   no ~new-project.sh~ is present anywhere under ~~/dev~.
+
+* See also
+
+- ~docs/gpauth-root-restriction.org~ — why ~--browser remote~ is
+  load-bearing.
+- ~docs/globalprotect-automation.org~ — the ~--as-gateway~ flow.
+- ~darwin-modules/global-protect-persistent.nix~ — module options,
+  ~launchd~ definitions, and the ~sudoers~ block.
