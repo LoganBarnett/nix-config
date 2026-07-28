@@ -622,11 +622,11 @@
         "org-mode-fork": "org-mode-fork"
       },
       "locked": {
-        "lastModified": 1783958597,
-        "narHash": "sha256-23D1Mzg2L/9gTi5b1Dvjaiu0vrX+Pqif59MCsTIi7rs=",
+        "lastModified": 1785263528,
+        "narHash": "sha256-ikaWWV0a4RZEWcNDhphx0x2IWt0QW1r7R0VqmiNdkPc=",
         "owner": "LoganBarnett",
         "repo": "emacs-config",
-        "rev": "07fa253e5d13fbf3548f586f243982f4563d6804",
+        "rev": "afb6121ef7368623fa598dde1295c1ce7e8c5f72",
         "type": "github"
       },
       "original": {
