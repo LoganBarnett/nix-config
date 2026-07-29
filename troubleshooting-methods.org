@@ -1226,3 +1226,99 @@ are in [[file:docs/kodi-cec-troubleshooting.org][docs/kodi-cec-troubleshooting.o
 A whine from the TV itself (not Kodi), worst on a silent menu.  It is PWM
 backlight-dimming coil whine; the fix is backlight 100% with auto-dimming off.
 See [[file:docs/tv-backlight-whine.org][docs/tv-backlight-whine.org]].
+
+** Kodi: music and effects drown out dialogue
+
+Voices sit faintly under the music, or disappear entirely in loud scenes.  The
+TV's equalizer is flat and its "auto volume" / dynamic-range features are
+already off.
+
+The usual cause is Kodi's *volume amplification* being turned up.  It should be
+=0 dB=.  Amplification is applied /before/ Kodi's limiter, so a boosted signal
+slams the limiter and the resulting gain reduction ducks the entire mix —
+dialogue included — precisely when the music is loudest.  Turning amplification
+*up* to chase quiet dialogue therefore makes it worse rather than better.
+
+Fix: OSD → Audio settings → Volume amplification → =0=.  Raise the *TV* volume
+instead.  The TV's amplifier has real headroom; Kodi's digital gain stage does
+not.
+
+DVD rips genuinely are quiet (an anime DVD measured here sat at -17 to -24 LUFS
+with ~14 LU of loudness range, against roughly -16 to -14 LUFS and 6-8 LU for
+modern streaming masters), so needing a higher TV volume for them is expected
+and is not a fault to correct in Kodi.
+
+*** Confirming it is clipping
+
+Capture the real output and compare it to the source file.  Clipping shows up as
+a collapsed loudness range, a true peak at or above 0 dBFS, and a non-zero flat
+factor (runs of identical samples, i.e. flat-topped waveforms):
+
+#+begin_src sh
+sudo -u kodi XDG_RUNTIME_DIR=/run/user/1001 timeout 35 parecord \
+  --device=alsa_output.pci-0000_00_03.0.hdmi-stereo.monitor \
+  --file-format=wav --channels=2 --rate=48000 /tmp/kodi-out.wav
+
+sudo -u kodi ffmpeg -nostdin -v info -i /tmp/kodi-out.wav \
+  -af "ebur128=peak=true:framelog=quiet" -f null -
+sudo -u kodi ffmpeg -nostdin -v info -i /tmp/kodi-out.wav \
+  -af astats -f null - 2>&1 | grep -E "Peak level|Flat factor|Abs Peak count"
+#+end_src
+
+A healthy path reproduces the source's loudness range.  The observed failure
+crushed 14.4 LU down to 1.2 LU and pinned ~1000 samples per channel at full
+scale.
+
+*** It is a per-video setting
+
+Volume amplification is stored *per file* in Kodi's video database, not
+globally, so fixing one video leaves every other override untouched.  Kodi only
+keeps a row for files that have non-default settings, so listing the whole table
+is a fast sweep for stragglers:
+
+#+begin_src sh
+sudo -u kodi sqlite3 -header -column \
+  /home/kodi/.kodi/userdata/Database/MyVideos131.db \
+  "SELECT s.idFile, f.strFilename, s.VolumeAmplification
+     FROM settings s LEFT JOIN files f ON f.idFile = s.idFile;"
+#+end_src
+
+Reset one by =idFile=.  Update the column rather than deleting the row, so the
+file's other settings (notably =AudioStream=, the selected audio track) survive:
+
+#+begin_src sh
+sudo -u kodi sqlite3 \
+  /home/kodi/.kodi/userdata/Database/MyVideos131.db \
+  "UPDATE settings SET VolumeAmplification = 0.0 WHERE idFile = <id>;"
+#+end_src
+
+This is safe to run while Kodi is up — it only holds per-file video settings in
+memory for the file currently playing, and writes them back when that file
+stops.  Do not edit the row for whatever is on screen.
+
+Back the database up first with sqlite's own =.backup=, which is safe against
+the live file Kodi has open:
+
+#+begin_src sh
+sudo -u kodi sqlite3 /home/kodi/.kodi/userdata/Database/MyVideos131.db \
+  ".backup /home/kodi/MyVideos131.db.bak-$(date +%Y%m%d-%H%M%S)"
+#+end_src
+
+The number in =MyVideos131.db= tracks Kodi's schema version and changes on major
+Kodi upgrades — check the real filename in that directory before running these.
+
+*** Not the cause
+
+Worth ruling out explicitly, since these are the tempting first guesses:
+
+- *Downmix / centre-channel loss.*  Only applies to multichannel sources.  DVD
+  rips are frequently plain 2.0 stereo; check with ~ffprobe -select_streams a~
+  before chasing it.
+- *Dolby Surround matrix decoding.*  =mediainfo= reports =dsurmod= — "Not Dolby
+  Surround encoded" means no matrix decode is expected.
+- *AC3 dynamic range compression* (=applydrc=).  DRC acts on =dynrng= metadata
+  in the bitstream; if =mediainfo= shows a =compr= near 0 dB there is nothing
+  for it to apply.  Kodi 21 also has no built-in compressor, the AudioDSP addon
+  system having been removed.
+- *Dialog normalization.*  A =dialnorm= of -31 dB is the neutral value; the
+  decoder applies no attenuation at that setting.

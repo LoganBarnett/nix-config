@@ -57,12 +57,21 @@
         # Allow installation of addon dependencies without prompts.
         unknownsources = "true";
       };
-      audio = {
-        # Boost audio volume by 12dB. Many DVDs are encoded with low audio
-        # levels, and this amplification compensates without distortion. Adjust
-        # if needed.
-        volumeamplification = "12.0";
-      };
+      # No <audio> block here on purpose.  This previously carried
+      # volumeamplification = "12.0", commented as a global +12dB boost.  It was
+      # neither: Kodi's advancedsettings parser has no volumeamplification key
+      # at all (see AdvancedSettings.cpp, which reads only applydrc,
+      # limiterhold, limiterrelease and friends out of <audio>), so the element
+      # was silently ignored.  Volume amplification is a *per-video* player
+      # setting stored in MyVideos*.db, reachable only through the playback OSD.
+      #
+      # Do not reintroduce it.  Amplification is applied ahead of Kodi's
+      # limiter, so raising it to compensate for a quiet disc drives the mix
+      # into clipping and the limiter then ducks dialogue under loud music --
+      # the opposite of the intended effect.  DVD rips are simply mastered
+      # quiet; the TV's volume control is the correct remedy.  See
+      # troubleshooting-methods.org, "Kodi: music and effects drown out
+      # dialogue".
     };
     addonSettings = {
       "plugin.video.jellyfin" = {
