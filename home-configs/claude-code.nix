@@ -54,6 +54,12 @@ in
   # ];
   programs.claude-code = {
     enable = true;
+    # Pull the generic, client-neutral MCP registry (programs.mcp.servers,
+    # defined in home-configs/mcp.nix) into Claude Code's own MCP config.  This
+    # is the one Claude-specific line that opts this client in; the registry
+    # itself stays agent-agnostic.  On name collisions, entries under
+    # programs.claude-code.mcpServers would win over the generic ones.
+    enableMcpIntegration = true;
     package = pkgs.symlinkJoin {
       name = "claude-code-wrapped";
       paths = [ pkgs.claude-code ];
@@ -233,7 +239,7 @@ in
         ---
         name: code-review-orchestrator
         description: Orchestrates comprehensive code review by coordinating specialized reviewers
-        model: sonnet
+        model: opus
         color: yellow
         tools: [task, read, write, glob, grep, bash]
         memory:
@@ -323,7 +329,7 @@ in
         ---
         name: standards-reviewer
         description: Reviews code for compliance with CLAUDE.md standards
-        model: sonnet
+        model: opus
         color: blue
         tools: [read, grep, glob, write]
         memory:
@@ -408,7 +414,7 @@ in
         ---
         name: senior-engineer
         description: Reviews code for engineering best practices and operational readiness
-        model: sonnet
+        model: opus
         color: green
         tools: [read, grep, glob, write]
         memory:

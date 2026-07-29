@@ -24,6 +24,7 @@ in
     ./home-modules/claude-code.nix
     ./home-configs/gh-cli.nix
     ./home-configs/gpg-agent.nix
+    ./home-configs/mcp.nix
     ./home-configs/opencode.nix
     ./home-configs/rust.nix
     ./home-configs/sccache.nix
