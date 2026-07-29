@@ -510,6 +510,32 @@ before deleting anything.
 - ~.local~ is unaffected and must stay on its mDNS resolver entry; it is
   never routed to ~dnsmasq~.
 
+** Adjacent: the tether reconciler (non-GP hosts)
+
+A second use of this same "dnsmasq as the single resolver" foundation, tracked
+in [[file:tether-dns.org]].  It converges on everything above — the 127.0.0.1
+pointer, the servers-file/SIGHUP model, =max-ttl=0= — and pushes two extensions:
+
+1. *The forwarder must be a host-level primitive, not GP-owned.*  A host that
+   never runs GP (scandium) still needs the forwarder, for the tether.  So a
+   ~services.local-dns~ module stands dnsmasq up unconditionally and GP becomes
+   one /consumer/ of it (its servers-file) rather than its owner.  This is a
+   refactor of [[*What is already in place][What is already in place]]: the stand-up moves out of
+   ~global-protect-persistent.nix~.
+2. *A second, orthogonal reconciler.*  Alongside the VPN servers-file reconcile,
+   the tether adds a =filter-AAAA= knob driven by a /symptom probe/ (direct-v6
+   reachability), not by identity — writing its own conf fragment.  It is the
+   one config-option knob that needs a real restart rather than SIGHUP; the
+   servers-file split already isolates that cost.
+
+Implication for this rewrite: if the reconcile logic becomes a Rust
+~net-reconcile~ binary, the tether reconciler is a sibling subcommand sharing
+interface detection and the =/var/run= state dir — worth shaping those two
+interfaces to accommodate both from the start.  It also reorders migration
+slightly: the tether work proves ~services.local-dns~ on scandium first, so the
+"DNS scoping + privileged helper" step below targets an /already-extracted/
+forwarder.
+
 * Test cases
 
 Grouped by what they protect.  The starred ones are regressions that have
