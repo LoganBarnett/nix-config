@@ -247,6 +247,69 @@ in
         }) (builtins.attrValues facts.network.hosts.silicon.extraAddresses);
       });
 
+  # Rename the Intel quad NIC port cabled to the provisioning switch.
+  #
+  # Kernel names like enp4s0f0 encode PCI bus/slot topology, so they are stable
+  # only while the card stays in the slot it is in — reseat it, or move it from
+  # the x4 to the x16, and the bus number changes and every name with it.  The
+  # MAC is stamped on the card and does not move, so match on that instead and
+  # give the port a name that says what it is for.
+  #
+  # Identified empirically: with the switch cabled and all four ports brought
+  # up, only 00:15:17:74:2f:d0 showed carrier (1000 Mbps full duplex).  The
+  # full set, since the jacks are *not* necessarily ordered left-to-right on
+  # the bracket:
+  #
+  #   00:15:17:74:2f:d0     00:15:17:74:2f:d2
+  #   00:15:17:74:2f:d1     00:15:17:74:2f:d3
+  #
+  # To re-identify, `ip link set <iface> up` on all four first — carrier reads
+  # EINVAL on an admin-down interface, which looks exactly like a dead cable
+  # and will send you chasing the wrong thing.
+  systemd.network.links."10-provision0" = {
+    matchConfig.MACAddress = "00:15:17:74:2f:d0";
+    linkConfig.Name = "provision0";
+  };
+
+  # Meraki AP provisioning segment.
+  #
+  # The firmware manifest is pinned by SHA-256 but fetched at runtime, so none
+  # of these URLs can block a rebuild.  Checksums: OpenWrt's are from the
+  # release's published sha256sums; the u-boot ones are from the
+  # openwrt-cryptid README.  That repo is pinned to a branch rather than a
+  # commit, so a force-push upstream would trip the checksum and fail the fetch
+  # loudly — which is the intended behaviour, not a gap.
+  services.meraki-provisioning = {
+    enable = true;
+    interface = "provision0";
+    firmware = {
+      # Fetched over TFTP by the Meraki diagnostic firmware, then written to
+      # the u-boot partition.  This is the irreversible step.
+      "mr42_u-boot.mbn" = {
+        url = "https://raw.githubusercontent.com/clayface/openwrt-cryptid/master/mr42_u-boot.mbn";
+        sha256 = "ac39dcfb396b2fb115d8890ff812b51c0ff608b77cd3947c4d1f99aaf855a7ac";
+      };
+      # Only needed for the UART fallback path, via ubootwrite.py.
+      "mr42_u-boot.bin" = {
+        url = "https://raw.githubusercontent.com/clayface/openwrt-cryptid/master/mr42_u-boot.bin";
+        sha256 = "319742c4baac6a8506b0ab2fd69b2927c0ef8f6f0d96c744388101ad7f62c53b";
+      };
+      # Renamed on purpose: u-boot's compiled-in `fit_uimage_initramfs` asks
+      # for exactly this unversioned name, while OpenWrt publishes it with the
+      # release in the filename.
+      "openwrt-ipq806x-generic-meraki_mr42-initramfs-fit-uImage.itb" = {
+        url = "https://downloads.openwrt.org/releases/25.12.5/targets/ipq806x/generic/openwrt-25.12.5-ipq806x-generic-meraki_mr42-initramfs-fit-uImage.itb";
+        sha256 = "ab66e3a4e46d3f70fda07645d12a556259745677659207317982916b66ef0179";
+      };
+      # Pulled over HTTP from the booted initramfs, not by u-boot, so the
+      # versioned name is fine and preferable.
+      "openwrt-25.12.5-ipq806x-generic-meraki_mr42-squashfs-sysupgrade.bin" = {
+        url = "https://downloads.openwrt.org/releases/25.12.5/targets/ipq806x/generic/openwrt-25.12.5-ipq806x-generic-meraki_mr42-squashfs-sysupgrade.bin";
+        sha256 = "c0c4c529997552b32e62357c1cdb097ae3cd74e4d208a7bdd81c9676a7ab6967";
+      };
+    };
+  };
+
   # Configure ACLs for shared media directory so both nextcloud and kodi can
   # read/write.
   systemd.services.setup-shared-media-acls = {

@@ -105,6 +105,7 @@
     ../nixos-modules/goss-exporter.nix
     ../nixos-modules/goss-checks.nix
     flake-inputs.lix-module.nixosModules.lixFromNixpkgs
+    ../nixos-modules/meraki-provisioning.nix
     ../nixos-modules/nix-flake-environment.nix
     ../nixos-modules/optical-drive.nix
     ../nixos-modules/terminal-kiosk.nix
