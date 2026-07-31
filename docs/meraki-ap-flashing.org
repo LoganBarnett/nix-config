@@ -5,9 +5,10 @@ Runbook for converting a Cisco Meraki access point (MR42 and siblings) to
 OpenWrt.  Written against an MR42; the procedure comes from the [[https://openwrt.org/toh/meraki/mr42][OpenWrt MR42
 device page]], with the parts we learned the hard way folded in.
 
-*Validation status:* steps 1 through 5 have been executed and verified on our
-hardware.  Step 6 onward are transcribed from the OpenWrt wiki and have not yet
-been run here.  Update this line once they have.
+*Validation status:* fully validated end to end on an MR42, 2026-07-31.  The
+whole procedure below — diagnostic mode, u-boot write, TFTP initramfs boot,
+image transfer, and sysupgrade — was executed and confirmed working.  No case
+opening and no serial adapter were required.
 
 * What the network side provides
 
@@ -150,33 +151,155 @@ into a brick.  Leave it running and diagnose.
 * 7. Boot the initramfs
 
 Power off, then hold reset and power on.  The new u-boot TFTP-boots the
-initramfs from the host.  Solid white LED means it booted.
+initramfs from the host.
 
-If it never fetches, the interface did not come up in time.  A switch in the
-path helps, because it keeps the host's link up while the AP reboots.  Failing
-that, try forcing the link to 10 Mb/s half duplex.
+** it MUST be clayface's initramfs, not a current OpenWrt release
+
+This cost us two hours, so it leads the section.
+
+We first served the stock =25.12.5= initramfs.  It transferred *completely* —
+the host's interface counters showed all 11125524 bytes out with a matching
+per-block ACK count — and then simply never booted.  u-boot's =bootbk= is a
+vendor command with a fixed load address and a FIT layout expectation, and a
+2026-built image is not what it wants.
+
+The device then fell through to =bootbk 0x48000000 bootkernel2= and came up in
+stock Meraki firmware.  *That is the designed failure path and costs nothing* —
+it is not a brick, and it is how you can tell a boot failure from a transfer
+failure.
+
+Serving clayface's image instead booted on the first try.  The manifest in
+[[file:../hosts/silicon.nix]] is pinned to it deliberately; do not "modernise" it.
+
+The initramfs is only a vehicle to reach a shell.  The release you actually
+install comes from the sysupgrade image, so the two need not match.
+
+** telling which OS is running, by MAC
+
+Each stage presents a different address, which is the quickest way to know
+where you are without touching the device:
+
+| stage                | MAC                 | notes                        |
+|----------------------+---------------------+------------------------------|
+| Meraki diagnostic    | locally-administered | telnet open, no password     |
+| OpenWrt initramfs    | locally-administered | *dropbear on 22*, no telnet  |
+| stock Meraki firmware | real Meraki OUI     | broadcasts discovery frames  |
+
+Stock firmware announces itself loudly — ours still beacons its old
+=NWEA QA Lab= site name and the previous owner's coordinates.  Seeing those
+frames means you fell back and did *not* boot the initramfs.
+
+** if it never fetches at all
+
+The interface did not come up in time.  A switch in the path helps, because it
+keeps the host's link up while the AP reboots.  Failing that, try forcing the
+link to 10 Mb/s half duplex.
 
 * 8. Sysupgrade
 
-Optionally reclaim the Meraki volumes first — *never touch =ubi1= / ART*:
+Optionally reclaim the Meraki volumes first — *never touch =ubi1= / ART*, which
+holds radio calibration data and is not recoverable:
 
 #+begin_src sh :results none :exports code
 for i in diagnostic1 part.old storage part.safe ; do ubirmvol /dev/ubi0 -N $i ; done
 #+end_src
 
-Then pull the image over HTTP from the host and flash:
+** push the image from the host — do not pull it
+
+=wget= on the AP fails with:
+
+: Failed to send request: Operation not permitted
+
+=EPERM= on a send means the packet never left the AP.  The initramfs ships a
+firewall that blocks new outbound connections, so nothing ever reaches the
+host — confirmed by watching for the SYN on the host side and seeing none.
+
+Inbound works fine, which is why you are already SSH'd in.  So reverse the
+direction.  From the *host*:
 
 #+begin_src sh :results none :exports code
-cd /tmp
-wget http://192.168.1.250/openwrt-25.12.5-ipq806x-generic-meraki_mr42-squashfs-sysupgrade.bin
+scp -O /var/lib/meraki-provisioning/openwrt-25.12.5-ipq806x-generic-meraki_mr42-squashfs-sysupgrade.bin \
+  root@192.168.1.1:/tmp/
+#+end_src
+
+=-O= forces the legacy SCP protocol; modern =scp= defaults to SFTP, which
+dropbear on an old initramfs does not provide.
+
+If you would rather pull, =/etc/init.d/firewall stop= on the AP first — it is
+an initramfs in RAM on an isolated segment with one peer, so there is nothing
+for a firewall to protect.
+
+** verify, then flash
+
+#+begin_src sh :results none :exports code
+sha256sum /tmp/openwrt-25.12.5-ipq806x-generic-meraki_mr42-squashfs-sysupgrade.bin
 sysupgrade -n /tmp/openwrt-25.12.5-ipq806x-generic-meraki_mr42-squashfs-sysupgrade.bin
 #+end_src
+
+Expect =c0c4c529997552b32e62357c1cdb097ae3cd74e4d208a7bdd81c9676a7ab6967=.
+
+=-n= because there is no config worth preserving.  Add =-F= only if it rejects
+the image metadata, which an older initramfs flashing a much newer release can
+trip.
+
+* 9. Confirm it worked, then secure it
+
+=sysupgrade= tears down networking, writes flash, and reboots, so the device
+goes completely silent for a few minutes.  That silence is expected and is not
+a failure.
+
+** what success looks like
+
+Solid white LED, and from the host:
+
+#+begin_src sh :results none :exports code
+ping -c 3 -I provision0 192.168.1.1
+ip neigh show dev provision0 | grep '192.168.1.1 '
+#+end_src
+
+Three signals, each meaning something distinct:
+
+- *=tcp/80= is open.*  The release image carries LuCI; the initramfs does not.
+  This is how you know you are running from flash rather than still in RAM.
+- *=tcp/23= is closed.*  You are no longer in Meraki diagnostic mode.
+- *The MAC is a real Meraki OUI* (ours: =0c:8d:db:70:d0:db=), not the
+  locally-administered address the initramfs used.  This is the important one —
+  it means OpenWrt read the device's identity out of ART, which confirms the
+  calibration data survived.  A locally-administered MAC here would suggest ART
+  was damaged.
+
+** set a password immediately
+
+A freshly flashed OpenWrt has *no root password* and an open SSH.  The
+provisioning segment is isolated, but this is one misconfiguration away from
+mattering and costs nothing to fix:
+
+#+begin_src sh :results none :exports code
+ssh root@192.168.1.1
+passwd
+#+end_src
+
+Better still, drop a public key into =/etc/dropbear/authorized_keys= and keep
+it key-only.
+
+** do not over-invest in hand configuration
+
+Anything set by hand here has to be reverse-engineered into Nix later.
+Configure the minimum needed to prove the thing you are testing, and put the
+rest into declarative management.
 
 * Gotchas
 
 - *=/tmp= on the AP is RAM.*  Any power cycle — including redoing the reset
   dance — discards the staged image.  Re-fetch and re-verify the checksum in
   the same boot as the write.  Check =cat /proc/uptime= if unsure.
+- *A completed transfer does not mean a successful boot.*  Interface counters
+  and TFTP ACKs only prove bytes arrived.  Confirm the AP is actually up by
+  pinging =192.168.1.1= and checking which ports answer — dropbear on 22 is
+  the initramfs, telnet on 23 is Meraki diagnostic mode.
+- *The SSH host key changes on every initramfs boot*, since it is regenerated
+  in RAM.  Use =-o StrictHostKeyChecking=no=, and expect it to change again
+  after sysupgrade.
 - *=mtd1= is u-boot in Meraki's numbering only.*  Under OpenWrt the same
   partition is =mtd8=, which is what the wiki's UART section uses.  Always read
   =/proc/mtd= on the running system rather than trusting a number from a
