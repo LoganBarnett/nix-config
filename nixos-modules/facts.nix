@@ -209,8 +209,17 @@
         blockProfiles = [ "kid-gaming-rig" ];
         controlledHost = true;
         ipv4 = 8;
+        # Only one of these MACs may hold the reservation at a time.  dnsmasq
+        # accepts several MACs on a single dhcp-host entry, but it abandons the
+        # lease held by one address when another asks for it — its own
+        # documentation warns the arrangement is reliable only when exactly one
+        # of the addresses is active.  With both NICs up the two interfaces
+        # fought over 192.168.254.8, which presented as sporadic unreachability
+        # (>90% loss on Prometheus scrapes) rather than an outright outage.
+        # Ethernet is the intended path here, so the WiFi MAC stays parked
+        # until we have a model for hosts that may appear on either link.
         macAddresses = [
-          "50:46:5d:a5:6d:e6" # WiFi.
+          # "50:46:5d:a5:6d:e6" # WiFi.
           "f4:6d:04:21:dc:89" # Ethernet.
         ];
         system = "x86_64-linux";
