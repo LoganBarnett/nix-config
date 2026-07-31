@@ -437,6 +437,9 @@
               sonification-test
               pkgs.just
               pkgs.nixfmt-rfc-style
+              # Shell linter.  Matches the check writeShellApplication runs at
+              # build time, so scripts/ can be linted before a deploy fails.
+              pkgs.shellcheck
               pkgs.treefmt
             ];
             shellHook = ''
