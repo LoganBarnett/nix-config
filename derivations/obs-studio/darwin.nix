@@ -1,6 +1,7 @@
 {
   lib,
   stdenv,
+  darwin,
   perl,
   swift,
   swiftpm,
@@ -43,6 +44,7 @@ in
   ];
 
   extraNativeBuildInputs = [
+    darwin.sigtool
     perl
     swift
     swiftpm
@@ -233,8 +235,29 @@ in
     runHook postInstall
   '';
 
+  # Upstream only wires codesign into the Xcode generator, and this build uses
+  # Ninja, so nothing is ever signed: the binaries carry only the ad-hoc
+  # signature the linker emits, with no identifier and no entitlements.  macOS
+  # then has no code identity to attach TCC grants to and falls back to keying
+  # them by the executable's absolute path, which lands in the Nix store and
+  # changes on every rebuild - so camera, microphone and screen recording
+  # permissions silently stop applying after an upgrade.
+  #
+  # Sign with the bundle identifier and upstream's entitlements to give the app
+  # a real identity.  Both binaries need it: wrapQtApp leaves a wrapper at the
+  # bundle's advertised executable path which execs .OBS-wrapped, and
+  # entitlements do not carry across an exec into a differently-signed image.
+  #
+  # Must run after fixupPhase, since stripping invalidates any signature.
   postFixup = ''
     wrapQtApp "$out/Applications/OBS.app/Contents/MacOS/OBS"
+
+    for binary in .OBS-wrapped OBS; do
+      codesign --force --sign - \
+        --identifier com.obsproject.obs-studio \
+        --entitlements ../frontend/cmake/macos/entitlements.plist \
+        "$out/Applications/OBS.app/Contents/MacOS/$binary"
+    done
   '';
 
   meta = {
