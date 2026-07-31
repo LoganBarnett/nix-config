@@ -32,3 +32,51 @@ test:
 # Stream an in-flight MakeMKV rip's progress, exiting when the rip completes.
 rip-watch host='silicon.proton' device='sr0':
     {{keep-awake}} ssh {{host}} 'journalctl --unit=makemkv-rip@{{device}}.service --follow --lines=0 --output=cat & journal=$!; sudo systemctl start makemkv-rip@{{device}}.service & waiter=$!; wait -n; status=$?; kill $journal 2>/dev/null; sudo kill $waiter 2>/dev/null; exit $status'
+
+# Report a host's failed units without touching anything.
+failed host='silicon.proton':
+    ssh {{host}} 'systemctl list-units --state=failed --no-pager; systemctl is-system-running || true'
+
+# Shake a host until its failed units come back, in dependency order.
+#
+# The worry that an implicit dependency tree makes this hard is right in spirit
+# but wrong in mechanism: systemd already resolves *declared* ordering, as long
+# as you hand it the whole set at once.  `systemctl start a b c` builds a
+# single transaction and orders the jobs inside it by After=/Requires=/BindsTo=,
+# so a service that needs its database gets the database first.  Three separate
+# `systemctl start` invocations throw that away, because each becomes its own
+# transaction with nothing to order against.  Hence one invocation carrying the
+# entire list — that is the whole trick.
+#
+# Two things the transaction engine will not do for us:
+#
+#   1. A unit that has failed repeatedly is rate-limited by StartLimitBurst,
+#      and `start` on it returns "start request repeated too quickly" without
+#      even trying.  `reset-failed` clears that counter.  Note the ordering
+#      constraint: it has to run *after* the list is captured, because
+#      reset-failed is also what empties the failed list.  Capture, then reset,
+#      then start.
+#   2. Undeclared dependencies are invisible.  If a service genuinely needs DNS
+#      but nobody wrote After=unbound.service, systemd has no way to know, and
+#      the only cure is trying again once the thing it implicitly wanted has
+#      come up.  That is what the passes buy — each one re-derives the failed
+#      set from scratch, so a pass only retries what is still broken.
+#
+# Converges early: a pass that finds nothing failed stops the loop.  Exits
+# after printing whatever refused to come back, which is the set worth reading
+# a journal for.
+
+# Retry a host's failed units in dependency order until they come back.
+revive host='silicon.proton' passes='3':
+    {{keep-awake}} ssh {{host}} 'for pass in $(seq 1 {{passes}}); do \
+        units=$(systemctl list-units --state=failed --plain --no-legend --no-pager \
+                | cut --delimiter=" " --fields=1 | tr "\n" " "); \
+        if [ -z "$units" ]; then echo "pass $pass: nothing failed"; break; fi; \
+        echo "pass $pass: retrying $units"; \
+        sudo systemctl reset-failed $units; \
+        sudo systemctl start $units || true; \
+        sleep 5; \
+      done; \
+      echo; echo "=== still failed ==="; \
+      systemctl list-units --state=failed --no-pager || true; \
+      systemctl is-system-running || true'
