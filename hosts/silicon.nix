@@ -294,12 +294,26 @@ in
         url = "https://raw.githubusercontent.com/clayface/openwrt-cryptid/master/mr42_u-boot.bin";
         sha256 = "319742c4baac6a8506b0ab2fd69b2927c0ef8f6f0d96c744388101ad7f62c53b";
       };
-      # Renamed on purpose: u-boot's compiled-in `fit_uimage_initramfs` asks
-      # for exactly this unversioned name, while OpenWrt publishes it with the
-      # release in the filename.
+      # Deliberately clayface's build rather than a current OpenWrt release,
+      # and this is load-bearing.  The 25.12.5 initramfs transferred completely
+      # and was ACKed block for block — silicon's counters showed the full
+      # 11125524 bytes out with a matching ACK count — and then simply never
+      # booted.  u-boot's `bootbk` is a vendor command with a fixed load
+      # address and a FIT layout expectation, and a 2026-built image is
+      # evidently not what it wants.  The device fell through to
+      # `bootbk 0x48000000 bootkernel2` and came up in stock Meraki firmware,
+      # which is the designed failure path and cost nothing.
+      #
+      # This image is the one the flashing procedure was actually validated
+      # against, and the repo already publishes it under exactly the
+      # unversioned name u-boot's `fit_uimage_initramfs` asks for.
+      #
+      # The initramfs is only a vehicle to reach a shell — the release that
+      # ends up installed comes from the sysupgrade image below, so the two
+      # deliberately do not match.
       "openwrt-ipq806x-generic-meraki_mr42-initramfs-fit-uImage.itb" = {
-        url = "https://downloads.openwrt.org/releases/25.12.5/targets/ipq806x/generic/openwrt-25.12.5-ipq806x-generic-meraki_mr42-initramfs-fit-uImage.itb";
-        sha256 = "ab66e3a4e46d3f70fda07645d12a556259745677659207317982916b66ef0179";
+        url = "https://raw.githubusercontent.com/clayface/openwrt-cryptid/master/openwrt-ipq806x-generic-meraki_mr42-initramfs-fit-uImage.itb";
+        sha256 = "861e57593a207afbc26c2c2df2b8deb838b413af006b23e9f6142922fc9ed722";
       };
       # Pulled over HTTP from the booted initramfs, not by u-boot, so the
       # versioned name is fine and preferable.
