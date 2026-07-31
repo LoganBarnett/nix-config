@@ -1,0 +1,113 @@
+#+title:     PoE Cabling
+#+language:  en
+
+* The short version
+
+*Cat5e or better.  That is the whole rule.*
+
+If the jacket says =CAT5E=, =CAT6=, or =CAT6A=, the cable will carry any PoE
+class we are likely to deploy — 802.3af, 802.3at, or 802.3bt — and there is
+nothing further to check.  Buy on the category marking and move on.
+
+* Why the category marking is sufficient
+
+TIA-568 category compliance *requires solid copper conductors*.  Copper-clad
+aluminium cannot legitimately be marked as Cat5e, because it cannot meet the
+electrical requirements of the category.
+
+So the category claim already subsumes the conductor question.  There is a lot
+of writing on the internet about hunting for =CU= versus =CCA= markings on
+cable jackets; treat that as a symptom of buying uncategorised bulk cable
+rather than as a check we need to perform.  If we hold the Cat5e line, the CCA
+question never comes up.
+
+* Our standing assumption: minimum 1 Gb Ethernet
+
+We hold the bar at *at least Cat5e everywhere*, and it is worth being explicit
+that this is a *data* requirement, not a PoE one.
+
+PoE is satisfied by a lower bar than gigabit is.  802.3at will run happily over
+cable we would reject on throughput grounds.  Because our floor is 1 Gb
+Ethernet, the cabling standard is set by the data side, and PoE suitability
+comes along for free.
+
+That ordering matters for how we reason about it: we are not choosing cable for
+PoE and hoping it does gigabit.  We choose for gigabit, and PoE is never the
+binding constraint.
+
+Corollary: any cable good enough to be on this network is good enough to power
+a device on this network.
+
+* Reading a jacket
+
+Markings repeat every foot or two, so a single glance may catch only part of
+the legend.  Read along the cable before concluding something is missing.  A
+typical print:
+
+: BRANDNAME CAT6 U/UTP 23AWG 4PR TYPE CM (UL) c(UL) ... 305M
+
+| marking            | meaning                                    | matters for PoE?              |
+|--------------------+--------------------------------------------+-------------------------------|
+| =CAT5E= / =CAT6=   | TIA-568 category                           | *yes — this is the one*       |
+| =23AWG= / =24AWG=  | conductor gauge, lower is thicker          | only for thin patch cords     |
+| =4PR=              | four twisted pairs                         | implied by the category       |
+| =TYPE CM/CMR/CMP=  | NEC fire class — where you may run it      | no, it is a code question     |
+| =(UL)= =c(UL)=     | safety listings, US and Canada             | no, but a provenance signal   |
+| =CU= / =CCA=       | conductor material                         | moot if the category is real  |
+
+* The one gauge caveat
+
+24AWG is standard for solid horizontal cable and is entirely fine.
+
+The exception is *slim or low-profile patch cords*, which are frequently 26AWG
+or 28AWG.  These are legal and category-compliant, but their higher resistance
+means reduced maximum length under PoE.  Fine for a short patch between a
+switch and an injector; not what belongs in a permanent run.
+
+For scale: 24AWG solid copper is roughly 0.084 Ω/m per conductor, giving about
+8.4 Ω loop resistance over a full 100 m two-pair run, against the 12.5 Ω that
+802.3at permits.  Comfortable margin, and every run we have is far shorter.
+
+* Fire class — a location question, not a PoE question
+
+Pick by where the cable runs, per NEC Article 800:
+
+- =CM= — general purpose.  Rooms, surface runs, ordinary walls.
+- =CMR= — riser.  Vertical runs passing between floors.
+- =CMP= — plenum.  Spaces used for air handling, such as above a dropped
+  ceiling that returns air.
+
+This has no bearing on PoE capability.  It is about what the cable does in a
+fire.
+
+* When the category rule cannot be trusted
+
+The rule fails only when the marking itself is untrustworthy:
+
+- *No printing at all.*  Legitimate cable is marked.  Unmarked cable is the
+  stuff you do not want carrying 30 W through a ceiling.
+- *A category claim with no UL listing*, or a listing mark that looks
+  inconsistent with the brand.
+- *Bulk cable priced well below everything comparable.*  CCA is cheap for a
+  reason.
+
+If a spool is genuinely suspect, there is a definitive physical test: nick or
+strip one conductor and look at the cut face.  Solid copper is copper coloured
+all the way through; CCA shows a silver aluminium core beneath a thin copper
+skin.  CCA is also noticeably stiffer and snaps after fewer bends.
+
+* Pair count and PoE modes
+
+802.3af and 802.3at deliver over two pairs; 802.3bt uses all four.  Any real
+Cat5e has all eight conductors, so this is automatic.
+
+The thing this rules out is cheap four-conductor "2-pair" cable sold for
+100 Mbit runs — which also fails the gigabit floor, so the Cat5e rule catches
+it before PoE ever enters the picture.
+
+* Checklist
+
+1. Does the jacket say Cat5e or better?  If yes, you are done.
+2. Is it a slim patch cord?  Check for 26/28AWG and keep it short.
+3. Does the run pass through a plenum or between floors?  Match the fire class.
+4. No markings at all?  Do not use it.

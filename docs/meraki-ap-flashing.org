@@ -1,0 +1,190 @@
+#+title:     Flashing OpenWrt onto Meraki Access Points
+#+language:  en
+
+Runbook for converting a Cisco Meraki access point (MR42 and siblings) to
+OpenWrt.  Written against an MR42; the procedure comes from the [[https://openwrt.org/toh/meraki/mr42][OpenWrt MR42
+device page]], with the parts we learned the hard way folded in.
+
+*Validation status:* steps 1 through 5 have been executed and verified on our
+hardware.  Step 6 onward are transcribed from the OpenWrt wiki and have not yet
+been run here.  Update this line once they have.
+
+* What the network side provides
+
+Do not re-derive any of this — it is already declared:
+
+- [[file:../nixos-modules/meraki-provisioning.nix]] — the provisioning segment,
+  TFTP server, HTTP server, and the runtime firmware fetch.
+- [[file:../hosts/silicon.nix]] — enables the above, pins the NIC port by MAC, and
+  carries the firmware manifest with pinned checksums.
+
+The short version of why the address is not negotiable: the replacement u-boot
+has =serverip=192.168.1.250= and an unversioned initramfs filename compiled
+into it.  The module exists to satisfy those constants.
+
+* Prerequisites
+
+** Power
+
+The MR42 must negotiate *802.3at* at boot and peaks above 18 W.  802.3af at
+15.4 W is not sufficient.
+
+We use a *TRENDnet TPE-TG327* — unmanaged, 802.3af/at, 30 W per port, 70 W
+total budget.  No injector needed.  At ~13 W typical draw that switch supports
+roughly five APs, or two at full Class 4 allocation.
+
+A brownout during the =nandwrite= in step 6 is the one failure with no recovery
+path.  This is the reason to care about power.
+
+** Cable
+
+Cat5e or better.  See [[file:poe-cabling.org]].
+
+** Host
+
+Whichever host holds the provisioning segment — silicon here.  It serves TFTP
+and HTTP, and is where you telnet from.  Everything below runs from an SSH
+session on that host; no laptop needs to be on the provisioning network.
+
+* 1. Cable and power the AP
+
+AP into a PoE+ port on the switch, switch into the host's provisioning NIC.
+
+*Confirm the host's interface is actually up first.*  Reading
+=/sys/class/net/<iface>/carrier= on an admin-down interface returns EINVAL,
+which looks exactly like a dead cable.  We lost real time chasing a switch
+fault that was nothing but a down interface:
+
+#+begin_src sh :results none :exports code
+ip -brief addr show provision0
+cat /sys/class/net/provision0/carrier
+#+end_src
+
+* 2. Enter diagnostic mode
+
+Hold reset while powering on.  Keep holding roughly 10 seconds until the LED
+changes behaviour and begins flashing, then *release* and press reset twice.
+
+*Do not trust the LED colours.*  In poor light orange, red, and white are hard
+to tell apart, and the sequence ends with the LED going dark, which reads as
+failure when it is not.  Ours went orange → flashing white → orange → off, and
+was in diagnostic mode the whole time.
+
+* 3. Verify from the host, not the LED
+
+This is the definitive test:
+
+#+begin_src sh :results none :exports code
+ping -c 3 -I provision0 192.168.1.1
+#+end_src
+
+If it answers, the AP is in diagnostic mode.  Nothing else needs interpreting.
+
+* 4. Telnet in and identify
+
+#+begin_src sh :results none :exports code
+telnet 192.168.1.1
+#+end_src
+
+Diagnostic mode drops straight to a BusyBox root shell with no password.
+Confirm you are where you think you are:
+
+#+begin_src sh :results none :exports code
+uname -a
+ls -la /etc/update_uboot.sh
+cat /proc/mtd
+#+end_src
+
+What ours reported:
+
+: IPQ806X.LN.1.3.4-CSu2(r00057.1), r37758
+: RNAQ-MR1 v0.3.a Release
+: BusyBox v1.19.4, Linux 3.4.103 on ARMv7
+:
+: mtd0: 00200000 00020000 "cal"
+: mtd1: 00180000 00020000 "u-boot"
+: mtd2: 00010000 00001000 "m25p80"
+: mtd3: 00136000 0001f000 "ART"
+
+*If =/etc/update_uboot.sh= is absent*, this firmware has no writable u-boot
+partition and you must use the UART method instead — case open, serial header,
+=ubootwrite.py=.  Ours had it, so the rest of this document assumes the
+non-invasive path.
+
+* 5. Stage and verify the image
+
+Safe — nothing is written to flash yet.
+
+#+begin_src sh :results none :exports code
+cd /tmp
+rm -f mr42_u-boot.mbn
+tftp-hpa 192.168.1.250 -m binary -c get mr42_u-boot.mbn
+md5sum mr42_u-boot.mbn
+#+end_src
+
+Expected: =0b93ddf7a18a9477620f604b5fc903e1= (319592 bytes).
+
+*Do not proceed unless the checksum matches.*  Splitting the fetch from the
+write like this is why we prefer the manual path over
+=/etc/update_uboot.sh 192.168.1.250 mr42_u-boot.mbn=, which does both blind.
+
+* 6. Write u-boot — the irreversible step
+
+#+begin_src sh :results none :exports code
+echo 1 > /sys/devices/platform/msm_nand/boot_layout
+mtd erase /dev/mtd1
+nandwrite -pam /dev/mtd1 /tmp/mr42_u-boot.mbn
+echo 0 > /sys/devices/platform/msm_nand/boot_layout
+#+end_src
+
+*Watch for exactly this:*
+
+: Writing data to block 0 at offset 0x0
+: Writing data to block 1 at offset 0x20000
+: Writing data to block 2 at offset 0x40000
+
+*If those lines do not appear, do not power off.*  The bootloader is in an
+indeterminate state and powering down is what converts a recoverable situation
+into a brick.  Leave it running and diagnose.
+
+* 7. Boot the initramfs
+
+Power off, then hold reset and power on.  The new u-boot TFTP-boots the
+initramfs from the host.  Solid white LED means it booted.
+
+If it never fetches, the interface did not come up in time.  A switch in the
+path helps, because it keeps the host's link up while the AP reboots.  Failing
+that, try forcing the link to 10 Mb/s half duplex.
+
+* 8. Sysupgrade
+
+Optionally reclaim the Meraki volumes first — *never touch =ubi1= / ART*:
+
+#+begin_src sh :results none :exports code
+for i in diagnostic1 part.old storage part.safe ; do ubirmvol /dev/ubi0 -N $i ; done
+#+end_src
+
+Then pull the image over HTTP from the host and flash:
+
+#+begin_src sh :results none :exports code
+cd /tmp
+wget http://192.168.1.250/openwrt-25.12.5-ipq806x-generic-meraki_mr42-squashfs-sysupgrade.bin
+sysupgrade -n /tmp/openwrt-25.12.5-ipq806x-generic-meraki_mr42-squashfs-sysupgrade.bin
+#+end_src
+
+* Gotchas
+
+- *=/tmp= on the AP is RAM.*  Any power cycle — including redoing the reset
+  dance — discards the staged image.  Re-fetch and re-verify the checksum in
+  the same boot as the write.  Check =cat /proc/uptime= if unsure.
+- *=mtd1= is u-boot in Meraki's numbering only.*  Under OpenWrt the same
+  partition is =mtd8=, which is what the wiki's UART section uses.  Always read
+  =/proc/mtd= on the running system rather than trusting a number from a
+  document.  Writing u-boot to the wrong mtd is unrecoverable.
+- *The initramfs filename must stay unversioned.*  u-boot asks for
+  =openwrt-ipq806x-generic-meraki_mr42-initramfs-fit-uImage.itb= exactly.  The
+  provisioning module already renames the versioned download; do not "fix" it.
+- *Diagnostic mode uses a locally-administered MAC*, so do not expect a Meraki
+  OUI in the host's ARP table.  Ours showed =ba:5d:e7:03:f1:5d=.
+- *Do not connect over the network during the UART path* (MR42 only) — that
+  warning applies to the serial method, not to this one.

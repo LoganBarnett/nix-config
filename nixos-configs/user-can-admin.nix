@@ -126,6 +126,18 @@ in
     pkgs.rush-parallel
     # Watch TCP packets!
     pkgs.tcpdump
+    # GNU inetutils.  Wanted mainly for telnet and tftp — telnet because,
+    # unlike netcat, it performs option negotiation, which matters against
+    # embedded devices whose telnetd opens with IAC bytes that a raw socket
+    # leaves as garbage on your terminal; tftp because it is how you smoke-test
+    # a provisioning server.  Both come up in docs/meraki-ap-flashing.org.
+    #
+    # It also ships ping, hostname, ifconfig, logger, and traceroute, which
+    # collide with iputils, net-tools, util-linux, and traceroute.  That is
+    # already resolved upstream: inetutils carries meta.priority = 7 against
+    # iputils' -10 and everything else's default 5, and lower wins in buildEnv,
+    # so the specialised packages keep those names.  Nothing to work around.
+    pkgs.inetutils
     # Show a tree-listing of directories and files.
     pkgs.tree
     # Highly controllable terminal emulation and session management.  Have

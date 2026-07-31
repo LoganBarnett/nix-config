@@ -237,6 +237,12 @@ in
   };
 
   config = mkIf cfg.enable {
+    # The AP's diagnostic firmware exposes a BusyBox shell over telnet and
+    # nothing else, so a telnet client is required to drive a flash at all.
+    # tftp is how you smoke-test the server this module stands up.  Both live
+    # in inetutils.
+    environment.systemPackages = [ pkgs.inetutils ];
+
     # No gateway and no route off this segment.  It reaches silicon and nothing
     # else, which is the entire point.
     networking.interfaces.${cfg.interface}.ipv4.addresses = [
@@ -254,6 +260,30 @@ in
       allowedUDPPorts = [ 69 ];
       allowedTCPPorts = [ 80 ];
     };
+
+    # Let nginx bind cfg.address even when that address is not currently local.
+    #
+    # This module makes nginx listen on a specific address that only exists
+    # while a particular NIC is present.  nginx performs the bind during its
+    # ExecStartPre config test, so a failed bind does not merely disable this
+    # one virtual host — it prevents nginx from starting *at all*, taking down
+    # every other site on the host with it.  That is not hypothetical; it
+    # happened on the deploy that introduced this module, before the interface
+    # had been renamed.
+    #
+    # The ordering at boot is sound (network-addresses-<iface> binds to the
+    # .device unit and runs Before network.target, while nginx is After it), so
+    # the normal path is fine.  The exposure is hardware: pull the card, swap
+    # it, or change its MAC so the .link no longer matches, and the address is
+    # never assigned — and then a provisioning module for an access point takes
+    # authelia, nextcloud, gitea, and mastodon down on the next boot.
+    #
+    # ip_nonlocal_bind is the standard remedy (it is what HA setups use to bind
+    # floating VIPs).  The listener simply starts and receives nothing until the
+    # address exists.  Scoped here rather than in the host config because this
+    # module is what introduces the conditional bind, so it should carry its own
+    # mitigation rather than pushing the hazard onto whoever enables it.
+    boot.kernel.sysctl."net.ipv4.ip_nonlocal_bind" = 1;
 
     systemd.tmpfiles.rules = [
       "d ${cfg.stateDir} 0755 root root -"
