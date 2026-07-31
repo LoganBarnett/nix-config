@@ -35,7 +35,7 @@
   decklinkSupport ? false,
   blackmagic-desktop-video,
   libvpl,
-  extra-cmake-modules,
+  kdePackages,
   mkObsCefPackage,
 }:
 
@@ -67,7 +67,7 @@ in
   extraNativeBuildInputs = [
     addDriverRunpath
     wrapGAppsHook3
-    extra-cmake-modules
+    kdePackages.extra-cmake-modules
   ]
   ++ optional cudaSupport autoAddDriverRunpath;
 

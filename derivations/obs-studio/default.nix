@@ -4,7 +4,6 @@
   lib,
   fetchurl,
   fetchFromGitHub,
-  fetchpatch2,
   qt6Packages,
   cmake,
   ninja,
@@ -36,7 +35,7 @@
 
 let
   pname = "obs-studio";
-  version = "32.1.1";
+  version = "32.1.2";
 
   mkObsCefPackage =
     {
@@ -104,20 +103,16 @@ stdenv.mkDerivation (finalAttrs: {
     owner = "obsproject";
     repo = "obs-studio";
     rev = finalAttrs.version;
-    hash = "sha256-OiLlYnHaW+ehHtz4N20ctkfL4WmCzI45+VUG5hHOga4=";
+    hash = "sha256-9i7wLHpKqbcYzPlzSMF4xEpsTINQnVDPtneLJaSM+/I=";
     fetchSubmodules = true;
   };
 
   separateDebugInfo = platformConfig.separateDebugInfo or false;
 
-  patches = [
-    # Fix build with Qt 6.10 https://github.com/obsproject/obs-studio/pull/12328
-    (fetchpatch2 {
-      url = "https://github.com/obsproject/obs-studio/commit/26dfacbd4f5217258a2f1c5472a544c65a182d10.patch?full_index=1";
-      hash = "sha256-gEWDzZ+GPCR+rmytXcbiBcvzLg8VwZCveMKkvho3COI=";
-    })
-  ]
-  ++ (platformConfig.patches or [ ]);
+  # The Qt 6.10 fix (obsproject/obs-studio#12328) is in the 32.1.2 release, so
+  # applying it here now fails patchPhase with "Reversed (or previously
+  # applied) patch detected!".
+  patches = platformConfig.patches or [ ];
 
   nativeBuildInputs = [
     cmake
