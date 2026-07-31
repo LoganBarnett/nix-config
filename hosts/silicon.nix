@@ -43,6 +43,7 @@ in
     ../nixos-configs/loku.nix
     ../nixos-configs/authelia.nix
     ../nixos-configs/freeradius.nix
+    ../nixos-configs/ruckus-48zp-switch.nix
     ../nixos-configs/immich.nix
     ../nixos-configs/ivatar.nix
     ../nixos-configs/mastodon.nix
