@@ -60,6 +60,7 @@
         home-manager.users.logan = {
           imports = [
             ../home-configs/lutris-gaming.nix
+            ../home-configs/lutris-add-to-lutris.nix
           ];
         };
         hardware.cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;

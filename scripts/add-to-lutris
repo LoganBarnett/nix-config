@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+################################################################################
+# Add-to-Lutris: generate a Lutris installer YAML for a Windows .exe and hand it
+# to Lutris' installer GUI (`lutris --install`), with the executable, working
+# directory, shared Wine prefix, and a guessed title pre-filled.
+#
+# Invoked from a Nautilus Scripts entry (right-click a .exe ▸ Scripts ▸ Add to
+# Lutris) — Nautilus passes the selected paths via
+# $NAUTILUS_SCRIPT_SELECTED_FILE_PATHS — or directly with one or more .exe paths
+# as arguments.
+#
+# Wine runtime: intentionally left unspecified in the generated script, so
+# Lutris uses its configured default runner, which on this host is
+# wineWowPackages.stagingFull (see home-configs/lutris-gaming.nix).  `lutris`
+# itself is resolved from PATH — the programs.lutris FHS-wrapped binary that
+# knows about the Nix-provided Wine runners — not a bare pkgs.lutris.
+################################################################################
+
+# The single Wine prefix every auto-added game shares.  win64 (WoW64) so it can
+# host both 32- and 64-bit titles.  Override with $LUTRIS_SHARED_PREFIX.
+shared_prefix="${LUTRIS_SHARED_PREFIX:-$HOME/Games/shared-wine-prefix}"
+
+# Best-effort desktop notification; always echo to stderr as a fallback.
+notify() {
+  local summary="$1" body="${2:-}"
+  if command -v notify-send >/dev/null 2>&1; then
+    notify-send --app-name='Add to Lutris' -- "$summary" "$body" || true
+  fi
+  printf '%s: %s\n' "$summary" "$body" >&2
+}
+
+# Lutris-style slug: lowercase, runs of non-alphanumerics become one hyphen,
+# trim leading/trailing hyphens.
+slugify() {
+  printf '%s' "$1" \
+    | tr '[:upper:]' '[:lower:]' \
+    | sed --regexp-extended 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//'
+}
+
+# Guess a human title from the exe path.  Generic launcher names (game.exe,
+# launcher.exe, …) carry no signal, so fall back to the parent directory name,
+# which is usually the game folder.
+guess_title() {
+  local exe="$1" stem parent lc_stem
+  stem="$(basename "$exe")"
+  stem="${stem%.*}"
+  parent="$(basename "$(dirname "$exe")")"
+  lc_stem="$(printf '%s' "$stem" | tr '[:upper:]' '[:lower:]')"
+  case "$lc_stem" in
+    game | launcher | start | play | run | bin | main | setup | app)
+      stem="$parent"
+      ;;
+  esac
+  # Separators to spaces, collapse repeats, trim.
+  printf '%s' "$stem" \
+    | sed --regexp-extended 's/[_.+-]+/ /g; s/ {2,}/ /g; s/^ //; s/ $//'
+}
+
+add_one() {
+  local exe="$1" workdir title slug tmp
+  exe="$(realpath -- "$exe")"
+  if [[ "${exe,,}" != *.exe ]]; then
+    notify 'Skipped: not a .exe' "$exe"
+    return 0
+  fi
+  if [[ ! -f "$exe" ]]; then
+    notify 'Skipped: file not found' "$exe"
+    return 0
+  fi
+
+  workdir="$(dirname "$exe")"
+  title="$(guess_title "$exe")"
+  slug="$(slugify "$title")"
+  [[ -n "$slug" ]] || slug='untitled-game'
+
+  tmp="$(mktemp --suffix=.yml "${TMPDIR:-/tmp}/add-to-lutris-${slug}.XXXXXX")"
+  # Absolute paths throughout, so nothing depends on the installer's $GAMEDIR
+  # destination prompt.  No `wine:` block — Lutris falls back to the default
+  # runner (stagingFull here).
+  {
+    printf 'name: "%s"\n' "$title"
+    printf 'game_slug: "%s"\n' "$slug"
+    printf 'version: Installed\n'
+    printf 'slug: "%s-installed"\n' "$slug"
+    printf 'runner: wine\n'
+    printf 'script:\n'
+    printf '  game:\n'
+    printf '    exe: "%s"\n' "$exe"
+    printf '    working_dir: "%s"\n' "$workdir"
+    printf '    prefix: "%s"\n' "$shared_prefix"
+    printf '    arch: win64\n'
+  } >"$tmp"
+
+  notify 'Opening Lutris installer' "$title"
+  # -i / --install: install a game from a yml file (launches the installer GUI).
+  lutris --install "$tmp"
+}
+
+# Prefer Nautilus' full-path env var when present (its positional args are bare
+# names relative to the viewed directory); otherwise use CLI arguments.
+if [[ -n "${NAUTILUS_SCRIPT_SELECTED_FILE_PATHS:-}" ]]; then
+  mapfile -t selected <<<"$NAUTILUS_SCRIPT_SELECTED_FILE_PATHS"
+  set -- "${selected[@]}"
+fi
+
+if [[ $# -eq 0 ]]; then
+  notify 'Add to Lutris' 'No file selected.'
+  exit 1
+fi
+
+for f in "$@"; do
+  [[ -n "$f" ]] || continue
+  add_one "$f"
+done
