@@ -228,7 +228,13 @@ in
       "@executable_path/../Frameworks/libobs.framework/Versions/A/libobs"
 
     cp ../cmake/macos/resources/AppIcon.icns "$resources/"
-    cp ${./Info.plist} "$plist"
+
+    # The bundle identifier, usage descriptions and version are set through
+    # set_target_xcode_properties, which only takes effect under the Xcode
+    # generator; under Ninja CMake emits a bare Info.plist without them.  Hence
+    # the vendored copy - but take the version from the derivation so it cannot
+    # drift away from src.
+    substitute ${./Info.plist} "$plist" --subst-var version
 
     mkdir -p "$out/bin"
     ln -s "$out/Applications/OBS.app/Contents/MacOS/OBS" "$out/bin/obs"
