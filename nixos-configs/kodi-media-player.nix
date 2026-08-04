@@ -16,7 +16,21 @@
 }:
 {
   imports = [
+    ./kodi-audio-health.nix
   ];
+
+  # Stop the HDMI audio codec runtime-suspending.  snd_hda_intel defaults to
+  # power_save=10, so the codec powers down ten seconds after the sink goes
+  # idle.  On Haswell the HDMI codec's resume path is coupled to i915 display
+  # power through the audio component, which makes "codec suspended" and
+  # "display link just dropped" a bad pair of states to be in at once — the
+  # resume can fail and leave the sink unusable.
+  #
+  # There is nothing to save here.  This host is a mains-powered media player
+  # that exists to keep an audio sink open.
+  boot.extraModprobeConfig = ''
+    options snd_hda_intel power_save=0 power_save_controller=N
+  '';
   # Kodi deployments are location and hardware sensitive; every host that
   # runs Kodi registers a host-specific alias.  Location-specific aliases
   # (e.g. "kodi-living-room") should be declared on the host directly, as
@@ -41,6 +55,22 @@
         inputstream-ffmpegdirect
       ]
     );
+    # Move off Kodi's stock 8080, which is one of the most contended numbers
+    # there is.  In this repository alone: hosts with "goss" in
+    # networking.monitors run a proxy on 8080 (nixos-modules/goss-exporter.nix),
+    # nixos-configs/openhab.nix moved to 8085 to get out of its way, and
+    # nixos-configs/jenkins-github-webhook-test.nix carries a standing TODO
+    # about the same clash.  Kodi hosts do not run goss today, so this is
+    # pre-emptive rather than a fix for a live collision.
+    #
+    # 18080 reads as "8080, moved" so it stays recognisable as the web port,
+    # and it sits below the ephemeral range (32768-60999 on these hosts) where
+    # a fixed listener cannot lose a race to an outbound connection.
+    #
+    # Consequence for humans: the Kodi iOS remote talks direct HTTP rather than
+    # going through the reverse proxy, so it needs this port set in the app.
+    # The HTTPS entry point below is unaffected.
+    webserverPort = 18080;
     advancedSettings = {
       services = {
         # Enable web server for remote control via mobile apps.
@@ -72,6 +102,21 @@
       # quiet; the TV's volume control is the correct remedy.  See
       # troubleshooting-methods.org, "Kodi: music and effects drown out
       # dialogue".
+    };
+    guiSettings = {
+      # "Keep audio device alive" — 153722867 is the "Always" option (the
+      # values are a minutes count, with this sentinel standing in for "never
+      # suspend"; confirm against Settings.GetSettings over JSON-RPC rather
+      # than assuming).  The stock value is 1, meaning one minute of silence
+      # and then CActiveAE releases the sink.
+      #
+      # Every one of those release/reacquire cycles is a chance for the audio
+      # engine to deadlock, and on this host they are driven by an HDMI link
+      # that flaps on its own schedule.  Holding the device open removes the
+      # cycle rather than trying to survive it.  The cost is a continuous
+      # inaudible signal on the HDMI sink, which is exactly what we want on a
+      # box whose only job is playing to that sink.
+      "audiooutput.streamsilence" = 153722867;
     };
     addonSettings = {
       "plugin.video.jellyfin" = {
@@ -110,13 +155,15 @@
   # kodi-lv = Kodi in the living room.
   services.https.fqdns."kodi-living-room.${facts.network.domain}" = {
     enable = true;
-    internalPort = 8080;
+    internalPort = config.services.kodi-standalone.webserverPort;
   };
 
-  # Open port 8080 for direct HTTP access. Required for iOS app remote control.
-  # The Kodi iOS app does not support HTTPS endpoints and requires direct HTTP
-  # access on port 8080. Android HTTPS support is not known.
-  networking.firewall.allowedTCPPorts = [ 8080 ];
+  # Open Kodi's web server port for direct HTTP access.  Required for iOS app
+  # remote control: the Kodi iOS app does not support HTTPS endpoints and
+  # requires direct HTTP access.  Android HTTPS support is not known.
+  networking.firewall.allowedTCPPorts = [
+    config.services.kodi-standalone.webserverPort
+  ];
 
   # Add kodi user to media-shared group (created by nfs-consumer-facts).
   users.users.${config.services.kodi-standalone.systemUser}.extraGroups = [

@@ -1,0 +1,253 @@
+#+title:     Kodi Audio Engine Wedge (krypton)
+#+language:  en
+
+* Symptom
+
+Video plays, Kodi is responsive, the systemd unit is =active (running)= — and
+there is no sound.  Restarting Kodi fixes it, and it comes back days later.
+
+Everything you would normally suspect looks healthy, which is what makes this
+one confusing:
+
+#+begin_src sh
+sudo -u kodi XDG_RUNTIME_DIR=/run/user/1001 pactl list short sinks
+# alsa_output.pci-0000_00_03.0.hdmi-stereo  PipeWire  s32le 2ch 48000Hz  SUSPENDED
+sudo -u kodi XDG_RUNTIME_DIR=/run/user/1001 pactl get-sink-volume \
+  alsa_output.pci-0000_00_03.0.hdmi-stereo
+# Volume: front-left: 65536 / 100% / 0.00 dB, ...
+sudo -u kodi XDG_RUNTIME_DIR=/run/user/1001 pactl get-sink-mute \
+  alsa_output.pci-0000_00_03.0.hdmi-stereo
+# Mute: no
+#+end_src
+
+The sink exists, it is the default, it is unmuted, it is at 100%.  PipeWire is
+*not* the problem and no amount of poking at it will help.  The fault is
+entirely inside Kodi.
+
+* Confirming it
+
+The signature is in Kodi's own log, not the journal:
+
+#+begin_src sh
+sudo grep --count 'ActiveAE::OnLostDisplay - timed out' \
+  /home/kodi/.kodi/temp/kodi.log
+sudo grep 'failed to create audio renderer' /home/kodi/.kodi/temp/kodi.log
+#+end_src
+
+=failed to create audio renderer= (together with =ActiveAE::MakeStream - could
+not create stream= and =CActiveAE::FreeStream - failed=) means the audio engine
+is wedged *right now*.
+
+* Cause
+
+A chain, ending in a deadlock:
+
+1. The Philips TV drops the HDMI link periodically — roughly hourly while idle,
+   and again whenever it is powered off or switched to another input.  Xorg
+   re-reads the EDID and fires =RRScreenChangeNotify=.  =/var/log/X.0.log=
+   grows to several MB of nothing but repeated EDID modeline dumps.
+2. Kodi's =CWinSystemX11::RefreshWindow()= calls =CXRandR::Query()=, which
+   returns false when no connected output has a current mode.  Kodi logs
+   =WinSystemX11::RefreshWindow - failed to query xrandr= and fires
+   =OnLostDisplay= / =OnResetDisplay=.
+3. Each =OnLostDisplay= tells =CActiveAE= to suspend and release the sink, and
+   waits five seconds for an acknowledgement.  After a day or so of this the AE
+   thread starts missing that deadline: =ActiveAE::OnLostDisplay - timed out=.
+4. Once enough timed-out messages have queued on the AE control port the engine
+   deadlocks outright.  Video keeps playing; audio is gone until Kodi restarts.
+
+In the incident this doc was written for, the log held 114 xrandr query
+failures over four days, the first teardown timeout landed about two days
+before audio actually died, and 52 timeouts had accumulated by the time anyone
+noticed.
+
+** Why it is a slow poisoning, not an event
+
+Steps 1 and 2 are benign on their own and had been happening for a long time.
+Nothing is wrong until step 3 starts, and step 3 gives roughly a two day
+warning before step 4.  That gap is why the alerting below is worth having:
+there is a comfortable window in which a restart is cheap.
+
+* Quick fix
+
+#+begin_src sh
+sudo -u kodi XDG_RUNTIME_DIR=/run/user/1001 systemctl --user restart kodi.service
+#+end_src
+
+Note =systemctl --user --machine=kodi@= does *not* work from an SSH session
+("Failed to connect to system scope bus via machine transport: Permission
+denied").  Set =XDG_RUNTIME_DIR= explicitly instead, as above.  The kodi user
+is uid 1001.
+
+Before restarting, preserve the evidence — Kodi rotates =kodi.log= to
+=kodi.old.log= on startup, so a restart plus any later restart loses it:
+
+#+begin_src sh
+sudo cp /home/kodi/.kodi/temp/kodi.log /tmp/kodi-audio-wedge-$(date +%Y%m%d).log
+#+end_src
+
+* Durable fixes in place
+
+Four layers, all declarative.
+
+** Pinning the HDMI connector (removes the cause)
+
+=hosts/krypton.nix= sets:
+
+#+begin_src nix
+boot.kernelParams = [
+  "video=HDMI-A-2:e"
+  "drm.edid_firmware=HDMI-A-2:edid/krypton-philips-ftv.bin"
+];
+#+end_src
+
+=video=HDMI-A-2:e= sets =DRM_FORCE_ON=, so =drm_helper_probe_detect()= reports
+the connector connected unconditionally and the flap never becomes an xrandr
+event.
+
+Both params are needed.  Forcing the connector on *without* a firmware EDID is
+arguably worse than leaving it alone: with the TV off the EDID read fails, the
+probe finds no modes, and the helper falls back to =drm_add_modes_noedid()='s
+≤1024x768 list — so Kodi sees the mode list churn instead of a disconnect.  The
+blob in =hardware/edid/krypton-philips-ftv.bin= was read straight off the
+connector while the TV was on:
+
+#+begin_src sh
+sudo cat /sys/class/drm/card1-HDMI-A-2/edid > krypton-philips-ftv.bin
+#+end_src
+
+i915 is loaded from the initrd on krypton, so its first probe may run before
+the firmware is reachable and fall back to reading the real EDID off the wire.
+That is harmless — =request_firmware= is retried on later probes and X does not
+start until stage 2.  Verify after a reboot with
+=journalctl --boot | grep --ignore-case edid=.
+
+Two things about how the blob actually reaches the kernel, because both fail
+silently if they are ever untrue:
+
+- NixOS does not put firmware in =/lib/firmware= (which does not exist on this
+  host).  It merges every =hardware.firmware= entry's =lib/firmware=
+  subdirectory into one store path and points the kernel at it via
+  =firmware_class.path=; check with
+  =cat /sys/module/firmware_class/parameters/path=.  That is set at runtime
+  rather than on the kernel command line, which is the other reason the initrd
+  probe cannot see it.
+- NixOS also zstd-compresses firmware, so the file on disk is
+  =edid/krypton-philips-ftv.bin.zst= and the derivation appears in the store as
+  =krypton-tv-edid-zstd=.  This works only because the kernel is built with
+  =CONFIG_FW_LOADER_COMPRESS_ZSTD=y= (and =CONFIG_DRM_LOAD_EDID_FIRMWARE=y= for
+  the override itself).  Both are set in the 25.11 kernel; confirm with
+  =zcat /proc/config.gz | grep -E 'FW_LOADER_COMPRESS|DRM_LOAD_EDID_FIRMWARE'=
+  if the override ever stops taking.
+
+** Keeping the audio device open (removes the teardown)
+
+=nixos-configs/kodi-media-player.nix= sets =audiooutput.streamsilence= to
+=153722867= ("Always"), so =CActiveAE= never releases the sink and there is no
+release/reacquire cycle left to deadlock.
+
+It also sets =snd_hda_intel power_save=0=.  The default of 10 powers the HDMI
+codec down ten seconds after the sink goes idle, and on Haswell the codec's
+resume path is coupled to i915 display power through the audio component —
+"codec suspended" and "display link just dropped" is a bad pair of states to be
+in simultaneously.
+
+=guisettings.xml= is owned and rewritten by Kodi, so it cannot be managed as a
+home-manager file.  =services.kodi-standalone.guiSettings= drives the same
+values through JSON-RPC =Settings.SetSettingValue= at startup instead, and Kodi
+persists them normally.  Enum-valued settings take the integer the setting
+definition assigns, not the label — query a running instance rather than
+guessing:
+
+#+begin_src sh
+curl --silent --header 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","method":"Settings.GetSettings","params":{"level":"expert"},"id":1}' \
+  http://localhost:18080/jsonrpc \
+  | jq -r '.result.settings[] | select(.id=="audiooutput.streamsilence")'
+#+end_src
+
+(The port is =services.kodi-standalone.webserverPort=.  The module defaults to
+Kodi's own 8080; =nixos-configs/kodi-media-player.nix= sets 18080 to stay clear
+of that very contended number.  Read the option rather than assuming.)
+
+** Which file a Kodi setting belongs in
+
+Three mechanisms, and picking the wrong one fails silently:
+
+- *advancedsettings.xml* (=advancedSettings=) is read at startup.  Beyond the
+  keys =AdvancedSettings.cpp= parses by hand, it ends with
+  =CSettings::LoadHidden(pRootElement)=, which applies =<section><key>= pairs
+  generically against real setting ids — so =<services><webserverport>= sets
+  =services.webserverport=.  Only *real* setting ids work: an invented one is
+  silently dropped, which is exactly how a =<audio><volumeamplification>= entry
+  sat here for ages doing nothing.
+- *guisettings.xml* (=guiSettings=) is rewritten by Kodi, so it is driven over
+  JSON-RPC after startup.
+- Anything needed *before* the web server binds — the web server's own port,
+  most obviously — must go in advancedsettings.xml.  guiSettings cannot set it:
+  reaching the setting that decides the port requires already knowing the port.
+
+** Not blanking the TV on restart
+
+Kodi's CEC defaults treat "Kodi is exiting" as "the viewer is done for the
+night".  With =Restart=always= on the unit — and with an operator restarting it
+to clear this very fault — that means every restart powers the TV off.
+=nixos-configs/cec-adapter.nix= now sets =standby_devices= to =231= ("None"),
+=send_inactive_source= to =0=, and =standby_pc_on_tv_standby= to =36028=
+("Ignore", replacing a default of =13011=, "Suspend", which would have
+suspended the whole host when the TV went into standby).
+
+These values are Kodi localisation string IDs used as enum values; the accepted
+sets are in =share/kodi/system/peripherals.xml= in the Kodi package.
+
+Caveat: Kodi rewrites =userdata/peripheral_data/*.xml= at shutdown, replacing
+the home-manager symlink with a plain file.  It writes back the values it read
+at startup, so the settings survive in practice, and the boot-time
+=home-manager-kodi.service= activation re-links the file before Kodi starts.
+But a =switch= while Kodi is running will be undone by that Kodi process's next
+shutdown, because it still holds the old values in memory.  Restart Kodi (or
+reboot) after changing CEC settings, then confirm:
+
+#+begin_src sh
+sudo grep -E 'standby_devices|send_inactive_source|standby_pc_on_tv_standby' \
+  /home/kodi/.kodi/userdata/peripheral_data/cec_CEC_Adapter.xml
+#+end_src
+
+** Alerting
+
+=nixos-configs/kodi-audio-health.nix= writes Prometheus textfile metrics parsed
+out of =kodi.log=; =nixos-configs/alertmanager.nix= carries the rules.
+
+| Metric                                  | Meaning                                    |
+|-----------------------------------------+--------------------------------------------|
+| =kodi_audio_display_loss_timeouts_total= | Leading indicator; ~2 days of warning      |
+| =kodi_audio_renderer_failures_total=     | Terminal; audio is dead now                |
+| =kodi_audio_xrandr_query_failures_total= | Upstream cause; is the TV still flapping?  |
+| =kodi_audio_log_present=                 | Guard; are these checks even working?      |
+
+All three counters reset when Kodi restarts, because Kodi rotates its log on
+startup.  The alerts use =increase()= over a window, which handles counter
+resets.
+
+The third metric is what tells "the TV stopped flapping" apart from "the TV
+still flaps but Kodi now copes".  After the connector pinning above, expect
+=kodi_audio_xrandr_query_failures_total= to stop climbing entirely; if it keeps
+climbing while the timeout counter stays flat, the pinning did not take but the
+other layers are carrying it.
+
+* Reference: what a healthy host looks like
+
+#+begin_src sh
+# HDMI sink present, RUNNING (not SUSPENDED) with streamsilence=Always.
+sudo -u kodi XDG_RUNTIME_DIR=/run/user/1001 pactl list short sinks
+# A Kodi sink-input exists.
+sudo -u kodi XDG_RUNTIME_DIR=/run/user/1001 pactl list short sink-inputs
+# Connector forced on.
+cat /sys/class/drm/card1-HDMI-A-2/status   # connected
+# No teardown timeouts accumulating.
+curl --silent http://localhost:9100/metrics | grep kodi_audio_
+#+end_src
+
+Related: [[file:kodi-cec-troubleshooting.org][kodi-cec-troubleshooting.org]] for the CEC remote, and
+=troubleshooting-methods.org= "Kodi: music and effects drown out dialogue" for
+the unrelated volume-amplification failure mode.

@@ -126,8 +126,18 @@ setting; restart Kodi to capture a fresh CEC init):
 # enable
 curl -s -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","method":"Settings.SetSettingValue","params":{"setting":"debug.showloginfo","value":true},"id":1}' \
-  http://localhost:8080/jsonrpc
+  http://localhost:18080/jsonrpc
 # disable (value:false) when done — it is noisy
+#+end_src
+
+The port is =services.kodi-standalone.webserverPort=.  The module itself
+defaults to Kodi's stock 8080; =nixos-configs/kodi-media-player.nix= sets 18080
+on these hosts to stay clear of a contended number.  Read it out of the config
+rather than trusting this snippet if the API is not answering:
+
+#+begin_src sh
+nix eval --raw \
+  ".#nixosConfigurations.krypton.config.services.kodi-standalone.webserverPort"
 #+end_src
 
 ** Deep bus probe with cec-client

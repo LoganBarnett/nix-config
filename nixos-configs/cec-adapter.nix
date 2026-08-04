@@ -37,10 +37,27 @@ let
     pause_playback_on_deactivate = "0";
     physical_address = "ffff";
     power_avr_on_as = "0";
-    send_inactive_source = "1";
-    standby_devices = "36037";
+    # Kodi's defaults treat "Kodi is exiting" as "the viewer is done for the
+    # night" and tell the TV so.  On a box where kodi.service has
+    # Restart=always — and where an operator or a watchdog may restart it to
+    # clear a wedged audio engine — that is wrong: every restart blanks the
+    # TV out from under whoever is watching.  Both of these are Kodi
+    # localisation string IDs used as enum values; see
+    # share/kodi/system/peripherals.xml in the Kodi package for the accepted
+    # sets.
+    #
+    # send_inactive_source: 0 stops the "Inactive source" command on shutdown,
+    # which is what makes the TV switch away from this input.
+    send_inactive_source = "0";
+    # standby_devices: 231 is #231, "None".  The default 36037 is "TV", i.e.
+    # power the TV off during shutdown.
+    standby_devices = "231";
     standby_devices_advanced = "";
-    standby_pc_on_tv_standby = "13011";
+    # standby_pc_on_tv_standby: 36028 is #36028, "Ignore".  The default 13011
+    # is #13011, "Suspend" — the TV going into standby would suspend the whole
+    # host.  This has never fired here, but it is a live trapdoor on a media
+    # box that is meant to stay up and serve its web interface.
+    standby_pc_on_tv_standby = "36028";
     standby_tv_on_pc_standby = "1";
     tv_vendor = "0";
     use_tv_menu_language = "1";

@@ -10,6 +10,21 @@
 let
   inherit (lib) mkEnableOption mkIf mkOption;
   cfg = config.services.kodi-standalone;
+  jsonRpcUrl = "http://localhost:${toString cfg.webserverPort}/jsonrpc";
+  # Kodi's JSON-RPC web server comes up a little after the process does, so
+  # anything driving it has to poll first.  Shared by every unit below that
+  # talks to the API.
+  waitForJsonRpc = ''
+    for i in {1..30}; do
+      if ${pkgs.curl}/bin/curl \
+           --silent \
+           ${jsonRpcUrl} &>/dev/null;
+      then
+        break
+      fi
+      ${pkgs.coreutils}/bin/sleep 1
+    done
+  '';
 in
 {
   options = {
@@ -33,6 +48,35 @@ in
         type = lib.types.package;
         description = ''
           The Kodi package to use.
+        '';
+      };
+      webserverPort = mkOption {
+        type = lib.types.port;
+        default = 8080;
+        description = ''
+          Port for Kodi's built-in web server, which also serves the JSON-RPC
+          API.
+
+          This is the single source of truth for the port: it is written into
+          advancedsettings.xml as services.webserverport, so Kodi is told the
+          value rather than left on its default and assumed to have stayed
+          there.  Consumers should read this option instead of hardcoding a
+          number — the units in this module that drive JSON-RPC do, and so
+          should any firewall rule or reverse-proxy target for the web
+          interface.
+
+          It cannot be set through the guiSettings option: that applies over
+          JSON-RPC, which means it needs a working port to reach the setting
+          that decides the port.  advancedsettings.xml is read at startup,
+          before the web server binds, so it is the only lever that works.
+
+          The default matches Kodi's own so that leaving this alone is not a
+          surprise.  Be aware that 8080 is heavily contended, though — it is a
+          popular default for unrelated software, so on a host running much
+          else it is worth moving somewhere quieter.  Prefer a port below the
+          ephemeral range (net.ipv4.ip_local_port_range, typically 32768 and
+          up): a fixed listener inside that range can lose a race to an
+          outbound connection that grabbed the port first.
         '';
       };
       advancedSettings = mkOption {
@@ -84,6 +128,36 @@ in
           "inputstream.adaptive" = {
             DECRYPTERPATH = "special://home/cdm";
           };
+        };
+      };
+      guiSettings = mkOption {
+        type = lib.types.attrsOf (
+          lib.types.oneOf [
+            lib.types.bool
+            lib.types.int
+            lib.types.str
+          ]
+        );
+        default = { };
+        description = ''
+          Settings from userdata/guisettings.xml, applied via JSON-RPC after
+          Kodi starts.
+
+          Unlike advancedsettings.xml, guisettings.xml is owned and rewritten
+          by Kodi itself — it cannot be managed as a home-manager file without
+          Kodi clobbering it on every shutdown.  Driving the same values
+          through Settings.SetSettingValue at startup is the only way to hold
+          them declaratively; Kodi then persists them normally.
+
+          Values are typed: booleans, integers and strings all map onto their
+          JSON equivalents.  Enum-valued settings take the integer the setting
+          definition assigns, not the label — consult
+          share/kodi/system/settings/settings.xml in the Kodi package, or
+          query Settings.GetSettings over JSON-RPC on a running instance.
+        '';
+        example = {
+          "audiooutput.streamsilence" = 153722867;
+          "audiooutput.channels" = 1;
         };
       };
       enabledAddons = mkOption {
@@ -235,9 +309,26 @@ in
               ${cfg.package}/bin/kodi --standalone
             '';
             Restart = "always";
+            # A Kodi whose audio engine has deadlocked blocks in its own
+            # shutdown path waiting on the wedged thread, so it sits there for
+            # the full 90s default before systemd gives up and SIGKILLs it —
+            # which is exactly the state you are usually in when restarting it.
+            # Twenty seconds is well clear of a healthy shutdown.
+            TimeoutStopSec = "20s";
             Environment = "XDG_RUNTIME_DIR=%t";
           };
         };
+        # Tell Kodi which port to serve the web interface and JSON-RPC API on.
+        #
+        # This lands in advancedsettings.xml, which reaches the settings system
+        # through CSettings::LoadHidden() rather than any key-by-key parser in
+        # AdvancedSettings.cpp — so any real setting id works here, and only
+        # real setting ids work.  ("services.webserverport" is one; see the
+        # note on volumeamplification in nixos-configs/kodi-media-player.nix
+        # for what happens when you invent one that is not.)
+        services.kodi-standalone.advancedSettings.services.webserverport =
+          toString cfg.webserverPort;
+
         # Enable hardware acceleration for video playback.
         hardware.graphics.enable = true;
       }
@@ -251,16 +342,7 @@ in
             Type = "oneshot";
             RemainAfterExit = false;
             ExecStart = pkgs.writeShellScript "kodi-enable-addons" ''
-              # Wait for Kodi's JSON-RPC web server to be available.
-              for i in {1..30}; do
-                if ${pkgs.curl}/bin/curl \
-                     --silent \
-                     http://localhost:8080/jsonrpc &>/dev/null;
-                then
-                  break
-                fi
-                sleep 1
-              done
+              ${waitForJsonRpc}
 
               # Enable each addon in the list.
               ${builtins.concatStringsSep "\n" (
@@ -274,8 +356,42 @@ in
                       "params":{"addonid":"${addonId}","enabled":true},
                       "id":1
                     }' \
-                    http://localhost:8080/jsonrpc
+                    ${jsonRpcUrl}
                 '') cfg.enabledAddons
+              )}
+            '';
+          };
+        };
+      })
+      (mkIf (cfg.guiSettings != { }) {
+        # Apply guisettings.xml values via JSON-RPC once Kodi is up.  See the
+        # guiSettings option description for why this cannot be a managed file.
+        systemd.user.services.kodi-gui-settings = {
+          description = "Apply Kodi GUI settings via JSON-RPC";
+          after = [ "kodi.service" ];
+          wantedBy = [ "default.target" ];
+          serviceConfig = {
+            Type = "oneshot";
+            RemainAfterExit = false;
+            ExecStart = pkgs.writeShellScript "kodi-gui-settings" ''
+              ${waitForJsonRpc}
+
+              ${builtins.concatStringsSep "\n" (
+                lib.mapAttrsToList (settingId: value: ''
+                  ${pkgs.curl}/bin/curl \
+                    --silent \
+                    --header "Content-Type: application/json" \
+                    --data '{
+                      "jsonrpc":"2.0",
+                      "method":"Settings.SetSettingValue",
+                      "params":{
+                        "setting":"${settingId}",
+                        "value":${builtins.toJSON value}
+                      },
+                      "id":1
+                    }' \
+                    ${jsonRpcUrl}
+                '') cfg.guiSettings
               )}
             '';
           };

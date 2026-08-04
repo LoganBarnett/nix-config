@@ -17,6 +17,7 @@ in
   imports = [
     ../nixos-configs/acme.nix
     ../nixos-configs/alertmanager.nix
+    ../nixos-configs/alertmanager-alerts.nix
     ../hardware/aeotec-z-stick-7.nix
     ../nixos-configs/openhab.nix
     ../nixos-configs/zwave-js-ui.nix
