@@ -46,10 +46,9 @@ if [ "$deploy_type" = "darwin" ]; then
     exit 1
   fi
   if [ "$host" = "$local_host" ]; then
-    # Deploying to ourselves.  System activation always needs root; the
-    # `nix-darwin-switch` helper exists exactly because raw `darwin-rebuild
-    # switch` errors with "system activation must now be run as root" when
-    # invoked unprivileged.
+    # Deploying to ourselves.  System activation always needs root: without
+    # sudo, darwin-rebuild errors with "system activation must now be run as
+    # root".
     echo "Building and activating $host locally..." >&2
     sudo darwin-rebuild switch --flake ".#${host}" "$@"
   else

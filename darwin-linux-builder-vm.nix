@@ -13,12 +13,12 @@
 #
 # To get a fresh image:
 # 1. Set linux-builder.enabled (in ./darwin.nix) to false.
-# 2. Run `nix-darwin-switch` (my personal shortcut for nix-darwin).
+# 2. Run `proton-deploy switch <host>`.
 # 3. Run `nix run nixpkgs#darwin.linux-builder'.
 # 4. Verify the VM starts up correctly.
 # 5. Run `shutdown now` in the VM.
 # 6. Set linux-builder.enabled (in ./darwin.nix) to true.
-# 7. Run `nix-darwin-switch` (my personal shortcut for nix-darwin).
+# 7. Run `proton-deploy switch <host>`.
 # 8. Observe the new instance running.
 #
 # *Getting to run as a builder*

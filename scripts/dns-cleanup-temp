@@ -22,4 +22,4 @@ sudo dscacheutil -flushcache
 sudo killall -HUP mDNSResponder 2>/dev/null || true
 
 echo "DNS cleanup complete. Local .proton domains should now resolve correctly."
-echo "You may need to reconnect to VPN after running nix-darwin-switch."
+echo "You may need to reconnect to VPN after running proton-deploy."

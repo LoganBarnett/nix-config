@@ -1,4 +1,12 @@
-{ config, flake-inputs, lib, nixpkgs, pkgs, ... }: {
+{
+  config,
+  flake-inputs,
+  lib,
+  nixpkgs,
+  pkgs,
+  ...
+}:
+{
   # nix.buildMachines = lib.mkForce [
   #   (config.nix.buildMachines[0] // {
   #     publicHostKey = builtins.readFile ./secrets/builder-key.pub;
@@ -17,8 +25,9 @@
   # ];
   nix.distributedBuilds = true;
   nix.linux-builder = {
-    # Set this to true and re-run nix-darwin-switch if you need a setting from
-    # virtualisation (such as diskSize) to stick.  Be warned that this will wipe
+    # Set this to true and re-run `proton-deploy switch <host>` if you need a
+    # setting from virtualisation (such as diskSize) to stick.  Be warned that
+    # this will wipe
     # the filesystem and even repartition it.  The build speed for this can be
     # pretty quick.  Afterwards, put this back to false.  State will accumulate
     # rapidly in the store if left on, potentially.
@@ -52,12 +61,14 @@
     # using it:
     #  error: The option `override' does not exist. Definition values:
     #  - In `/nix/store/dzns6ry4dmfa3x9fawg7308vyzngk4ab-source/nix/darwin-linux-builder-module.nix, via option nix.linux-builder.config': <function, args: {flake-inputs, lib, nixpkgs, pkgs}>
-    config = (import ./darwin-linux-builder-vm.nix {
-      inherit flake-inputs;
-      inherit lib;
-      inherit nixpkgs;
-      inherit pkgs;
-    });
+    config = (
+      import ./darwin-linux-builder-vm.nix {
+        inherit flake-inputs;
+        inherit lib;
+        inherit nixpkgs;
+        inherit pkgs;
+      }
+    );
     package = pkgs.darwin.linux-builder;
     protocol = "ssh-ng";
     systems = [

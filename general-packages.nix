@@ -1,17 +1,15 @@
 { pkgs, ... }:
 let
-  disk-detachable = pkgs.callPackage ./derivations/disk-detachable.nix {};
-  image-create = pkgs.callPackage ./derivations/image-create.nix {};
+  disk-detachable = pkgs.callPackage ./derivations/disk-detachable.nix { };
+  image-create = pkgs.callPackage ./derivations/image-create.nix { };
   image-deploy = pkgs.callPackage ./derivations/image-deploy.nix {
     inherit disk-detachable image-create;
   };
-  nix-darwin-switch = pkgs.callPackage ./derivations/nix-darwin-switch.nix {};
 in
 [
   disk-detachable
   image-create
   image-deploy
-  nix-darwin-switch
   # A test script to show we can add an arbitrary Bash script with a foreign
   # depependency to Nix.
   pkgs.test-script
@@ -61,10 +59,11 @@ in
   # pkgs.ffmpeg-full
   (pkgs.ffmpeg-full.override {
     x264 = pkgs.x264.overrideAttrs (old: {
-      postPatch = old.postPatch
-                  + pkgs.lib.optionalString (pkgs.stdenv.isDarwin) ''
-        substituteInPlace Makefile --replace '$(if $(STRIP), $(STRIP) -x $@)' '$(if $(STRIP), $(STRIP) -S $@)'
-      '';
+      postPatch =
+        old.postPatch
+        + pkgs.lib.optionalString (pkgs.stdenv.isDarwin) ''
+          substituteInPlace Makefile --replace '$(if $(STRIP), $(STRIP) -x $@)' '$(if $(STRIP), $(STRIP) -S $@)'
+        '';
     });
   })
   pkgs.fuse-ext2
@@ -268,7 +267,7 @@ in
       # SI units (metric?).
       siunitx
       wrapfig
-    ;
+      ;
   })
   # Some folks still use rar for an archive format. This lets us decompress
   # those archives.

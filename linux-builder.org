@@ -45,7 +45,7 @@ To debug, you need to disable builders in the build.  Per [[https://github.com/L
 can do that thusly:
 
 #+begin_src sh :results none :exports code :tangle no
-nix-darwin-switch --option builders ''
+proton-deploy switch "$(hostname -s)" --option builders ''
 #+end_src
 
 You should then see something like this:
@@ -135,7 +135,8 @@ ps aux | grep qemu | grep --invert-match grep
 
 If this is present and the host is unreachable, use ~sudo kill $pid~ (no ~-9~
 should be necessary).  Toggle ~nix.linux-builder.enable~ to ~false~, run
-~nix-darwin-switch~, toggle back to ~true~, run again.  Now it should be up.
+~proton-deploy switch <host>~, toggle back to ~true~, run again.  Now it should
+be up.
 
 Why does it break down?  This is not well understood at this time.
 

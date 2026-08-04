@@ -299,7 +299,7 @@ To update a package, run its script and then redeploy:
 
 #+begin_src sh :exports code
 scripts/firefox-bin-update
-nix-darwin-switch
+proton-deploy switch "$(hostname -s)"
 #+end_src
 
 Current packages using this pattern: ~claude-code~, ~firefox-bin~,

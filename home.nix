@@ -71,9 +71,20 @@ in
   # fonts.fontconfig.enable = true;
 
   home.activation = {
-    # Is there a better way to handle the directory? Relative dir does not work.
+    # Emacs adds words to the personal dictionary by writing to this file
+    # directly, and those edits need to land back in the repository so they
+    # can be committed.  The link therefore has to point at the working tree:
+    # ${"$"}{./ispell_english} would copy the file into the store and the
+    # resulting link would be read-only.  Same reason home.file is not used
+    # (see the commented-out attempt further down).
+    #
+    # The path is literal rather than derived from FLAKE_ROOT, which means
+    # "the flake root I am currently in" (the devshell sets it to $PWD) — a
+    # different idea from "where this repository's working tree lives".
     ispell-config = ''
-      ln -snf $(realpath ~/dev/dotfiles/ispell_english) ~/.ispell_english
+      ln -snf \
+        $(realpath ${config.home.homeDirectory}/dev/nix-config/ispell_english) \
+        ~/.ispell_english
     '';
   };
 
@@ -140,13 +151,5 @@ in
   # You can update Home Manager without changing this value. See
   # the Home Manager release notes for a list of state version
   # changes in each release.
-  # Scripts and derivations reference this instead of hardcoding ~/dev/dotfiles,
-  # so a future repo rename only requires changing one place.  Secrets referenced
-  # at runtime (e.g. $FLAKE_ROOT/secrets/) never end up copied into the Nix
-  # store because of this indirection.
-  home.sessionVariables = {
-    FLAKE_ROOT = "${config.home.homeDirectory}/dev/dotfiles";
-  };
-
   home.stateVersion = "24.11";
 }

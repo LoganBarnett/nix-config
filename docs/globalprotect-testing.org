@@ -127,7 +127,7 @@ Add to ~hosts/M-CL64PK702X.nix~:
 ** 2. Rebuild and Activate
 
 #+begin_src bash :exports code
-nix-darwin-switch
+proton-deploy switch "$(hostname -s)"
 #+end_src
 
 ** 3. Check Service Status

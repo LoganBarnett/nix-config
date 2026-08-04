@@ -229,7 +229,7 @@ replaces the template's flake as needed for this project's macOS-only scope.
 
 After each migration phase:
 
-1. =nix-darwin-switch= to deploy.
+1. =proton-deploy switch <host>= to deploy.
 2. =sudo -E vpn-test-harness $(which test-vpn-connectivity)= (or the Rust
    equivalent once Phase 4 is done).
 3. =tail -f ~/.local/state/vpn-test-harness/current.log=.
@@ -261,8 +261,8 @@ should have this configuration, not all macOS hosts.  If there is no nix-darwin
 option for it, you'll need to add an activation script for it.  Make this a
 =darwin-configs= file, so we can drop it into any host we want.
 
-Apply the configuration with =nix-darwin-switch=.  Test to see if the port is
-open.  If it is, we're good.  Commit and push these results.
+Apply the configuration with =proton-deploy switch <host>=.  Test to see if the
+port is open.  If it is, we're good.  Commit and push these results.
 
 **** Fully unattended VPN connections
 
@@ -293,8 +293,8 @@ connections, and the network connection itself will be lost.  The script will
 block until this is done.  So by the time the script completes, you, Claude,
 should have a working network connection again, and you can continue to
 communicate with the claude-code runner.  This is your workflow loop.  Make more
-changes to the config/scripts/etc, apply them with =nix-darwin-switch=, and run
-the =with-vpn-reset= invocation again.
+changes to the config/scripts/etc, apply them with =proton-deploy switch
+<host>=, and run the =with-vpn-reset= invocation again.
 
 Document your findings.  This is helpful in case context loss occurs and we need
 to restart.

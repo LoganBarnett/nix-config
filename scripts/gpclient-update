@@ -136,4 +136,4 @@ nix-editor \
   --format
 
 echo "Done.  Updated static.nix to globalprotect-openconnect ${version}."
-echo "Next: nix-darwin-switch to install."
+echo "Next: proton-deploy switch <host> to install."
