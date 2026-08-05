@@ -48,6 +48,7 @@
   (import ./yt-dlp.nix)
   (import ./zig.nix)
   (import ./zoom-us.nix)
+  (import ./zwave-js-ui.nix)
   # Needed until https://github.com/NixOS/nixpkgs/pull/391654 is merged.
   (final: prev: {
     nc4nix = prev.nc4nix.overrideAttrs (old: {

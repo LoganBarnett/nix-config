@@ -181,7 +181,13 @@ in
           DynamicUser = true;
           SupplementaryGroups = [ "dialout" ];
           CapabilityBoundingSet = [ "" ];
-          RestrictAddressFamilies = "AF_INET AF_INET6";
+          # AF_NETLINK is needed by getifaddrs (Node's
+          # os.networkInterfaces()), which zwave-js calls during mDNS
+          # discovery of remote serial ports from GET /api/settings.  Without
+          # it the call fails with "uv_interface_addresses returned Unknown
+          # system error 97" (EAFNOSUPPORT) and the serial port list comes
+          # back empty.
+          RestrictAddressFamilies = "AF_INET AF_INET6 AF_NETLINK";
           DevicePolicy = "closed";
           LockPersonality = true;
           MemoryDenyWriteExecute = false;

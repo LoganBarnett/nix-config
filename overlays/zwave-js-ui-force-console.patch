@@ -1,0 +1,23 @@
+diff -ur a/api/lib/ZwaveClient.ts b/api/lib/ZwaveClient.ts
+--- a/api/lib/ZwaveClient.ts
++++ b/api/lib/ZwaveClient.ts
+@@ -629,6 +629,7 @@
+ 	// healNetwork?: boolean
+ 	healHour?: number
+ 	logToFile?: boolean
++	forceConsole?: boolean
+ 	nodeFilter?: string[]
+ 	scales?: SensorTypeScale[]
+ 	serverServiceDiscoveryDisabled?: boolean
+diff -ur a/api/lib/utils.ts b/api/lib/utils.ts
+--- a/api/lib/utils.ts
++++ b/api/lib/utils.ts
+@@ -515,6 +515,7 @@
+ 				? config.nodeFilter.map((n: string) => parseInt(n))
+ 				: undefined,
+ 		filename: joinPath(logsDir, 'zwavejs_%DATE%.log'),
+-		forceConsole: isDocker() ? !config.logToFile : false,
++		forceConsole:
++			config.forceConsole ?? (isDocker() ? !config.logToFile : false),
+ 	}
+ }

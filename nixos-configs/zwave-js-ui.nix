@@ -61,28 +61,36 @@
         serverPort = 3004;
         enableStatistics = false;
         disclaimerVersion = 1;
-        # Per the document, this is where the secret settings show up, which win
-        # out over the documented settings.  See
-        # https://zwave-js.github.io/zwave-js/#/api/driver?id=zwaveoptions for
-        # them just pasting their blasted TypeScript interfaces into an HTML
-        # file, which is supposed to stand for documentation.
-        # There's some additional mention of it here:
+        # Logging is declared with these root-level keys, and must never go in
+        # zwave.options.logConfig.  Anything under zwave.options is handed to
+        # the zwave-js driver by reference, and zwave-js-ui attaches live
+        # winston transports to options.logConfig at driver start
+        # (api/lib/ZwaveClient.ts: `zwaveOptions.logConfig.transports =
+        # [logTransport]`).  Those transports make the in-memory settings
+        # object circular, so GET /api/settings — the UI's first bootstrap
+        # request — crashes in res.json() with "Converting circular structure
+        # to JSON".  The crash is an unhandled rejection that never answers
+        # the request, nginx 504s after 60 seconds, and the UI hangs forever
+        # on its loading screen.  The root-level keys below are instead copied
+        # into a fresh logConfig object on each driver start
+        # (api/lib/utils.ts buildLogConfig), so nothing the driver mutates is
+        # reachable from the settings.
+        #
         # https://github.com/zwave-js/zwave-js-ui/discussions/2166#discussioncomment-1948873
-        # In that comment it is suggested that all logging values should be
-        # declared here and not a mishmash of here and in the root of zwave.
-        # Also when logging settings appear in both locations, the UI becomes
-        # unusable because it cannot serialize the JSON needed to supply
-        # settings to the UI.
-        options = {
-          # Force it to log everything to the console and not just some things.
-          logConfig = {
-            enable = true;
-            enabled = true;
-            forceConsole = true;
-            # 6 is "silly" for reference.  5 is debug.
-            level = 5;
-          };
-        };
+        # suggests the opposite — declaring all logging under options — but
+        # following that advice is precisely what produced the serialization
+        # failure it warns about.
+        logEnabled = true;
+        # Winston levels: "silly" (6) is the most verbose; "debug" (5) is one
+        # notch down.
+        logLevel = "debug";
+        logToFile = false;
+        # Force driver logs to stdout so journald captures them.  Upstream
+        # only forces console logging under Docker (stdout is not a TTY under
+        # systemd, so nothing would be logged otherwise).  This key is added
+        # by our patch in ../overlays/zwave-js-ui.nix — a candidate for
+        # upstreaming; without the patch the key is ignored.
+        forceConsole = true;
       };
       # This section has settings that are set by the UI on startup.  We'll set
       # them first.
