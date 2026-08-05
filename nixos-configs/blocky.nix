@@ -136,9 +136,12 @@ in
             # "https://raw.githubusercontent.com/nextdns/native-tracking-domains/main/streaming.txt"
           ];
         };
-        # Supposedly this is `allowlists` in the new version, but it doesn't work
-        # on the current version.
-        # whiteLists = { ads = [ "allowlist.txt" ]; };
+        # `allowlists` (the modern name for `whiteLists`) does work as of blocky
+        # 0.27 -- in that version `blackLists`/`whiteLists` are accepted only as
+        # deprecated aliases that get migrated to `denylists`/`allowlists`.  It
+        # is configured over in blocky-with-updater.nix, which is what
+        # dns-server.nix actually imports; see the comment there for the
+        # rationale and for the deny-all footgun to avoid.
         clientGroupsBlock =
           let
             # Maps profile names to the blacklist groups they enforce.  The
