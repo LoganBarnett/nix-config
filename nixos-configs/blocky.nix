@@ -95,47 +95,50 @@ in
         # clients = [];
       };
       blocking = {
-        # Supposedly this is `denylists` in the new version, but it doesn't work
-        # on the current version.
-        blackLists = {
-          ads = [
-            # This one includes malware too, and I haven't found one that is
-            # just ads.
-            "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts"
-            "https://big.oisd.nl/domainswild"
-            "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts"
-            "https://blocklistproject.github.io/Lists/ads.txt"
-            "https://blocklistproject.github.io/Lists/tracking.txt"
-          ];
-          adult = [
-            "https://blocklistproject.github.io/Lists/porn.txt"
-          ];
-          gaming = [
-            # "https://raw.githubusercontent.com/blocklistproject/Lists/master/gaming.txt"
-          ];
-          # Includes anything that could be an attack or scam.
-          malware = [
-            # This one includes ads too, and I haven't found one that is just
-            # malware.
-            "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts"
-            "https://blocklistproject.github.io/Lists/abuse.txt"
-            "https://blocklistproject.github.io/Lists/crypto.txt"
-            "https://blocklistproject.github.io/Lists/fraud.txt"
-            "https://blocklistproject.github.io/Lists/phishing.txt"
-            "https://blocklistproject.github.io/Lists/piracy.txt"
-            "https://blocklistproject.github.io/Lists/ransomware.txt"
-            "https://blocklistproject.github.io/Lists/scam.txt"
-          ];
-          social = [
-            # "https://blocklistproject.github.io/Lists/social.txt"
-            "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/social-only/hosts"
-          ];
-          video = [
-            # "https://blocklistproject.github.io/Lists/streaming.txt"
-            "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/fakenews/hosts"
-            # "https://raw.githubusercontent.com/nextdns/native-tracking-domains/main/streaming.txt"
-          ];
+        # Blocky's download timeout defaults to 5s, and it is not a network
+        # timeout -- it bounds the whole request including reading the body,
+        # and blocky validates every domain as it streams.  Parsing is the
+        # actual cost: on silicon the updater serves ads.txt (23 MB) over
+        # loopback in ~16 ms, but blocky only gets through ~300k of its ~1M
+        # entries before 5s expires, so the import truncates with "non
+        # resumable parse error: context deadline exceeded".  ads, adult, and
+        # malware were all silently loading partial lists.  60s leaves ample
+        # headroom at the observed ~60k entries/sec, even with four sources
+        # parsing concurrently.
+        #
+        # `strategy = "fast"` is what makes that generous timeout safe.  The
+        # default ("blocking") holds the DNS listener down until every source
+        # finishes, so timeout multiplies into startup latency: 23 sources at
+        # concurrency 4 and 3 attempts is 6*3*60s ~= 18 minutes of no DNS for
+        # the entire network if sources hang.  Since blocky is the only
+        # resolver here, that is a far worse failure than briefly under-
+        # blocking.  With "fast", lists load asynchronously and DNS is up
+        # immediately.
+        #
+        # The tradeoff is a window after restart where blocking is not fully
+        # active.  That window already exists regardless: blocky-lists-updater
+        # is ordered *after* blocky, so every updater-served list fails its
+        # first fetch with "connection refused" and only lands when the updater
+        # comes up and calls /api/lists/refresh.
+        loading = {
+          strategy = "fast";
+          downloads.timeout = "60s";
         };
+        # No list sources are defined here, deliberately.  They live in
+        # blocky-with-updater.nix (this file's only importer), which points
+        # Blocky at locally-aggregated copies served by blocky-lists-updater;
+        # the canonical upstream URLs are that module's `sources` attribute.
+        # The `gaming` group is injected by dns-smart-block's
+        # `autoMapAllBlocklists` rather than declared in either file.
+        #
+        # The upstream URLs used to be duplicated here as a `blackLists`
+        # definition.  Because `services.blocky.settings` is freeform, the
+        # module system merges same-named list options from multiple modules by
+        # *concatenation* -- there is no "override" happening -- so Blocky
+        # ended up fetching both the local aggregates and the same upstreams
+        # again directly: 23 sources instead of 9, roughly doubling list
+        # download and parse work on every startup and refresh.  If you add a
+        # list group, add it to blocky-with-updater.nix, not here.
         # `allowlists` (the modern name for `whiteLists`) does work as of blocky
         # 0.27 -- in that version `blackLists`/`whiteLists` are accepted only as
         # deprecated aliases that get migrated to `denylists`/`allowlists`.  It
