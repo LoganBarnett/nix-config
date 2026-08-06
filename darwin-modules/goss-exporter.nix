@@ -74,7 +74,11 @@ in
     };
   };
 
+  imports = [ ./log-rotation.nix ];
+
   config = lib.mkIf cfg.prometheus.enable {
+    services.log-rotation.files.goss-nginx.path = "/var/log/goss-nginx.log";
+
     # Ensure the base goss module is active.
     services.goss.enable = lib.mkDefault true;
 

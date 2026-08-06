@@ -310,6 +310,8 @@ in
     };
   };
 
+  imports = [ ./log-rotation.nix ];
+
   config = mkIf cfg.enable {
 
     # configFile is written via environment.etc, which prepends /etc/, so the
@@ -496,6 +498,29 @@ in
         StandardOutPath = "${cfg.logDir}/launchd-stdout.log";
         StandardErrorPath = "${cfg.logDir}/launchd-stderr.log";
       };
+    };
+
+    # Every log this module emits, registered for rotation.  monitor.log is
+    # written both by gp-monitor's log() and by gpclient through an inherited
+    # descriptor; the launchd pair is the daemon's raw stdout/stderr.  Those
+    # three live in the primary user's home, so logrotate needs the `su`
+    # identity.  The dnsmasq pair is root-owned under /var/log and needs
+    # nothing extra.
+    services.log-rotation.files = {
+      gp-monitor = {
+        path = "${cfg.logDir}/monitor.log";
+        user = cfg.primaryUser;
+      };
+      gp-monitor-launchd-stdout = {
+        path = "${cfg.logDir}/launchd-stdout.log";
+        user = cfg.primaryUser;
+      };
+      gp-monitor-launchd-stderr = {
+        path = "${cfg.logDir}/launchd-stderr.log";
+        user = cfg.primaryUser;
+      };
+      dnsmasq.path = "/var/log/dnsmasq.log";
+      dnsmasq-upstream-sync.path = "/var/log/dnsmasq-upstream-sync.log";
     };
   };
 }

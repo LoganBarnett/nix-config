@@ -72,7 +72,11 @@ in
     };
   };
 
+  imports = [ ./log-rotation.nix ];
+
   config = lib.mkIf cfg.enable {
+    services.log-rotation.files.goss.path = "/var/log/goss.log";
+
     # Wrap the binary so manual invocations (goss validate, etc.) always have
     # GOSS_USE_ALPHA set.  Without it, goss refuses to run on non-Linux
     # platforms.  The daemon already gets it via EnvironmentVariables, but the

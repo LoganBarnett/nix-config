@@ -165,7 +165,11 @@ in
     };
   };
 
+  imports = [ ./log-rotation.nix ];
+
   config = lib.mkIf cfg.enable {
+    services.log-rotation.files.webhook.path = "/var/log/webhook.log";
+
     assertions =
       let
         overlappingHooks = builtins.intersectAttrs cfg.hooks cfg.hooksTemplated;
