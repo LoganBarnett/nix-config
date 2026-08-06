@@ -3,7 +3,8 @@
 #
 # Copied from https://github.com/nix-darwin/nix-darwin/pull/972 (not yet
 # merged as of 2025-07-14).  Once that PR lands in our pinned nix-darwin,
-# remove this file and rely on the upstream module instead.
+# remove this file and rely on the upstream module instead — but carry the
+# log-rotation registration below along; that part is ours, not the PR's.
 #
 # Ollama runs as a user agent (launchd.user.agents) rather than a system
 # daemon so it can access the logged-in user's Metal GPU context.
@@ -19,6 +20,8 @@ let
 
 in
 {
+  imports = [ ./log-rotation.nix ];
+
   options.services.ollama = {
     enable = lib.mkEnableOption "Ollama inference server";
 
@@ -92,20 +95,33 @@ in
       timeout = 5000;
     };
 
+    # The agents run as the primary user (that is who launchd.user.agents
+    # targets), so the log directory must be writable by that user.
+    # --recursive because a file inside created by root — e.g. by a rotation
+    # tool running as root — would otherwise stay unwritable to the agent,
+    # and launchd silently drops output it cannot open a destination for.
     system.activationScripts.postActivation.text = ''
       mkdir --parents /var/log/ollama
-      chown "$(/usr/bin/stat -f '%Su' /dev/console)" /var/log/ollama
+      chown --recursive ${config.system.primaryUser} /var/log/ollama
       chmod 755 /var/log/ollama
     '';
 
-    # Rotate Ollama and model-loader logs via macOS newsyslog.
-    # N = no signal (Ollama isn't syslogd; it re-opens the file on next write).
-    # J = bzip2 compression for rotated files.
-    environment.etc."newsyslog.d/ollama.conf".text = ''
-      # logfilename                          mode count size  when flags
-      /var/log/ollama/ollama.log              644  5     10240 *    NJ
-      /var/log/ollama/model-loader.log        644  3     1024  *   NJ
-    '';
+    # Rotation must be copytruncate-based: launchd holds the StandardOutPath
+    # descriptors below for the whole life of each agent, so rename-based
+    # rotators (newsyslog) leave the agent writing into the renamed — then
+    # unlinked — inode, invisibly and forever.  services.log-rotation is
+    # built around exactly this constraint.  Both logs live in a
+    # primary-user-owned directory, hence the su identity.
+    services.log-rotation.files = {
+      ollama = {
+        path = "/var/log/ollama/ollama.log";
+        user = config.system.primaryUser;
+      };
+      ollama-model-loader = {
+        path = "/var/log/ollama/model-loader.log";
+        user = config.system.primaryUser;
+      };
+    };
 
     launchd.user.agents.ollama-model-loader = lib.mkIf (cfg.loadModels != [ ]) {
       serviceConfig = {
