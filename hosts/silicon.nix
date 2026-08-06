@@ -21,6 +21,7 @@ in
     ../hardware/aeotec-z-stick-7.nix
     ../nixos-configs/openhab.nix
     ../nixos-configs/zwave-js-ui.nix
+    ../nixos-configs/zwave-metrics.nix
     ../nixos-configs/org-wiki.nix
     ../nixos-configs/dhcp-lease-textfile.nix
     ../nixos-configs/chronicle-proxy.nix

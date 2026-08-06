@@ -22,5 +22,6 @@
 {
   imports = [
     ./kodi-alertmanager-alerts.nix
+    ./zwave-alertmanager-alerts.nix
   ];
 }
