@@ -16,11 +16,27 @@ let
     mkEnableOption
     mkOption
     mkPackageOption
+    mkRenamedOptionModule
     types
     ;
   cfg = config.services.zwave-js-ui;
 in
 {
+  # Honest rename.  The upstream nixpkgs module uses `settings` for
+  # environment variables — the name RFC 42 reserves for the application's
+  # real configuration file — which forced the real settings.json option here
+  # to be born as `settings2` (renamed outright to declarativeSettings; it
+  # was never upstream's, so no compatibility path is owed).  The shim below
+  # keeps upstream's `settings` evaluating with a deprecation warning.
+  # Checked against nixpkgs master 2026-08: upstream still uses `settings`
+  # for environment variables and manages no settings.json, so there is no
+  # convention to converge back toward yet.
+  imports = [
+    (mkRenamedOptionModule
+      [ "services" "zwave-js-ui" "settings" ]
+      [ "services" "zwave-js-ui" "environmentVariables" ]
+    )
+  ];
   options.services.zwave-js-ui = {
     enable = mkEnableOption "zwave-js-ui";
 
@@ -77,9 +93,16 @@ in
       example = "/secrets/zwave-js-keys.json";
     };
 
-    # Ugh why did environment variables get named "settings" when there is a
-    # "settings.json" file we _really_ want to have controlled?
-    settings2 = mkOption {
+    # The application's real configuration: this generates settings.json,
+    # which the ExecStartPre below imposes wholesale at every service start.
+    # The previous file's contents contribute nothing to the merge, so
+    # removing a key here genuinely removes it — no upsert drift.  Runtime
+    # edits made in the UI survive only until the next restart, by design;
+    # anything worth keeping must be promoted into this option, or into
+    # secretsConfigFile for values that are generated rather than derived —
+    # security keys above all, since a generated-then-wiped key permanently
+    # orphans every S2 node bootstrapped with it.
+    declarativeSettings = mkOption {
       type = types.submodule {
         freeformType = lib.types.attrsOf lib.types.anything;
         options = {
@@ -105,9 +128,7 @@ in
       };
     };
 
-    # Ugh why did environment variables get named "settings" when there is a
-    # "settings.json" file we _really_ want to have controlled?
-    settings = mkOption {
+    environmentVariables = mkOption {
       default = { };
       type = types.submodule {
         freeformType =
@@ -151,11 +172,13 @@ in
   config = mkIf cfg.enable {
     systemd.services.zwave-js-ui =
       let
-        settingsFile = (pkgs.formats.json { }).generate "settings.json" cfg.settings2;
+        settingsFile =
+          (pkgs.formats.json { }).generate "settings.json"
+            cfg.declarativeSettings;
         settingsPath = "%S/zwave-js-ui/settings.json";
       in
       {
-        environment = cfg.settings;
+        environment = cfg.environmentVariables;
         wantedBy = [ "multi-user.target" ];
         serviceConfig = {
           ExecStart = getExe cfg.package;

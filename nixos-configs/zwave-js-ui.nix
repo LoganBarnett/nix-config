@@ -49,7 +49,7 @@
     enable = true;
     serialPort = config.hardware.aeotec-z-stick-7.serialPort;
     secretsConfigFile = "/run/credentials/zwave-js-ui.service/zwave-js-secret";
-    settings2 = {
+    declarativeSettings = {
       # See
       # https://github.com/zwave-js/zwave-js-ui/blob/26f2e698354e56b7ec1b82cd3a99e106fedcf923/api/lib/ZwaveClient.ts#L588
       # for the closest thing to a document for some of these settings.
