@@ -113,11 +113,12 @@ in
       "d ${textfileDir} 0755 root root -"
     ];
 
-    # node_exporter accepts exactly one textfile directory, so a host that also
-    # runs another textfile producer (nixos-configs/dhcp-lease-textfile.nix,
-    # say) would silently end up with only one of them.  If that ever happens,
-    # factor the directory out into a shared module rather than adding a second
-    # flag here.
+    # node_exporter's textfile directory flag is repeatable as of 1.5.0, so
+    # multiple producers on one host may each contribute their own directory
+    # via extraFlags (dhcp-lease-textfile.nix and zwave-metrics.nix coexist
+    # this way).  An earlier version of this comment prescribed a
+    # shared-module refactor under the belief the flag was single-occupancy;
+    # that is no longer true.
     services.prometheus.exporters.node.extraFlags = [
       "--collector.textfile.directory=${textfileDir}"
     ];
