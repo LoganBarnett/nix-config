@@ -1,5 +1,9 @@
 { pkgs, ... }:
+let
+  music-sync = pkgs.callPackage ./derivations/music-sync.nix { };
+in
 [
+  music-sync
   # My tool for directly updating BattleScribe's data from the source.
   pkgs.battlescribe-update-data
   # Manage bluetooth settings easily from the command line.

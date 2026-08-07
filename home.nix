@@ -122,6 +122,8 @@ in
   # will not use great defaults).
   home.file.".jsbeautifyrc".source = ./jsbeautifyrc;
 
+  home.file.".vimrc".source = ./vimrc;
+
   # Disabled due to ChatGPT's separate subscription required for API keys, if I
   # even want to use this library in the first place.
   # home.file.".uniteai.yml".source = ./uniteai.yaml;

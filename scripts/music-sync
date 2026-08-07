@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+# Push the local music library to nextcloud's data directory on silicon.
+
+echo "Remember to remove the --exclude argument for a full sync."
+rsync --archive \
+  --info=progress2 \
+  --rsync-path "sudo -u nextcloud rsync" \
+  --exclude Music \
+  ~/Dropbox/music \
+  silicon.proton:data/data/logan/files/music

@@ -20,7 +20,6 @@ $HOME/.nix-defexpr/channels:$NIX_PATH"
 # Chop up the string to defeat its detection. This allows us to do the install
 # without having to remove it during a reinstallation and then re-add it.
 export PATH="\
-$HOME/dev/dotfiles-private/bin:\
 $HOME/.nix""-profile/bin:\
 /etc/profiles/per-user/$USER/bin:\
 /run/current-system/sw/bin:\
@@ -362,9 +361,6 @@ export LC_ALL=en_US.UTF-8
 # This allows commands to be excluded from history if they are prefixed with a
 # space.
 export HISTCONTROL=ignorespace
-
-# Pull in private stuff.
-source ~/dev/dotfiles-private/zshrc-private
 
 [ -n "$EAT_SHELL_INTEGRATION_DIR" ] && \
   source "$EAT_SHELL_INTEGRATION_DIR/zsh"
