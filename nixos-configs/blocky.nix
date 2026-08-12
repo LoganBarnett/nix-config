@@ -128,8 +128,13 @@ in
         # blocky-with-updater.nix (this file's only importer), which points
         # Blocky at locally-aggregated copies served by blocky-lists-updater;
         # the canonical upstream URLs are that module's `sources` attribute.
-        # The `gaming` group is injected by dns-smart-block's
-        # `autoMapAllBlocklists` rather than declared in either file.
+        # The `gaming` and `video-streaming` groups are injected by
+        # dns-smart-block's `autoMapAllBlocklists` rather than declared in
+        # either file -- it emits one group per *enabled classifier*, so
+        # enabling a classifier there creates the group but does not enforce
+        # it.  Enforcement only happens when a profile below names the group;
+        # `video-streaming` sat downloaded-but-unconsulted for exactly that
+        # reason.  Adding a classifier means editing `profileGroups` too.
         #
         # The upstream URLs used to be duplicated here as a `blackLists`
         # definition.  Because `services.blocky.settings` is freeform, the
@@ -160,11 +165,13 @@ in
                 "adult"
                 "gaming"
                 "malware"
+                "video-streaming"
               ];
               kid-gaming-rig = [
                 "ads"
                 "adult"
                 "malware"
+                "video-streaming"
               ];
               # TODO: Consider making a guest profile, wherein only a select
               # allow list is used.  All hosts either use this unless they are
@@ -175,6 +182,7 @@ in
                 "adult"
                 "gaming"
                 "malware"
+                "video-streaming"
               ];
             };
             # TODO: The current approach is flawed in that it assumes that the
