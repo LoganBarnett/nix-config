@@ -482,6 +482,7 @@
         # TODO: Find a better IP.
         ipv4 = 148;
         mac = "b0:a7:37:96:c6:33";
+        blockProfiles = [ "streaming-device" ];
       };
     };
 

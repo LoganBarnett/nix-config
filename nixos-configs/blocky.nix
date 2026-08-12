@@ -173,6 +173,11 @@ in
                 "malware"
                 "video-streaming"
               ];
+              streaming-device = [
+                "ads"
+                "adult"
+                "gaming"
+              ];
               # TODO: Consider making a guest profile, wherein only a select
               # allow list is used.  All hosts either use this unless they are
               # declared somewhere via facts.  This can help some entities from
