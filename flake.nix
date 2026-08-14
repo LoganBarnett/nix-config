@@ -189,6 +189,8 @@
     nixpkgs.url = "github:nixos/nixpkgs/25.11";
     nixpkgs-25-11.url = "github:nixos/nixpkgs/25.11";
     nixpkgs-openscad-bin.url = "github:LoganBarnett/nixpkgs/openscad-darwin-preserve-cli";
+    # So we can pull in mcp-server-git.
+    nixpkgs-mcp-server-git.url = "github:nixos/nixpkgs/26.05";
     # The newest version of Octoprint on nixpkgs 25.11 enters some kind of
     # refresh loop on the UI, and my attempts to debug it have come up empty.
     # It doesn't print any apparent error - I believe it is misidentifying

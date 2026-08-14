@@ -37,6 +37,7 @@
   (import ./gpclient.nix)
   (import ./signal-desktop.nix { inherit flake-inputs system; })
   (import ./claude-code.nix { inherit flake-inputs system; })
+  (import ./mcp-server-git.nix { inherit flake-inputs system; })
   (import ./opencode.nix { inherit system; })
   (import ./makemkv.nix)
   # (import (builtins.fetchTarball

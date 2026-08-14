@@ -2120,6 +2120,22 @@
         "type": "github"
       }
     },
+    "nixpkgs-mcp-server-git": {
+      "locked": {
+        "lastModified": 1780145889,
+        "narHash": "sha256-md0zn0RnwNvPyASas1yG5YUuwQ4ALA6ucL50l0DvqCo=",
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "8c50a710ddca43d7a530fb805ad55bde8d0141c5",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos",
+        "ref": "26.05",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
     "nixpkgs-nixos-raspberrypi": {
       "locked": {
         "lastModified": 1771867432,
@@ -3155,6 +3171,7 @@
         "nixos-raspberrypi": "nixos-raspberrypi",
         "nixpkgs": "nixpkgs_29",
         "nixpkgs-25-11": "nixpkgs-25-11",
+        "nixpkgs-mcp-server-git": "nixpkgs-mcp-server-git",
         "nixpkgs-nixos-raspberrypi": "nixpkgs-nixos-raspberrypi",
         "nixpkgs-openscad-bin": "nixpkgs-openscad-bin",
         "nur": "nur",

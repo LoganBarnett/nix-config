@@ -63,6 +63,15 @@ in
   programs.mcp = {
     enable = true;
     servers = {
+      # The one server that needs no credential, and so no pass wrapper: it
+      # shells out to git against whatever repository a tool call names.
+      #
+      # The mutation tools are permitted by default, but that's okay because we
+      # want to allow that mutation.
+      git = {
+        type = "stdio";
+        command = "${pkgs.mcp-server-git}/bin/mcp-server-git";
+      };
       gitea = {
         type = "stdio";
         command = "${gitea-mcp}";
