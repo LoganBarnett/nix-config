@@ -98,8 +98,19 @@
                 # paths silently.  This alert fires when the goss mount check
                 # introduced in nixos-modules/goss-exporter.nix detects that
                 # the ro option is absent.
+                #
+                # The counter also needs increase(): a bare "> 0" latches
+                # forever once the check fails a single time and can never
+                # resolve.
                 alert = "nix_store_writable";
-                expr = ''goss_tests_outcomes_total{outcome="fail",resource_type="Mount",resource_id="/nix/store"} > 0'';
+                expr = ''
+                  increase(
+                    goss_tests_outcomes_total {
+                      outcome="fail",
+                      type="mount",
+                      resource_id="/nix/store"
+                    }[10m]) > 0
+                '';
                 for = "5m";
                 labels = {
                   severity = "page";
