@@ -88,6 +88,13 @@ in
       # working.  Set explicitly so we stay on classic even if Claude Code
       # flips the default to fullscreen upstream.
       tui = "default";
+      # Default every session to Claude Fable 5, Anthropic's most capable
+      # model.  `fable` is the moving alias for the newest Fable release
+      # (`claude-fable-5` today), so version bumps arrive without an edit
+      # here.  There is a `fable[1m]` variant, but it is redundant: unlike
+      # the Opus line, Fable's 1M context window is both the default and
+      # the maximum.  `/model` still overrides this within a session.
+      model = "fable";
       # Pin the reasoning effort to the maximum.  The interactive
       # effort selector drifts back down to "high" across sessions;
       # persisting it here is meant to keep every session at "xhigh" so
@@ -621,8 +628,10 @@ in
     # the env-var whitelist that settings.json's `env` section can inject, so
     # it must be set at the shell level instead.
     DISABLE_INSTALLATION_CHECKS = "1";
-    # Raises the default 32k cap to match Sonnet 4.6's actual 64k output limit.
-    CLAUDE_CODE_MAX_OUTPUT_TOKENS = "64000";
+    # Raises the default 32k cap to Fable 5's actual 128k output limit.  This
+    # is a ceiling, not a target — a model with a lower limit is unaffected
+    # by the headroom.
+    CLAUDE_CODE_MAX_OUTPUT_TOKENS = "128000";
   };
 
   # ~/.claude.json is a file that `claude` wants to write to for things like
