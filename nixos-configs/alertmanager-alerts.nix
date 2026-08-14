@@ -21,6 +21,7 @@
 { ... }:
 {
   imports = [
+    ./goss-alertmanager-alerts.nix
     ./kodi-alertmanager-alerts.nix
     ./zwave-alertmanager-alerts.nix
   ];
