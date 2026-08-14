@@ -560,7 +560,13 @@
             "home-assistant-users"
             "openhab-users"
           ];
-          devices = [ ];
+          devices = [
+            {
+              host-id = "cassandra-macbook";
+              ip = "21";
+              vpn = true;
+            }
+          ];
           blockProfiles = [
             "adult"
           ];
