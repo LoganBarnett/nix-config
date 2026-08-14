@@ -31,6 +31,58 @@
       # Guest VLAN (30) — internet-only access, no internal LAN visibility.
       barnett-guest = "10.30.0";
     };
+    # The VLAN plan.  The rule: VLAN N owns the 10.N.0.0/16 allocation,
+    # deployed as a /24 until a segment needs more, at which point the mask
+    # widens in place — no renumbering.  Names are roles, not sites: the
+    # geode direction is a core codebase any household network can
+    # instantiate, so nothing here may carry a family or site name.  The
+    # gateway host owns .1 on every VLAN it routes; legacy predates that
+    # convention and dies rather than adopt it.  VLAN 100 is reserved for
+    # the wan uplink (no internal subnet; see network-gateway.nix).  These
+    # supersede the stringly `subnets` above, which remain for incremental
+    # migration.
+    vlans = {
+      # Trusted — admitted, full-permission devices.
+      main = {
+        id = 10;
+        prefix = "10.10.0";
+        prefixLength = 24;
+      };
+      # IoT — blocked by default, per-device internet allowlisting.
+      iot = {
+        id = 20;
+        prefix = "10.20.0";
+        prefixLength = 24;
+      };
+      # Guest — internet-only, no internal LAN visibility.
+      guest = {
+        id = 30;
+        prefix = "10.30.0";
+        prefixLength = 24;
+      };
+      # Onboarding lobby — reaches only the gateway's enrollment services.
+      lobby = {
+        id = 40;
+        prefix = "10.40.0";
+        prefixLength = 24;
+      };
+      # In-band management for network gear (APs).  The physical
+      # out-of-band link to the switch holds 10.99.0.0/24; this is the
+      # sibling /24 within the same "99 means management" allocation.
+      mgmt = {
+        id = 99;
+        prefix = "10.99.1";
+        prefixLength = 24;
+      };
+      # The old mixed-trust network, unchanged while the admission flow
+      # drains it device by device.  254 matches 192.168.254 mnemonically
+      # and marks itself terminal.
+      legacy = {
+        id = 254;
+        prefix = "192.168.254";
+        prefixLength = 24;
+      };
+    };
     ##
     # The nfsVolumes here have the following structure:
     # {
