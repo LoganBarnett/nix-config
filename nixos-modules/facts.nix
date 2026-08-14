@@ -566,6 +566,11 @@
               ip = "21";
               vpn = true;
             }
+            {
+              host-id = "cassandra-iphone";
+              ip = "22";
+              vpn = true;
+            }
           ];
           blockProfiles = [
             "adult"
