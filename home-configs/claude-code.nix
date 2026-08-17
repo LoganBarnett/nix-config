@@ -70,17 +70,11 @@ in
       '';
     };
     settings = {
-      # The `env` section passes vars to subprocesses, not to Claude Code
-      # itself, so `CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS` there is inert.
-      # The correct declarative approach is `permissions.defaultMode`.
-      # `skipDangerousModePermissionPrompt` suppresses the startup
-      # confirmation dialog; it must live in settings.json (here), not
-      # ~/.claude.json, because the 2.x migration function `SJq()` strips
-      # it from ~/.claude.json immediately on startup.
+      # Every session starts read-only in plan mode; nothing is written or
+      # executed until a plan is approved.
       permissions = {
-        defaultMode = "bypassPermissions";
+        defaultMode = "plan";
       };
-      skipDangerousModePermissionPrompt = true;
       # Pin the classic main-screen renderer.  The "fullscreen" renderer
       # enables terminal mouse capture, which intercepts click-and-drag and
       # breaks native select-to-copy (and PRIMARY/middle-click paste).  The
@@ -604,12 +598,6 @@ in
   programs.claude-code.memory.source = ./claude-memory.org;
 
   home.shellAliases = {
-    # Capitalism demands I move at full speed or die.  If I die because it blows
-    # up on me, that's just bad luck but also life.  I told Claude this and it
-    # said "Git is your undo button.  Godspeed.".  The alias is now redundant
-    # (settings.json handles it declaratively), but kept as a fallback for
-    # shells that load before home-manager's profile.
-    #
     # `--effort xhigh` is here because the declarative
     # `settings.effortLevel = "xhigh"` is silently ignored: the Growthbook
     # feature flag `tengu_grey_step2` ("We recommend medium effort for Opus")
@@ -620,7 +608,7 @@ in
     # starts every session at xhigh; `/effort` can still change it (up to
     # `max`, or down) within a session.  Remove once the upstream bug is fixed
     # and `settings.effortLevel` is honored again.
-    claude = "claude --dangerously-skip-permissions --effort xhigh";
+    claude = "claude --effort xhigh";
   };
 
   home.sessionVariables = {
