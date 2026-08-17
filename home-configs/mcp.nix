@@ -1,21 +1,35 @@
 ################################################################################
 # Generic MCP (Model Context Protocol) server registry.  This file is
 # deliberately client-neutral: `programs.mcp.servers` writes the tool-agnostic
-# ~/.config/mcp/mcp.json, and each coding agent opts in separately (for Claude
-# Code that is `programs.claude-code.enableMcpIntegration = true`, set in
-# claude-code.nix — the one client-specific line lives there, not here).
+# ~/.config/mcp/mcp.json.
 #
 # Secret handling: the generated config lands in the world-readable Nix store,
 # so no token may be inlined here.  Each server's `command` is a wrapper that
 # reads its credential from `pass` at run time — the same pattern claude-code
 # uses for its apiKeyHelper.  Create the referenced pass entries before first
-# use.
+# use; a missing or empty entry is a hard startup failure naming the entry,
+# not a silently unauthenticated server.
 #
 # The default posture is read-only.  Write access and session elevation are
 # intentionally out of scope for this file.
 ################################################################################
 { lib, pkgs, ... }:
 let
+  # Emits the preamble that loads a credential from pass into `token`, failing
+  # loudly rather than proceeding with an empty value.
+  #
+  # `set -e` alone does not cover the obvious spelling of this.  Bash takes the
+  # exit status of `export VAR="$(cmd)"` from `export`, so we check the variable
+  # afterwards instead.
+  passToken = entry: ''
+    token="$(${pkgs.pass}/bin/pass show ${lib.escapeShellArg entry})"
+    if [ -z "$token" ]; then
+      printf 'FATAL: pass entry %s is missing or empty.\n' \
+        ${lib.escapeShellArg entry} >&2
+      exit 1
+    fi
+  '';
+
   # gitea-mcp exposes only single-dash flags (it uses Go's `flag` package), so
   # they are documented here: `-t stdio` selects the stdio transport, `-host`
   # is the Gitea base URL, and `-read-only` blocks every mutating tool.  The
@@ -24,7 +38,9 @@ let
   # Forgejo, which is API-compatible; swap to a forgejo-mcp package after the
   # migration if one lands in nixpkgs.
   gitea-mcp = pkgs.writeShellScript "gitea-mcp-wrapped" ''
-    export GITEA_ACCESS_TOKEN="$(${pkgs.pass}/bin/pass show ${lib.escapeShellArg "gitea/mcp-token"})"
+    set -euo pipefail
+    ${passToken "gitea/mcp-token"}
+    export GITEA_ACCESS_TOKEN="$token"
     exec ${pkgs.gitea-mcp-server}/bin/gitea-mcp \
       -t stdio \
       -host ${lib.escapeShellArg "https://gitea.proton"} \
@@ -35,7 +51,9 @@ let
   # `--read-only` restricts it to non-mutating tools, and the default toolset
   # (context, repos, issues, pull_requests, users) is left in place.
   github-mcp = pkgs.writeShellScript "github-mcp-wrapped" ''
-    export GITHUB_PERSONAL_ACCESS_TOKEN="$(${pkgs.pass}/bin/pass show ${lib.escapeShellArg "github/mcp-token"})"
+    set -euo pipefail
+    ${passToken "github/mcp-token"}
+    export GITHUB_PERSONAL_ACCESS_TOKEN="$token"
     exec ${pkgs.github-mcp-server}/bin/github-mcp-server stdio --read-only
   '';
 
@@ -49,7 +67,8 @@ let
   # this build honors.  The pass token should belong to a Viewer-role service
   # account so the credential itself is read-only, not just the tool flags.
   grafana-mcp = pkgs.writeShellScript "grafana-mcp-wrapped" ''
-    token="$(${pkgs.pass}/bin/pass show ${lib.escapeShellArg "grafana/mcp-token"})"
+    set -euo pipefail
+    ${passToken "grafana/mcp-token"}
     export GRAFANA_URL=${lib.escapeShellArg "https://grafana.proton"}
     export GRAFANA_API_KEY="$token"
     export GRAFANA_SERVICE_ACCOUNT_TOKEN="$token"
@@ -60,6 +79,7 @@ let
   '';
 in
 {
+  programs.claude-code.enableMcpIntegration = true;
   programs.mcp = {
     enable = true;
     servers = {
