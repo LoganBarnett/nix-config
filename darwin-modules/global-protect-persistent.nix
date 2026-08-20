@@ -431,15 +431,18 @@ in
 
     # dnsmasq local DNS forwarder — always active when the module is
     # imported.  VPN DNS resolution is inseparable from the VPN service.
+    #
+    # These daemons use `command` rather than raw ProgramArguments so
+    # nix-darwin wraps them in `/bin/wait4path /nix/store && exec …`.
+    # Without the guard, launchd can attempt the first spawn before the
+    # Nix store volume mounts at boot, fail with EX_CONFIG, and wedge on
+    # an executable-appeared watch that never fires for the synthetic
+    # /nix mount.
     launchd.daemons.dnsmasq = {
+      command = "${pkgs.dnsmasq}/bin/dnsmasq --keep-in-foreground --conf-file=${dnsmasqConf}";
       serviceConfig = {
         KeepAlive = true;
         RunAtLoad = true;
-        ProgramArguments = [
-          "${pkgs.dnsmasq}/bin/dnsmasq"
-          "--keep-in-foreground"
-          "--conf-file=${dnsmasqConf}"
-        ];
         StandardOutPath = "/var/log/dnsmasq.log";
         StandardErrorPath = "/var/log/dnsmasq.log";
       };
@@ -448,12 +451,10 @@ in
     # Companion daemon that discovers DHCP DNS from the active interface
     # and writes it to the upstream resolv file for dnsmasq.
     launchd.daemons.dnsmasq-upstream-sync = {
+      command = "${dnsmasqUpstreamSync}/bin/dnsmasq-upstream-sync";
       serviceConfig = {
         KeepAlive = true;
         RunAtLoad = true;
-        ProgramArguments = [
-          "${dnsmasqUpstreamSync}/bin/dnsmasq-upstream-sync"
-        ];
         EnvironmentVariables = {
           DNSMASQ_UPSTREAM_RESOLV_FILE = dnsCfg.upstreamResolvFile;
           DNSMASQ_SYNC_INTERVAL = toString dnsCfg.syncInterval;
@@ -465,14 +466,11 @@ in
 
     launchd.daemons.globalprotect-monitor = {
       path = [ config.environment.systemPath ];
+      command = "${pkgs.bash}/bin/bash ${monitorScript}";
 
       serviceConfig = {
         KeepAlive = true;
         RunAtLoad = true;
-        ProgramArguments = [
-          "${pkgs.bash}/bin/bash"
-          "${monitorScript}"
-        ];
 
         # Run as primary user
         UserName = cfg.primaryUser;
