@@ -400,9 +400,6 @@ in
       ${cfg.primaryUser} ALL=(root) NOPASSWD: /usr/bin/dscacheutil -flushcache
       ${cfg.primaryUser} ALL=(root) NOPASSWD: /usr/bin/killall -HUP mDNSResponder
       ${cfg.primaryUser} ALL=(root) NOPASSWD: /usr/bin/killall -HUP dnsmasq
-      # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      # !! DO NOT COMMIT - TEMPORARY DEVELOPMENT RULE - REMOVE BEFORE MERGE !!
-      # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       ${cfg.primaryUser} ALL=(root) NOPASSWD: SETENV: ${
         pkgs.callPackage ../derivations/vpn-test-harness.nix { }
       }/bin/vpn-test-harness *
