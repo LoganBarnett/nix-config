@@ -14,11 +14,11 @@
         "systems": "systems"
       },
       "locked": {
-        "lastModified": 1774374894,
-        "narHash": "sha256-Xiry31/KB+U7IV1cNUPsKbfdiuhAxqIY/ldMdnGy0Fk=",
+        "lastModified": 1787350250,
+        "narHash": "sha256-T64NF4Ne7a0VFtD3AD2HOVJvZQG8bVjjXs4d3QCCHC8=",
         "owner": "LoganBarnett",
         "repo": "agenix",
-        "rev": "f28a2dae2cef51a1ffb858b5729fe959acfdb90d",
+        "rev": "fb60f1caab9ef12ee306ed5b7ef20cbe722aa7aa",
         "type": "github"
       },
       "original": {
