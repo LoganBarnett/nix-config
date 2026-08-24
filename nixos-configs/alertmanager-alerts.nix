@@ -23,6 +23,7 @@
   imports = [
     ./goss-alertmanager-alerts.nix
     ./kodi-alertmanager-alerts.nix
+    ./rtc-alertmanager-alerts.nix
     ./zwave-alertmanager-alerts.nix
   ];
 }

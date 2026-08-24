@@ -77,13 +77,57 @@
   #      expire per val-bogus-ttl (60s by default), so validation starts
   #      succeeding on its own about a minute after chrony steps the clock —
   #      no restart, no intervention.
+  #
+  # THE SECOND ACT: the boot window can close before the network opens
+  # ──────────────────────────────────────────────────────────────────
+  # initstepslew is a one-shot: it measures at chronyd startup and never
+  # again.  After a whole-site power outage, silicon's boot raced the network
+  # gear's boot and lost — chronyd logged "No suitable source for
+  # initstepslew" twenty seconds in, and when the sources finally became
+  # reachable 73 minutes later it logged "System clock wrong by 427891778
+  # seconds" (the dead CMOS battery had reset the RTC to 2013) with no way to
+  # act on it: absent a makestep directive chrony only ever slews, and at the
+  # default maximum slew rate a 13.6-year offset corrects at roughly two
+  # hours per day.  A manual `chronyc makestep` was required.
+  #
+  # Two additions close that hole:
+  #
+  #   1. `makestep 1.0 3` (extraConfig below) arms stepping until the first
+  #      three clock updates.  The limit counts *successful clock updates* —
+  #      not polls, and not wall-clock time — so the budget survives an
+  #      arbitrarily long network outage, and the first measurements to get
+  #      through may still step.  After three updates it disarms, and the
+  #      clock is back to slew-only for the rest of the uptime.  This is
+  #      deliberately not `makestep 1.0 -1`: an unlimited allowance would let
+  #      anyone able to defeat source selection (on-path spoofing of a
+  #      majority of sources — plain NTP is unauthenticated) step the clock
+  #      arbitrarily at any moment, whereas the latched form only trusts the
+  #      same boot-until-first-sync window initstepslew already trusts.  A
+  #      chronyd restart re-arms the budget, which carries the same trust as
+  #      any boot.
+  #   2. `-s` (extraFlags below) restores an approximately correct clock
+  #      before any measurement: at startup chronyd sets the system time to
+  #      the drift file's modification time when that is later than both the
+  #      RTC and the current time.  chronyd rewrites the drift file roughly
+  #      hourly while synchronized, so a dead-battery boot starts within
+  #      about an hour plus the outage duration of true time instead of
+  #      years off — DNSSEC and TLS validation are sane from chronyd's start
+  #      even while the network is still down, and the leftover offset is
+  #      then stepped by initstepslew or makestep once sources respond.
+  #      This equally covers the Raspberry Pi hosts, which have no RTC at
+  #      all.
+  #
+  # Detection of the underlying battery failure is separate:
+  # nixos-configs/rtc-battery-textfile.nix records the verdict at boot and
+  # nixos-configs/rtc-alertmanager-alerts.nix raises a latched alert from it.
   services.chrony = {
     enable = true;
     servers = [
       # Literal IPs: the DNS-independent cold-start path.  These also feed the
-      # initstepslew directive (enabled by default, 1000s threshold), which is
-      # what actually rescues a wildly wrong clock at boot by stepping it
-      # rather than slewing.
+      # initstepslew directive (enabled by default, 1000s threshold), which
+      # rescues a wildly wrong clock at boot by stepping it rather than
+      # slewing — with the makestep directive below as the backstop for when
+      # its one-shot window closes before the network is up.
       "192.53.103.108" # ptbtime1.ptb.de — PTB, German national metrology
       "192.53.103.104" # ptbtime2.ptb.de
       "192.53.103.103" # ptbtime3.ptb.de
@@ -109,6 +153,10 @@
     # from the pool, which the project explicitly asks people not to do.
     extraConfig = ''
       pool 2.nixos.pool.ntp.org iburst maxsources 3
+      makestep 1.0 3
     '';
+    # Restore an approximately correct clock at chronyd startup from the
+    # drift file's modification time — see the second-act commentary above.
+    extraFlags = [ "-s" ];
   };
 }

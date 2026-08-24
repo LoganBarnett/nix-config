@@ -19,6 +19,8 @@
   imports = [
     ../nixos-configs/audio.nix
     ../nixos-configs/chrony.nix
+    # Must accompany chrony.nix: it reads the RTC before chronyd can trim it.
+    ../nixos-configs/rtc-battery-textfile.nix
     ../nixos-configs/journalctl-iso8601.nix
     {
       networking.domain = facts.network.domain;
