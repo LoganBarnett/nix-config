@@ -912,6 +912,7 @@
           nvidia-gpu = import ../nixos-configs/grafana-nvidia-gpu.nix {
             inherit without-socket-port;
           };
+          power = import ../nixos-configs/grafana-power.nix { };
           uptime-timeseries = import ../nixos-configs/grafana-uptime-timeseries.nix {
             inherit without-socket-port;
           };
