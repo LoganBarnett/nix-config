@@ -72,6 +72,7 @@ fi
   "$FLAKE_ROOT#nixosConfigurations.${host}.config.system.build.${image_type}" \
   --accept-flake-config \
   --out-link "$output" \
+  --always-allow-substitutes \
   --print-build-logs \
   --show-trace \
   --verbose

@@ -25,28 +25,25 @@ pkgs.writeShellScriptBin "disk-detachable" ''
     esac
   done
 
-  IFS=$'\n'
-  sd_results=$(
-    system_profiler SPCardReaderDataType -json \
-      | ${pkgs.jq}/bin/jq -r \
-        '.SPCardReaderDataType[]._items[].bsd_name'
-  )
-  usb_results=$(
-    # At some point we had `and volumes?` in the select below, but that proved
-    # to not work for some partition or media types - particularly a USB hard
-    # drive dock.  If it was needed, we need to figure out what difference is
-    # made.
-    system_profiler SPUSBDataType -json \
-      | ${pkgs.jq}/bin/jq -r \
-        '.. | select(.bsd_name?).bsd_name'
-  )
-  unset IFS
-  array=( "''${sd_results[@]}""''${usb_results[@]}" )
-  count="''${#array[@]}"
-  if [[ $count != 1 ]]; then
-    echo "Error: Query result ''${array[@]} has $count results but we expect exactly 1." 1>&2
+  # Ask diskutil directly for external, physical whole disks.  This covers
+  # every bus (USB, Thunderbolt, built-in card readers) and by construction
+  # excludes internal disks, partition entries, and virtual disks such as
+  # mounted disk images.
+  #
+  # diskutil's -plist and plutil's -convert and -o flags have no long-form
+  # equivalents.
+  json="$(
+    diskutil list -plist external physical \
+      | plutil -convert json -o - -
+  )"
+  count="$(${pkgs.jq}/bin/jq '.WholeDisks | length' <<<"$json")"
+  if [[ "$count" != 1 ]]; then
+    disks="$(
+      ${pkgs.jq}/bin/jq --raw-output '.WholeDisks | join(", ")' <<<"$json"
+    )"
+    echo "Error: Query result [$disks] has $count results but we expect exactly 1." 1>&2
     exit 1
   else
-    echo -n "''${array[@]}"
+    ${pkgs.jq}/bin/jq --raw-output --join-output '.WholeDisks[0]' <<<"$json"
   fi
 ''

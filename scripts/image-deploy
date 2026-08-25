@@ -10,6 +10,9 @@ set -euo pipefail
 noop=false
 cleanup_image=false
 verify_boot=""
+image_name=""
+disk=""
+host=""
 
 while true; do
   case "${1:-}" in
@@ -62,7 +65,7 @@ if [[ $noop == true ]]; then
   echo 'WARNING:  This is running with noop!  Nothing will happen!'
 fi
 
-if [ -z ${disk+x} ]; then
+if [ -z "$disk" ]; then
   disk="/dev/$(disk-detachable | head -n 1)"
 fi
 
@@ -73,14 +76,30 @@ else
   echo "Found disk: '$disk'"
 fi
 
-if [ -z ${image_name+x} ]; then
+if [[ -z "$image_name" ]]; then
+  if [[ -z "$host" ]]; then
+    echo "ERROR: One of --image or --host is required." >&2
+    exit 1
+  fi
   if [[ $noop == false ]]; then
     if ! image_result="$(image-create --host "$host")"; then
       echo "ERROR: Failed to create image for host '$host'" >&2
       exit 1
     fi
-    if ! image_file="$(ls "$image_result/iso/"*.iso 2>/dev/null)"; then
-      echo "ERROR: Could not find image file in $image_result/iso" >&2
+    # image-create builds an isoImage for some hosts and an sdImage for
+    # others, and their output layouts differ.  Accept whichever the build
+    # produced.
+    image_file=""
+    for candidate in "$image_result/iso/"*.iso \
+                     "$image_result/sd-image/"*.img.zst \
+                     "$image_result/sd-image/"*.img; do
+      if [[ -f "$candidate" ]]; then
+        image_file="$candidate"
+        break
+      fi
+    done
+    if [[ -z "$image_file" ]]; then
+      echo "ERROR: Could not find an image file under $image_result (tried iso/*.iso, sd-image/*.img.zst, sd-image/*.img)" >&2
       exit 1
     fi
     image_name="$image_file"
