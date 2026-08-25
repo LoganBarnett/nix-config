@@ -355,9 +355,10 @@ in
       description = "Periodic Grafana kiosk health probe";
       wantedBy = [ "timers.target" ];
       timerConfig = {
-        # Give X and the browsers time to come up before the first probe, so
-        # a normal boot does not register a failure.
-        OnBootSec = "3min";
+        # Grace period before the first probe, counted from when the timer
+        # itself starts — at boot, and also when a deploy first introduces
+        # the timer on a long-running system.
+        OnActiveSec = "3min";
         OnUnitActiveSec = "1min";
       };
     };
