@@ -25,25 +25,38 @@ pkgs.writeShellScriptBin "disk-detachable" ''
     esac
   done
 
-  # Ask diskutil directly for external, physical whole disks.  This covers
-  # every bus (USB, Thunderbolt, built-in card readers) and by construction
-  # excludes internal disks, partition entries, and virtual disks such as
-  # mounted disk images.
-  #
-  # diskutil's -plist and plutil's -convert and -o flags have no long-form
-  # equivalents.
-  json="$(
-    diskutil list -plist external physical \
-      | plutil -convert json -o - -
-  )"
-  count="$(${pkgs.jq}/bin/jq '.WholeDisks | length' <<<"$json")"
-  if [[ "$count" != 1 ]]; then
+  if [[ "$(uname -s)" == 'Darwin' ]]; then
+    # Ask diskutil directly for external, physical whole disks.  This covers
+    # every bus (USB, Thunderbolt, built-in card readers) and by construction
+    # excludes internal disks, partition entries, and virtual disks such as
+    # mounted disk images.
+    #
+    # diskutil's -plist and plutil's -convert and -o flags have no long-form
+    # equivalents.
     disks="$(
-      ${pkgs.jq}/bin/jq --raw-output '.WholeDisks | join(", ")' <<<"$json"
+      diskutil list -plist external physical \
+        | plutil -convert json -o - - \
+        | ${pkgs.jq}/bin/jq '.WholeDisks'
     )"
-    echo "Error: Query result [$disks] has $count results but we expect exactly 1." 1>&2
+  else
+    # HOTPLUG covers removable media and hotplug buses such as USB, which is
+    # the closest match to diskutil's "external physical".  util-linux older
+    # than 2.37 emits "1" strings rather than JSON booleans.
+    disks="$(
+      lsblk --json --nodeps --output NAME,TYPE,HOTPLUG \
+        | ${pkgs.jq}/bin/jq '[
+            .blockdevices[]
+            | select(.type == "disk" and (.hotplug == true or .hotplug == "1"))
+            | .name
+          ]'
+    )"
+  fi
+  count="$(${pkgs.jq}/bin/jq 'length' <<<"$disks")"
+  if [[ "$count" != 1 ]]; then
+    names="$(${pkgs.jq}/bin/jq --raw-output 'join(", ")' <<<"$disks")"
+    echo "Error: Query result [$names] has $count results but we expect exactly 1." 1>&2
     exit 1
   else
-    ${pkgs.jq}/bin/jq --raw-output --join-output '.WholeDisks[0]' <<<"$json"
+    ${pkgs.jq}/bin/jq --raw-output --join-output '.[0]' <<<"$disks"
   fi
 ''

@@ -3,18 +3,43 @@
 set -euo pipefail
 
 host="$1"
+master_identity_json="$(nix eval --json --file secrets/master-identity.nix)"
+master_identity="secrets/$(
+  jq --raw-output '.identity' <<<"$master_identity_json"
+)"
+master_pubkey="secrets/$(
+  jq --raw-output '.pubkey' <<<"$master_identity_json"
+)"
+if [[ ! -f "$master_pubkey" ]]; then
+  cat 1>&2 <<EOM
+error: $master_pubkey is missing.  Generate it once with:
+  rage --decrypt $master_identity | rage-keygen -y > $master_pubkey
+Then commit the result.
+EOM
+  exit 1
+fi
+# The keypair is generated outside of the repository so the private half never
+# exists unencrypted in the working tree, where it could be accidentally
+# committed or swept into the Nix store by a flake evaluation.
+key_dir="$(mktemp --directory)"
+trap 'rm --recursive --force "$key_dir"' EXIT
 # -t indicates the type of cipher to use.
 # -N indicates an empty passphrase.
+# -C indicates the comment embedded in the public key.
 # -f indicates the path of the file to write to.
-ssh-keygen -t ed25519 -N "" -f "secrets/$host-pub-key"
-# We don't need the private key at all, let alone now.  Remove it to avoid
-# confusion.  We must allow the image builder to create its own image.  One day
-# we might be able to provide our own, but it isn't possible yet.
-rm "secrets/$host-pub-key"
-git add "secrets/$host-pub-key.pub"
+ssh-keygen -t ed25519 -N "" -C "$host" -f "$key_dir/host-key"
+cp "$key_dir/host-key.pub" "secrets/$host-pub-key.pub"
+# rage refuses to overwrite an existing output file, so clear any artifact from
+# a prior rotation first.
+rm --force "secrets/$host-host-key.age"
+rage \
+  --encrypt \
+  --recipients-file "$master_pubkey" \
+  --output "secrets/$host-host-key.age" \
+  "$key_dir/host-key"
+# Nix flakes only see tracked files, so these must be added before any
+# evaluation can use them.
+git add "secrets/$host-pub-key.pub" "secrets/$host-host-key.age"
 agenix rekey generate -a
 agenix rekey -a
-# Ah but not everything that is generated is added.  Add the TLS certificate
-# manually if it exists.
-git add "secrets/tls-$host.crt"
 image-create --host "$host"

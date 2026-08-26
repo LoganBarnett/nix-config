@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+##
+# Adds a host's pre-generated SSH host key to the FIRMWARE partition of an
+# already-flashed SD card.  See nixos-configs/raspberry-pi-firmware-host-key.nix
+# for the consuming side.
+#
+# image-deploy calls this after writing an image.  It is also useful on its
+# own to re-add a key to a flashed card without reflashing, for example after
+# a failed first boot.
+##
+
+set -euo pipefail
+
+function usage() {
+  cat <<EOH
+Usage: $0 --host <host> --disk <dev-path> [--noop]
+
+  --host <host>      The host whose key should be added.  The key is read
+                     from \$FLAKE_ROOT/secrets/<host>-host-key.age.
+  --disk <dev-path>  The whole disk holding the flashed image.  Must be a
+                     fully qualified path.  Ex: /dev/disk4 (macOS) or
+                     /dev/sdb (Linux).  The FIRMWARE partition is assumed to
+                     be its first partition.
+  --noop             Do not perform any operations but output as if it did.
+EOH
+}
+
+host=""
+disk=""
+noop=false
+
+while true; do
+  case "${1:-}" in
+    -h | --help)
+      usage
+      exit
+      ;;
+    --host)
+      host="${2:-}"
+      shift 2
+      ;;
+    --disk)
+      disk="${2:-}"
+      shift 2
+      ;;
+    --noop)
+      noop=true
+      shift 1
+      ;;
+    * ) break ;;
+  esac
+done
+
+if [[ -z "$host" || -z "$disk" ]]; then
+  echo "ERROR: Both --host and --disk are required." >&2
+  usage
+  exit 1
+fi
+
+host_key_file="${FLAKE_ROOT:?FLAKE_ROOT must be set - \
+enter the devShell}/secrets/$host-host-key.age"
+if [[ ! -f "$host_key_file" ]]; then
+  echo "ERROR: No pre-generated host key at '$host_key_file'." >&2
+  echo "Generate one with rpi-host-new, which also rekeys all of the host's" >&2
+  echo "secrets against it." >&2
+  exit 1
+fi
+
+os="$(uname -s)"
+
+# The sd-image layout places the vfat FIRMWARE partition first.  Linux
+# separates partition numbers with "p" on devices whose names end in a digit
+# (mmcblk0, nvme0n1).
+if [[ "$os" == 'Darwin' ]]; then
+  firmware_partition="${disk}s1"
+elif [[ "$disk" == *[0-9] ]]; then
+  firmware_partition="${disk}p1"
+else
+  firmware_partition="${disk}1"
+fi
+
+if [[ $noop == true ]]; then
+  echo "noop: Would add '$host_key_file' onto '$firmware_partition'."
+  exit 0
+fi
+
+master_identity_name="$(
+  nix eval --raw --file "$FLAKE_ROOT/secrets/master-identity.nix" identity
+)"
+
+# mtools writes to the raw device, which requires the volume to be unmounted
+# - and macOS additionally auto-mounts FAT volumes on insertion.
+if [[ "$os" == 'Darwin' ]]; then
+  diskutil unmountDisk "$disk"
+elif grep --quiet "^$firmware_partition " /proc/mounts; then
+  sudo umount "$firmware_partition"
+fi
+
+# mtools is pedantic about FAT geometry in ways that don't affect single-file
+# operations.
+export MTOOLS_SKIP_CHECK=1
+
+# mtools only has short flags:
+# -i is the device to operate on.
+# -s shows the label instead of setting it.
+# :: addresses the filesystem root.
+if ! sudo mlabel -s -i "$firmware_partition" :: | grep --quiet 'FIRMWARE'; then
+  echo "ERROR: Partition 1 of '$disk' is not labeled FIRMWARE.  Refusing to" >&2
+  echo "ERROR: add the host key to a partition the first boot will not read." >&2
+  exit 1
+fi
+
+# mcopy prompts interactively before overwriting, so clear any previous key.
+# mdel failing means the file was absent, which is the common case.
+sudo mdel -i "$firmware_partition" ::ssh_host_ed25519_key 2>/dev/null || true
+# Decrypting prompts for the master key passphrase.  mcopy reads the
+# plaintext from stdin ("-"), so it never touches the local filesystem.
+rage \
+  --identity "$FLAKE_ROOT/secrets/$master_identity_name" \
+  --decrypt "$host_key_file" \
+  | sudo mcopy -i "$firmware_partition" - ::ssh_host_ed25519_key
+echo "Added host key for '$host' onto the firmware partition."

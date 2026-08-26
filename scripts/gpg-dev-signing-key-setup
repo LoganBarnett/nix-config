@@ -62,8 +62,11 @@ trap 'shred --remove "$tmpfile" || true' EXIT
 gpg --export-secret-subkeys --armor "${subkey_id}!" > "$tmpfile"
 
 # Encrypt for agenix.
+master_identity_name="$(
+  nix eval --raw --file "$FLAKE_ROOT/secrets/master-identity.nix" identity
+)"
 rage --encrypt \
-  --identity "$secrets_dir/agenix-master-key-3.age" \
+  --identity "$secrets_dir/$master_identity_name" \
   --output "$secrets_dir/logan-gpg-signing-subkey.age" \
   "$tmpfile"
 echo "Encrypted subkey written to secrets/logan-gpg-signing-subkey.age"

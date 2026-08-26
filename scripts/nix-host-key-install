@@ -23,13 +23,39 @@ fi
 secretsDir="$FLAKE_ROOT/secrets"
 host=$(hostname -s)
 
-# TODO: Query the Nix configuration for age.rekey.masterIdentities[0] for the
-# --identity argument.
-# TODO: Query the Nix configuration for age.rekey.hostPubkey for the
-# --decrypt argument.
+master_identity_name="$(
+  nix eval --raw --file "$FLAKE_ROOT/secrets/master-identity.nix" identity
+)"
+# agenix-rekey coerces hostPubkey to the key's content, so this holds the key
+# itself rather than a file path.
+host_pubkey_content="$(
+  nix eval --raw \
+    "$FLAKE_ROOT#darwinConfigurations.\"$host\".config.age.rekey.hostPubkey" \
+    2>/dev/null \
+  || nix eval --raw \
+    "$FLAKE_ROOT#nixosConfigurations.\"$host\".config.age.rekey.hostPubkey"
+)"
+# The private half sits alongside the committed public key under the same
+# stem, but encrypted to the master key with an .age extension.  Since the
+# configuration only yields the key's content, find the committed file by
+# content match to learn the stem.
+host_pubkey_file=""
+for candidate in "$secretsDir"/*.pub; do
+  if [[ "$(cat "$candidate")" == "$host_pubkey_content" ]]; then
+    host_pubkey_file="$candidate"
+    break
+  fi
+done
+if [[ -z "$host_pubkey_file" ]]; then
+  echo "error: No .pub under secrets/ matches this host's age.rekey.hostPubkey." >&2
+  exit 1
+fi
 rage \
-  --identity "$secretsDir/agenix-master-key-3.age" \
-  --decrypt "$secretsDir/$host-pub-key.age" \
+  --identity "$secretsDir/$master_identity_name" \
+  --decrypt "${host_pubkey_file%.pub}.age" \
   | sudo tee /etc/ssh/ssh_host_ed25519_key >/dev/null
+# tee leaves the file world-readable, which a private key must never be.
+sudo chmod 600 /etc/ssh/ssh_host_ed25519_key
 
-sudo cp "$secretsDir/$host-pub-key.age" /etc/ssh/ssh_host_ed25519_key.pub
+printf '%s\n' "$host_pubkey_content" \
+  | sudo tee /etc/ssh/ssh_host_ed25519_key.pub >/dev/null

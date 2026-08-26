@@ -1,13 +1,19 @@
 { pkgs, ... }:
 let
   disk-detachable = pkgs.callPackage ./derivations/disk-detachable.nix { };
+  firmware-host-key-add =
+    pkgs.callPackage ./derivations/firmware-host-key-add/default.nix
+      { };
   image-create = pkgs.callPackage ./derivations/image-create.nix { };
   image-deploy = pkgs.callPackage ./derivations/image-deploy.nix {
-    inherit disk-detachable image-create;
+    inherit disk-detachable firmware-host-key-add image-create;
   };
 in
 [
   disk-detachable
+  # Add a host's pre-generated SSH host key to a flashed SD card's FIRMWARE
+  # partition.
+  firmware-host-key-add
   image-create
   image-deploy
   # A test script to show we can add an arbitrary Bash script with a foreign

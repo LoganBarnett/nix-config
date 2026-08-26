@@ -42,14 +42,15 @@ while true; do
   esac
 done
 
-if [[ -z ${host+x} ]]; then
+if [[ -z "$host" ]]; then
   echo "--host argument missing"
   usage
   exit 1
 fi
 
 image_type="$([[ "$host" == 'nucleus' ]] && echo 'isoImage' || echo 'sdImage')"
-output='image'
+output="$FLAKE_ROOT/tmp/images/$host"
+mkdir --parents "$FLAKE_ROOT/tmp/images"
 system="$(
   nix eval --raw --file "$FLAKE_ROOT/nixos-modules/facts.nix" \
     "network.hosts.$host.system"

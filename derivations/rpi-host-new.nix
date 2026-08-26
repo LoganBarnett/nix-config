@@ -1,7 +1,9 @@
 {
   git,
   image-create,
+  jq,
   openssh,
+  rage,
   writeShellApplication,
 }:
 writeShellApplication {
@@ -9,7 +11,9 @@ writeShellApplication {
   runtimeInputs = [
     git
     image-create
+    jq
     openssh
+    rage
   ];
   text = builtins.readFile ../scripts/rpi-host-new;
 }

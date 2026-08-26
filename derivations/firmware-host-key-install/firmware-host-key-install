@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+##
+# Installs a pre-generated SSH host key from the FIRMWARE partition into
+# /etc/ssh.  Runs as a NixOS activation script ordered before agenix (see
+# nixos-configs/raspberry-pi-firmware-host-key.nix), so a freshly imaged host
+# decrypts all of its secrets on the very first boot.  The key is placed on
+# the partition by firmware-host-key-add at flash time.
+##
+
+set -euo pipefail
+
+# Re-runs on every boot and switch; once the key exists this is a no-op.
+if [[ -s /etc/ssh/ssh_host_ed25519_key ]]; then
+  exit 0
+fi
+
+# The by-label link may be absent this early, so fall back to the raw SD card
+# partition.
+firmware_device=""
+for candidate in /dev/disk/by-label/FIRMWARE /dev/mmcblk0p1; do
+  if [[ -e "$candidate" ]]; then
+    firmware_device="$candidate"
+    break
+  fi
+done
+if [[ -z "$firmware_device" ]]; then
+  exit 0
+fi
+
+# mtools is pedantic about FAT geometry in ways that don't affect single-file
+# operations.
+export MTOOLS_SKIP_CHECK=1
+
+# mtools only has short flags:
+# -i is the device to operate on.
+# :: addresses the filesystem root.
+if ! mdir -i "$firmware_device" ::ssh_host_ed25519_key >/dev/null 2>&1; then
+  exit 0
+fi
+
+echo "installing pre-generated SSH host key from $firmware_device..."
+install --mode 755 --directory /etc/ssh
+# Stage through a 0600 temp file so the key is never world-readable.
+key_temp="$(mktemp /run/firmware-host-key.XXXXXX)"
+mcopy -i "$firmware_device" ::ssh_host_ed25519_key - > "$key_temp"
+install --mode 600 "$key_temp" /etc/ssh/ssh_host_ed25519_key
+rm "$key_temp"
+# sshd only generates host keys when the private file is missing, and it
+# never backfills a missing .pub.
+ssh-keygen -y \
+  -f /etc/ssh/ssh_host_ed25519_key \
+  > /etc/ssh/ssh_host_ed25519_key.pub
+chmod 644 /etc/ssh/ssh_host_ed25519_key.pub
+mdel -i "$firmware_device" ::ssh_host_ed25519_key

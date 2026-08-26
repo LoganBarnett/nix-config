@@ -25,7 +25,10 @@ Usage: $0 [opts]
   --disk  <dev-path>   Instead of auto detecting the disk, use the one
                        provided.  Must be a fully qualified path.  Defaults to
                        the disk-detachable output.  Ex: /dev/disk4
-  --host <host>        Create the image first for this host.
+  --host <host>        Create the image first for this host, and inject its
+                       pre-generated SSH host key after flashing.  May be
+                       combined with --image to skip the build but still
+                       inject the key.
   --noop               Do not perform any operations but output as if it did.
   --verify-boot <type> Verify the bootability of this image after it is
                        copied.  Valid values for <type> are: efi.
@@ -64,6 +67,8 @@ done
 if [[ $noop == true ]]; then
   echo 'WARNING:  This is running with noop!  Nothing will happen!'
 fi
+
+os="$(uname -s)"
 
 if [ -z "$disk" ]; then
   disk="/dev/$(disk-detachable | head -n 1)"
@@ -120,7 +125,9 @@ if [[ "$image_name" =~ \.zst$ ]]; then
   # command.
   # nix-shell -p zstd --run "zstdcat image.img.zst | dd of=/dev/mmcblk0 status=progress"
   echo "Image is compressed.  Unzipping image..."
-  uncompressed_image_name=$(basename "$image_name" .zst)
+  decompress_dir="${FLAKE_ROOT:-.}/tmp/images"
+  mkdir --parents "$decompress_dir"
+  uncompressed_image_name="$decompress_dir/$(basename "$image_name" .zst)"
   if [[ $noop == false ]]; then
     # I could get this to work, but found it as a recommendation.
     # tar --use-compress-program=zstd -xvf $image_name
@@ -140,9 +147,17 @@ if [[ "$image_name" =~ \.zst$ ]]; then
 fi
 
 if [[ $noop == false ]]; then
-  if ! sudo diskutil unmountDisk force "$disk"; then
-    echo "ERROR: Failed to unmount disk $disk" >&2
-    exit 1
+  if [[ "$os" == 'Darwin' ]]; then
+    if ! sudo diskutil unmountDisk force "$disk"; then
+      echo "ERROR: Failed to unmount disk $disk" >&2
+      exit 1
+    fi
+  else
+    while read -r mounted _; do
+      if [[ "$mounted" == "$disk"* ]]; then
+        sudo umount "$mounted"
+      fi
+    done < /proc/mounts
   fi
 
   if ! sudo dd \
@@ -159,13 +174,15 @@ if [[ $noop == false ]]; then
   # This can be faster in some circumstances, I'm told, but observations on
   # macOS show it running 2x slower.  Unsure what the difference is.
   # pv "$image_name" | sudo tee "$disk" >/dev/null
-  echo "Unmounting again because it can get mounted again..."
-  # In the new macOS version (Sonoma, 14.4), the behavior seems to have
-  # changed in that the disk is either immediately mounted or it wasn't truly
-  # unmounted to begin with.  Just unmount it again, since we generally want
-  # to put the disk into something else right afterwards.
-  diskutil unmountDisk "$disk" || true
-  echo "Unmounting done."
+  if [[ "$os" == 'Darwin' ]]; then
+    echo "Unmounting again because it can get mounted again..."
+    # In the new macOS version (Sonoma, 14.4), the behavior seems to have
+    # changed in that the disk is either immediately mounted or it wasn't
+    # truly unmounted to begin with.  Just unmount it again, since we
+    # generally want to put the disk into something else right afterwards.
+    diskutil unmountDisk "$disk" || true
+    echo "Unmounting done."
+  fi
 fi
 
 if ! sync --file-system "$disk"; then
@@ -180,13 +197,21 @@ echo
 echo "Here's what we got from the imaging:"
 echo
 
-if ! diskutil list "$disk"; then
-  echo "ERROR: Failed to list disk partitions" >&2
-  exit 1
+if [[ "$os" == 'Darwin' ]]; then
+  if ! diskutil list "$disk"; then
+    echo "ERROR: Failed to list disk partitions" >&2
+    exit 1
+  fi
+  partition_count=$(diskutil list "$disk" | grep -c "^ *[0-9]:" || true)
+else
+  if ! lsblk "$disk"; then
+    echo "ERROR: Failed to list disk partitions" >&2
+    exit 1
+  fi
+  partition_count=$(
+    lsblk --noheadings --output TYPE "$disk" | grep --count part || true
+  )
 fi
-
-# Verify that we have at least one partition on the disk.
-partition_count=$(diskutil list "$disk" | grep -c "^ *[0-9]:" || true)
 if [[ $partition_count -eq 0 ]]; then
   echo "ERROR: No partitions found on disk after imaging" >&2
   exit 1
@@ -194,12 +219,31 @@ fi
 echo
 echo "Successfully verified $partition_count partition(s) on disk."
 
-if [[ "$verify_boot" == 'efi' ]]; then
+if [[ -n "$host" ]]; then
+  host_key_file="${FLAKE_ROOT:?FLAKE_ROOT must be set for host key injection - \
+enter the devShell}/secrets/$host-host-key.age"
+  if [[ -f "$host_key_file" ]]; then
+    if [[ $noop == true ]]; then
+      firmware-host-key-add --host "$host" --disk "$disk" --noop
+    else
+      firmware-host-key-add --host "$host" --disk "$disk"
+    fi
+  else
+    echo "No pre-generated host key at '$host_key_file'." >&2
+    echo "Skipping host key injection (legacy or non-Pi flow)." >&2
+  fi
+else
+  echo "WARNING: --host was not given, so no host key was injected.  A fresh" >&2
+  echo "WARNING: boot will not decrypt its secrets.  Pass --host alongside" >&2
+  echo "WARNING: --image to inject." >&2
+fi
+
+if [[ "$verify_boot" == 'efi' ]] && [[ "$os" != 'Darwin' ]]; then
+  echo "EFI verification is only implemented for macOS.  Skipping." >&2
+elif [[ "$verify_boot" == 'efi' ]]; then
   echo
   echo "Verifying EFI boot configuration..."
   echo
-  # macOS specific - remember to update this when generalizing this script
-  # for Linux.
   # sudo mkdir -p /Volumes/efi-test
   # diskutil mount $disk /Volumes/efi-test
   # ls /Volumes/efi-test/boot

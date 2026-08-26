@@ -44,8 +44,9 @@ venv/
 # Ignore stuff we might just remove anyways.
 *.test-if-can-be-removed/
 
-# Ignore Nix generated images.
-/image
+# Transient generated files, such as built or decompressed disk images, land
+# under tmp/ to keep the repository root free of cruft.
+/tmp/
 
 # Ignore Nix generated SSH keys for the Darwin Linux-builder.
 /keys

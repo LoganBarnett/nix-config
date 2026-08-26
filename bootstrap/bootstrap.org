@@ -143,4 +143,33 @@ remote-deploy $host
 #+end_src
 * Bootstrap Pis
 
-Coming soon!
+Raspberry Pis skip nearly all of the [[Bootstrap PCs]] steps.  The full flow lives in
+the Raspberry Pi section of [[file:../README.org][README.org]].
+
+** Triage for a Pi that boots without its secrets
+
+If ~/run/agenix~ is empty (symptoms: password login fails, TLS-backed services
+are down, deploys stall because ~/run/agenix/builder-key-blue~ is missing),
+work through these in order:
+
+1. On the Pi, check the activation log for the install step or mtools
+   errors: ~journalctl -b | grep -i -e stage-2 -e activat~.  A missing
+   ~/dev/disk/by-label/FIRMWARE~ link points at the device fallback in
+   ~derivations/firmware-host-key-install/firmware-host-key-install~.
+2. Pull the SD card and mount its first partition on the workstation.  If
+   ~ssh_host_ed25519_key~ is still present, activation never consumed it.  If
+   it is present but its derived public key does not match
+   ~secrets/<host>-pub-key.pub~, the rekey and the injection came from
+   different generations - re-run ~rpi-host-new~ and reflash.  If the key is
+   simply missing, re-add it without reflashing:
+   ~firmware-host-key-add --host <host> --disk /dev/diskN~.
+3. If SSH works but secrets are missing, check ~journalctl -b~ for ~[agenix]~
+   lines, and verify the deployed flake revision's ~secrets/rekeyed/<host>/~
+   was rekeyed against the current ~secrets/<host>-pub-key.pub~.
+4. If deploys stall at the build step, verify the builder key works from the
+   Pi: ~sudo ssh -i /run/agenix/builder-key-blue builder@rpi-build.proton
+   true~.
+
+A key left on the FIRMWARE partition is world-readable once ~/boot/firmware~
+automounts, so after any manual recovery confirm the file is gone from that
+partition.

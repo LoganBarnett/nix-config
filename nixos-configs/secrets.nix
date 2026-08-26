@@ -58,7 +58,18 @@ in
     # references, and rename what's already on disk.
     hostPubkey = ../secrets/${host-id}-pub-key.pub;
     masterIdentities = [
-      ../secrets/agenix-master-key-3.age
+      # Supplying the pubkey alongside the identity lets encryption-only
+      # operations (rekey, generate) proceed without prompting for the master
+      # passphrase - see secrets.org for the one-time pubkey generation.
+      (
+        let
+          master-identity = import ../secrets/master-identity.nix;
+        in
+        {
+          identity = ../secrets + "/${master-identity.identity}";
+          pubkey = ../secrets + "/${master-identity.pubkey}";
+        }
+      )
     ];
     # Must be relative to the flake.nix file.
     localStorageDir = ../secrets/rekeyed/${host-id};

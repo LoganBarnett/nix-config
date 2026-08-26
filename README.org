@@ -40,6 +40,12 @@ remote host.  Sensitive files from the repo may be present there.  By default,
 ~~/proton-nix~ is removed after deployment completes.  Pass ~--no-cleanup~ to
 retain it.
 
+~remote-deploy~ is structurally incompatible with deploys driven from the
+private repository: it evaluates the flake on the target as root, and root
+there has no credential to fetch the private lens's ~git+ssh://gitea.proton~
+flake inputs.  Use ~proton-deploy~ for those, which keeps evaluation on the
+workstation where the credentials live.
+
 ** by machine type
 
 Instructions across various kinds of machines are not consistent due to
@@ -70,6 +76,9 @@ to security concerns.
 Once the machine state has been written, remove the USB drive and reboot the
 system.
 
+The full UEFI/PC bootstrap runbook, from disk partitioning through the first
+agenix rekey, lives at [[file:bootstrap/bootstrap.org][bootstrap/bootstrap.org]].
+
 *** Raspberry Pi
 
 The Raspberry Pi uses its own proprietary boot system.  Sometimes it can use
@@ -77,79 +86,35 @@ something called ~uboot~, which may or may not be proprietary.
 
 **** modules
 
-**** initial deployment steps
+**** rpi: initial deployment steps
 
 For these, use the following invocation:
 
 #+begin_src shell-script :results none :exports code
-rpi-host-new host
+rpi-host-new $host
 #+end_src
 
-But, you know, change ~host~.
+This generates the host's real SSH keypair up front: the public half lands in
+~secrets/$host-pub-key.pub~, while the private half is kept encrypted to the
+master key as ~secrets/$host-host-key.age~ (requires the committed master public
+half - see [[file:secrets.org][secrets.org]] for the one-time setup).  Commit the new and changed
+files under ~secrets/~ before deploying.
 
 Once that's complete, use ~image-deploy~ thusly, with your SD card plugged in:
 
 #+begin_src shell-script :results none :exports code
-image-deploy --image result/sd-image/*.img.zst
+image-deploy --host $host --image tmp/images/host/sd-image/*.img.zst
 #+end_src
 
 Once it's done, and the partition table looks fleshed out, remove the SD card
 (no eject/unmount needed).  Plug it into the Pi and boot the Pi.
 
-~agenix~ has some trouble with this configuration and needs some help getting
-bootstrapped.  Use ~proton-deploy~ to the image to help it lay down everything
-needed.  I though I read this needed a reboot, but I was incorrect about that -
-the reboot does nothing.
-
-Part of the problem is that the host key that was laid down differs from the one
-used in the initial build.  I haven't figured out how to get around this yet,
-and from my recollection of reading ~oddllama~'s dotfiles, it's not possible yet.
-
-So scan the host key into the right location:
-
 #+begin_src shell-script :results none :exports code
-host='host'; ssh-keyscan $host.proton | grep -o 'ssh-ed25519.*' > secrets/$host-pub-key.pub
+caffeinate proton-deploy switch $host
 #+end_src
 
-A quick ~git status~ will show the host pub key has changed.
-
-#+begin_src shell-script :results none :exports code
-agenix rekey -a
-#+end_src
-
-Then do another ~proton-deploy switch $host~.  This should fix everything.
-
-I don't think this works actually.  I get:
-
-#+begin_example
-$ proton-deploy switch bromine
-
-building the system configuration...
-warning: Git tree '/Users/logan/dev/dotfiles' is dirty
-[1/0/3063 copied (1.1/9.4 MiB)] copying path '/nix/store/rp3ac35r3pfb3fqh3rdqzlzsq67jpnws-source' to 'ssh://bromine.proton'error: cannot add path '/nix/store/rp3ac35r3pfb3fqh3rdqzlzsq67jpnws-source' because it lacks a signature by a trusted key
-error (ignored): error: writing to file: Broken pipe
-error (ignored): error: writing to file: Broken pipe
-error: unexpected end-of-file
-#+end_example
-
-But using ~remote-deploy $host~ works fine.
-
-I recently added my deploy user to the trusted users list, so let's see if that
-helps.  Why this is an issue for the initial deploy but not after a local
-~switch~ is done is not well understood.
-
-Hey that seemed to work as of [2025-09-13 Sat].
-
-To help bootstrap the system, it needs the remote builder key so it can utilize
-the ~rpi-build~ host.
-
-#+begin_src sh :results none :exports code
-host='rpi-installer'
-sudo cat /run/agenix/builder-key \
-  | ssh $host.proton 'sudo tee /run/agenix/builder-key' \
-  > /dev/null
-ssh $host.proton 'sudo chmod 400 /run/agenix/builder-key'
-#+end_src
+If secrets are missing on the freshly booted host (an empty ~/run/agenix~),
+see the triage steps in [[file:bootstrap/bootstrap.org::*Bootstrap Pis][bootstrap.org → Bootstrap Pis]].
 
 
 *** Container Guests
@@ -167,6 +132,8 @@ DNS settings, DHCP, and Prometheus exporting.
 
 You'll need a public key to do rekeying of secrets.  Unfortunately due to
 bootstrapping, you'll need to generate a dummy key.
+
+Raspberry Pi should see [[rpi: initial deployment steps]] instead.
 
 #+begin_src shell-script :results none :exports code
 host='host'; ssh-keygen -t ed25519 -N "" -f secrets/$host-pub-key
