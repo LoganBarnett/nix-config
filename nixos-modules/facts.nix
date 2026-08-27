@@ -229,7 +229,6 @@
       };
       gallium = {
         controlledHost = true;
-        expectedOnline = false;
         flake-input-overrides = {
           nixpkgs = "nixpkgs-nixos-raspberrypi";
         };
