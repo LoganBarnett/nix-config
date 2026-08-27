@@ -17,7 +17,11 @@
 let
   # Ephemeral, virtual, and network filesystems excluded from disk
   # usage accounting.
-  excludedFstypes = "tmpfs|proc|sysfs|devtmpfs|overlay|squashfs|nfs|nfs4";
+  excludedFstypes = "tmpfs|proc|sysfs|devtmpfs|overlay|squashfs|nfs|nfs4|autofs|devfs|nullfs";
+  # Loopback, container veth pairs, and darwin's tunnel and auxiliary interfaces
+  # are excluded from network accounting; utun VPN tunnels in particular would
+  # double-count traffic already seen on the physical interface.
+  excludedNetworkDevices = "lo\\d*|docker.*|veth.*|utun\\d+|awdl\\d+|llw\\d+|anpi\\d+|ap\\d+|bridge\\d+|gif\\d+|stf\\d+";
 in
 {
   id = null;
@@ -60,10 +64,28 @@ in
       datasource = "Prometheus";
       targets = [
         {
+          # Linux and darwin node exporters name memory metrics differently, so
+          # union both forms; each host emits exactly one of them.  Darwin has
+          # no MemAvailable analogue — free + inactive + purgeable is the
+          # closest equivalent of reclaimable memory.
           expr = without-socket-port ''
-            (1 -
-              (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)
-            ) * 100
+            (
+              (1 -
+                (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)
+              ) * 100
+            )
+            or
+            (
+              (1 -
+                (
+                  (
+                    node_memory_free_bytes
+                    + node_memory_inactive_bytes
+                    + node_memory_purgeable_bytes
+                  ) / node_memory_total_bytes
+                )
+              ) * 100
+            )
           '';
           legendFormat = "{{instance}}";
           format = "time_series";
@@ -134,13 +156,13 @@ in
             (1 - (
               sum(node_filesystem_avail_bytes{
                 fstype!~"${excludedFstypes}",
-                device!~"^loop\\d+$|none|ramfs",
+                device!~"^loop\d+$|none|ramfs",
                 mountpoint!~"/nix/store.*|.*boot.*"
               }) by (instance, mountpoint)
               /
               sum(node_filesystem_size_bytes{
                 fstype!~"${excludedFstypes}",
-                device!~"^loop\\d+$|none|ramfs",
+                device!~"^loop\d+$|none|ramfs",
                 mountpoint!~"/nix/store.*|.*boot.*"
               }) by (instance, mountpoint)
             )) * 100
@@ -165,7 +187,7 @@ in
           expr = without-socket-port ''
             sum by (instance) (
               rate(node_network_receive_bytes_total {
-                device!~"lo|docker.*|veth.*"
+                device!~"${excludedNetworkDevices}"
               }[5m])
             )
           '';
@@ -176,7 +198,7 @@ in
           expr = without-socket-port ''
             sum by (instance) (
               rate(node_network_transmit_bytes_total {
-                device!~"lo|docker.*|veth.*"
+                device!~"${excludedNetworkDevices}"
               }[5m])
             )
           '';

@@ -69,6 +69,8 @@ in
     ./darwin-configs/goss.nix
     ./darwin-modules/goss.nix
     ./darwin-modules/goss-exporter.nix
+    ./darwin-configs/node-exporter.nix
+    ./darwin-modules/https.nix
     ./darwin-configs/proton-network.nix
     ./darwin-configs/optnix.nix
     flake-inputs.hyuqueue.darwinModules.default
@@ -228,6 +230,8 @@ in
     computerName = host-id;
     hostName = host-id;
     localHostName = host-id;
+    # Every controlled darwin host exports node metrics.
+    monitors = [ "node" ];
   };
   system = {
     # Settings that don't have an option in nix-darwin.
