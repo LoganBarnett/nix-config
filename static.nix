@@ -25,11 +25,11 @@
   # Node.js bundle.  Each platform has its own npm package with a single
   # compiled executable.
   claude-code = {
-    version = "2.1.233";
-    aarch64-darwin.hash = "sha256-MFHwri6/YI4szu7SYMIH36esJ91glm/bqyRuCG4bxeQ=";
-    x86_64-darwin.hash = "sha256-ZSxlbsTpI+vYq3IG6a1rpc7tzaI2mpGS2sN6tpQToks=";
-    x86_64-linux.hash = "sha256-tCUxbg9V18GLkIt3Nv/MYZHrBCXtjd5qtzIqEntj2ek=";
-    aarch64-linux.hash = "sha256-qv3oRfob04BeWobpBBD48Fz93kaghZmZ5yuk0gBaqiA=";
+    version = "2.1.250";
+    aarch64-darwin.hash = "sha256-MuCFv+KpRW1+0L0tyc2r3ual/b9XRiR5mvnPwvngaGU=";
+    x86_64-darwin.hash = "sha256-S/OfIUjK/an2N8fHSF43AQzVT72aetNQAzdhnbV4/hA=";
+    x86_64-linux.hash = "sha256-5IIyjwWMYnGP7+LwleTWpfFNyMe8omn7UuV17rCrPUI=";
+    aarch64-linux.hash = "sha256-gGmENhtVwHJ+OEiOZHXlyBogvQ6VB7NYUV3mIMZJmqo=";
   };
 
   # opencode is built from source via the vendored derivation
