@@ -41,11 +41,11 @@
         "treefmt-nix": "treefmt-nix"
       },
       "locked": {
-        "lastModified": 1787785874,
-        "narHash": "sha256-4ClQ3XBkmBCDKrsdL8wU830lF02WLVTcw+sivSqxVqU=",
+        "lastModified": 1787874170,
+        "narHash": "sha256-xqN/9IZW+1RECOW0nInK+1tCtDNIjZChUt3XQ2EbqV8=",
         "owner": "LoganBarnett",
         "repo": "agenix-rekey",
-        "rev": "ebce14e602722301b62c5309f503eeeec5d80496",
+        "rev": "40cec911fb0cc27a40ee88b9c3e3959518037e51",
         "type": "github"
       },
       "original": {
