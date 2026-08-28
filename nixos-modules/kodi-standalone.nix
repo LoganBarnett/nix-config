@@ -99,6 +99,24 @@ in
           };
         };
       };
+      videoExcludeFromScan = mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [ ];
+        description = ''
+          Kodi regular expressions for files to exclude from video library
+          scans.  Rendered into advancedsettings.xml as
+          <video><excludefromscan><regexp>...</regexp></excludefromscan>.
+        '';
+      };
+      videoExcludeFromListing = mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [ ];
+        description = ''
+          Kodi regular expressions for files to hide from Files-view video
+          listings.  Rendered into advancedsettings.xml as
+          <video><excludefromlisting><regexp>...</regexp></excludefromlisting>.
+        '';
+      };
       peripheralSettings = mkOption {
         type = lib.types.attrsOf (lib.types.attrsOf lib.types.str);
         default = { };
@@ -332,6 +350,27 @@ in
         # Enable hardware acceleration for video playback.
         hardware.graphics.enable = true;
       }
+      (mkIf (cfg.videoExcludeFromScan != [ ] || cfg.videoExcludeFromListing != [ ]) {
+        # Kodi's <video><excludefromscan> and <excludefromlisting> take repeated
+        # <regexp> children, which the attrsOf-str advancedSettings type cannot
+        # express directly.  The generator injects values without escaping, so
+        # the repeated elements ride through as a raw XML string.  Unlike
+        # webserverport above — a hidden setting id loaded via
+        # CSettings::LoadHidden() — these elements are parsed key-by-key by
+        # CAdvancedSettings itself, so the "only real setting ids work" note is
+        # scoped to setting ids and does not apply here.
+        services.kodi-standalone.advancedSettings.video =
+          lib.optionalAttrs (cfg.videoExcludeFromScan != [ ]) {
+            excludefromscan = lib.concatMapStrings (
+              regexp: "<regexp>${regexp}</regexp>"
+            ) cfg.videoExcludeFromScan;
+          }
+          // lib.optionalAttrs (cfg.videoExcludeFromListing != [ ]) {
+            excludefromlisting = lib.concatMapStrings (
+              regexp: "<regexp>${regexp}</regexp>"
+            ) cfg.videoExcludeFromListing;
+          };
+      })
       (mkIf (cfg.enabledAddons != [ ]) {
         # Service to enable addons via JSON-RPC after Kodi starts.
         systemd.user.services.kodi-enable-addons = {

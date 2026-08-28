@@ -327,10 +327,10 @@ in
     };
   };
 
-  # Configure ACLs for shared media directory so both nextcloud and kodi can
-  # read/write.
+  # Configure ACLs for the shared media directories so all members of
+  # media-shared can read/write.
   systemd.services.setup-shared-media-acls = {
-    description = "Set up ACLs for shared media directory";
+    description = "Set up ACLs for shared media directories";
     wantedBy = [ "multi-user.target" ];
     after = [ "tank-data.mount" ];
     serviceConfig = {
@@ -340,6 +340,12 @@ in
     script = ''
       ${pkgs.acl}/bin/setfacl -d -m g:media-shared:rwx /tank/data/nextcloud-shared-media
       ${pkgs.acl}/bin/setfacl -m g:media-shared:rwx /tank/data/nextcloud-shared-media
+      # Loku writes .compat.mp4 and thumbnail sidecars beside the MakeMKV
+      # masters here.  Without a default ACL those files would carry group
+      # loku-server and be unreadable to kodi over NFS (media-shared, gid
+      # 29974).
+      ${pkgs.acl}/bin/setfacl -d -m g:media-shared:rwx /tank/data/kodi-media
+      ${pkgs.acl}/bin/setfacl -m g:media-shared:rwx /tank/data/kodi-media
     '';
   };
 

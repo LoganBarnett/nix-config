@@ -149,6 +149,11 @@
         }
       ];
     };
+    # Loku (on silicon) writes browser-compat .compat.mp4 copies beside the
+    # MakeMKV masters.  Without the exclude, every movie shows twice.  The scan
+    # exclude guards any future library scrape.
+    videoExcludeFromScan = [ "\\.compat\\.mp4$" ];
+    videoExcludeFromListing = [ "\\.compat\\.mp4$" ];
   };
 
   # Expose Kodi's web interface for remote control via mobile apps.

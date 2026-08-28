@@ -1362,11 +1362,11 @@
         "rust-overlay": "rust-overlay_12"
       },
       "locked": {
-        "lastModified": 1785502615,
-        "narHash": "sha256-6CpuyuHfOkOR6KCeQDUHa5iwTtBhkmPnzkisbDb6YS0=",
+        "lastModified": 1787871617,
+        "narHash": "sha256-A1WC6oz/78oQuFE2Yt8xuhQOruCB47uYMOLe5OTDUxc=",
         "owner": "LoganBarnett",
         "repo": "loku",
-        "rev": "882645bc87c0d033ced951ea458ed868ceb8da19",
+        "rev": "43ea9d56be607fbd477f37d16af44019b601b836",
         "type": "github"
       },
       "original": {
