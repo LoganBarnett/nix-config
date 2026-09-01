@@ -2,6 +2,7 @@
   config,
   flake-inputs,
   host-id,
+  lib,
   modulesPath,
   pkgs,
   system,
@@ -94,4 +95,6 @@
     # Handle zip files.
     pkgs.unzip
   ];
+  # This is an interactive system.  Require a password for sudo access.
+  security.sudo.wheelNeedsPassword = lib.mkForce true;
 }
