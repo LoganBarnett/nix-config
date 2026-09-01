@@ -2,6 +2,9 @@
 { lib, pkgs, ... }:
 {
   environment.systemPackages = [
+    # Helps to be able to install required runtimes and other libraries.
+    # Generally not needed, but good for mod tools.
+    pkgs.protontricks
     pkgs.steamcmd
   ];
   hardware.graphics = {

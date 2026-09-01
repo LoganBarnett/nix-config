@@ -91,5 +91,7 @@
     # The built in browser is a little lacking.
     pkgs.firefox
     pkgs.musicgpt
+    # Handle zip files.
+    pkgs.unzip
   ];
 }
