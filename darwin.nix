@@ -62,6 +62,7 @@ let
 in
 {
   imports = [
+    ./darwin-modules/dns-c-ares-scopeless-fix.nix
     ./darwin-modules/global-protect-persistent.nix
     ./darwin-modules/steam.nix
     ./darwin-modules/microsoft-teams.nix

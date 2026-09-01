@@ -2136,6 +2136,13 @@ tunnel.  Workaround is to disable IPv6 on the tethered Wi-Fi service.
 Full diagnosis, capture commands, and the exact ~networksetup~ command
 are in [[file:docs/cellular-tether-clat.org][docs/cellular-tether-clat.org]].
 
+A separate tether failure — Nix-built c-ares clients (curl, git,
+nix-daemon) unable to use the tether's scoped link-local nameserver — has a
+durable resolver-layer fix: the ~services.dns-c-ares-scopeless-fix~
+darwin-module runs a local dnsmasq that all DNS routes through.  Design,
+failure taxonomy, and the deferred filter-AAAA reconciler are in
+[[file:docs/tether-dns.org][docs/tether-dns.org]].
+
 ** File syncing
 
 Example invocation to sync over my music files.  Note that this preserves the

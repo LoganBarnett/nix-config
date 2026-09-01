@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 ################################################################################
-# Discover DHCP-provided DNS servers and write a resolv.conf for dnsmasq.
-# Runs in a loop; dnsmasq polls the resolv-file for changes automatically.
+# Discover DHCP-provided DNS servers (DHCPv4 and DHCPv6) and write a
+# resolv.conf for dnsmasq.  Runs in a loop; dnsmasq polls the resolv-file for
+# changes automatically.
 #
 # Environment variables:
 #   DNSMASQ_UPSTREAM_RESOLV_FILE — output path (default /var/run/dnsmasq-upstream-resolv.conf)
@@ -16,9 +17,31 @@ while true; do
   dns_found=""
   # Check each hardware interface for DHCP DNS.
   while IFS= read -r iface; do
-    dns=$(/usr/sbin/ipconfig getpacket "$iface" 2>/dev/null \
+    # ipconfig exits 1 with no output at all (stdout or stderr) when the
+    # interface has no lease; the || true guards set -e against that
+    # expected case, and the empty result is the signal acted on below.
+    dns_v4=$(/usr/sbin/ipconfig getpacket "$iface" \
       | awk -F'[{}]' '/domain_name_server/{print $2}' \
       | tr ',' '\n' | sed 's/^ *//') || true
+    # DHCPv6 nameservers (option 23).  Some networks — notably iOS tethers on
+    # IPv6-only carriers — provide DNS exclusively this way.  Example line
+    # (fictional address) from `ipconfig getv6packet en0`:
+    #   DNS_SERVERS (23) Length 16: fe80::1234:56ff:fe78:9abc
+    # The fixed prefix is stripped with sed rather than field-splitting on
+    # ":" because IPv6 addresses themselves contain colons.
+    dns_v6=$(/usr/sbin/ipconfig getv6packet "$iface" \
+      | sed -n 's/^ *DNS_SERVERS (23) Length [0-9]*: //p' \
+      | tr ',' '\n' | sed 's/^ *//') || true
+    # Link-local (fe80::/10) upstreams are unreachable without an explicit
+    # zone, so append %<interface> when one is missing.  dnsmasq's
+    # resolv-file parser accepts scoped literals directly.
+    dns_v6=$(printf '%s\n' "$dns_v6" | awk -v iface="$iface" '
+      /^[Ff][Ee][89AaBb][0-9A-Fa-f]:/ && $0 !~ /%/ { print $0 "%" iface; next }
+      NF { print }
+    ') || true
+    # Merge with v4 first, drop blanks, and dedupe preserving order.
+    dns=$(printf '%s\n%s\n' "$dns_v4" "$dns_v6" \
+      | awk 'NF && !seen[$0]++') || true
     if [ -n "$dns" ]; then
       dns_found="$dns"
       break
@@ -33,8 +56,14 @@ while true; do
     new_content=$(echo "$dns_found" | while read -r ip; do
       [ -n "$ip" ] && echo "nameserver $ip"
     done)
-    # Only write if changed (avoids unnecessary dnsmasq reloads).
-    current=$(cat "$RESOLV_FILE" 2>/dev/null || echo "")
+    # Only write if changed (avoids unnecessary dnsmasq reloads).  The file
+    # legitimately does not exist before the first write, hence the explicit
+    # existence test; any other read failure should surface loudly.
+    if [ -f "$RESOLV_FILE" ]; then
+      current=$(cat "$RESOLV_FILE")
+    else
+      current=""
+    fi
     if [ "$new_content" != "$current" ]; then
       echo "$new_content" > "$RESOLV_FILE"
       echo "Updated $RESOLV_FILE with: $(echo "$dns_found" | tr '\n' ' ')"

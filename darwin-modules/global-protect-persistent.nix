@@ -425,7 +425,14 @@ in
 
         # Point all network services' DNS to 127.0.0.1 (dnsmasq).
         /usr/sbin/networksetup -listallnetworkservices | tail -n +2 | while IFS= read -r svc; do
-          /usr/sbin/networksetup -setdnsservers "$svc" 127.0.0.1 2>/dev/null || true
+          case "$svc" in
+            # A leading asterisk marks a disabled service; networksetup
+            # rejects the starred name outright, so skip it explicitly
+            # rather than suppressing the error.
+            '*'*) continue ;;
+          esac
+          /usr/sbin/networksetup -setdnsservers "$svc" 127.0.0.1 \
+            || echo "warning: could not point DNS at 127.0.0.1 for service: $svc" >&2
         done
       '';
 

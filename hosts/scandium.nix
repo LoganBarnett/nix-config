@@ -316,6 +316,10 @@ in
     )
   ];
   networking.monitors = [ "goss" ];
+  # Local dnsmasq resolver so c-ares clients (Nix curl, git, nix-daemon)
+  # survive tethers whose only nameserver is a scoped link-local address.
+  # See docs/tether-dns.org (M1a).
+  services.dns-c-ares-scopeless-fix.enable = true;
   services.sonify-health = {
     enable = false;
     logLevel = "debug";

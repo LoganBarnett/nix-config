@@ -4,8 +4,8 @@
 
 * Goal
 
-Fix the tether DNS failure (c-ares picks a black-holed IPv6 address on
-NAT64/CLAT hotspots and hangs) /without/ overriding libcurl per host, and while
+Fix the tether DNS failures (see the failure taxonomy below) /without/
+overriding libcurl per host, and while
 we are at it, untangle GlobalProtect's convoluted DNS-flush timing.  Do it at
 the resolver layer: every Nix-managed macOS host runs one local dnsmasq that all
 DNS routes through, and small sytter reconcilers keep its dynamic bits correct
@@ -19,6 +19,31 @@ This converges with the "dnsmasq as the single resolver" architecture already
 proposed in [[file:globalprotect-rust-rewrite-spec.org]]; see [[*Convergence with the GP Rust spec][Convergence with the GP
 Rust spec]] for the shared foundation and the two things the tether concern adds.
 
+** Failure taxonomy — two distinct tether pathologies
+
+Live diagnosis on scandium while tethered (2026-08-30) corrected this doc's
+original single-pathology premise.  There are two independent ways a tether
+breaks c-ares clients:
+
+- *Pathology A — scoped link-local nameserver (observed, proven).*  The
+  tether's only nameserver arrives via DHCPv6 option 23 as a link-local
+  address, which macOS records in =/etc/resolv.conf= with a zone, e.g.
+  =nameserver fe80::1234:56ff:fe78:9abc%en0= (fictional example).
+  =ipconfig getpacket en0=
+  (DHCPv4) is empty on such networks.  c-ares (1.34.5) cannot use the scoped
+  literal and fails instantly — "Could not contact DNS servers", even with
+  =--ipv4= — while Apple's resolver and =dig @fe80::…%en0= work fine.
+  Direct IPv6 was /healthy/ on the observed network: all three v6 probe
+  literals below connected within 2 s, so the symptom probe correctly does
+  not fire and filter-AAAA would not help.  The forwarder alone fixes this:
+  c-ares talks to 127.0.0.1, and dnsmasq's resolv-file parser accepts scoped
+  literals (proven live — store dnsmasq 2.91 forwarding to the scoped
+  upstream took Nix curl from instant failure to HTTP 200 in 0.14 s).
+- *Pathology B — black-holed direct IPv6 (this doc's original hypothesis).*
+  c-ares picks a dead AAAA on a NAT64/CLAT hotspot and hangs.  The
+  filter-AAAA reconciler below targets this.  Not yet observed on a real
+  network; its build is deferred until one exhibits it (see milestones).
+
 * Architecture
 
 #+begin_example
@@ -27,7 +52,8 @@ Rust spec]] for the shared foundation and the two things the tether concern adds
         ▼
   ┌─────────────────────────────────────────────────────────────┐
   │ local dnsmasq  (127.0.0.1:53, always on, all macOS hosts)     │
-  │   • upstream: DHCP-discovered resolvers (upstream-sync daemon) │
+  │   • upstream: DHCPv4/v6-discovered resolvers (upstream-sync;   │
+  │               scoped fe80 upstreams accepted)                   │
   │   • scoped:   server=/corp.example/<vpn-dns>  (VPN split-DNS)  │
   │   • tether:   filter-AAAA   (only while direct v6 is broken)   │
   └─────────────────────────────────────────────────────────────┘
@@ -49,11 +75,17 @@ network-device events, condition = ~true~, the executor decides everything).
 Today the forwarder lives inside ~services.globalprotect-monitor~ (the
 =dnsmasqConf=, the "point every service at 127.0.0.1" activation script, and the
 ~dnsmasq-upstream-sync~ daemon).  Lift it into a standalone always-on module,
-e.g. ~services.local-dns~, that is *not* owned by GP — scandium runs it with no
-GP anywhere, purely for the tether.
+~services.dns-c-ares-scopeless-fix~ (named for what it fixes — the c-ares
+scopeless-nameserver limitation — rather than for the dnsmasq mechanism), that
+is *not* owned by GP — scandium runs it with no GP anywhere, purely for the
+tether.
 
 - Runs the ~dnsmasq~ + ~dnsmasq-upstream-sync~ launchd daemons on every macOS
   host.
+- ~dnsmasq-upstream-sync~ harvests DHCPv4 /and/ DHCPv6 (option 23)
+  nameservers, appending the =%<iface>= zone to link-local entries; dnsmasq
+  accepts the scoped literals in its resolv-file.  This is the whole of the
+  pathology-A fix.
 - Owns =/etc/resolv.conf= → =127.0.0.1= and the per-service DNS pointer.
 - =max-ttl=0= so ~mDNSResponder~ does not double-cache (the spec's gating
   prerequisite — test #35 there).
@@ -257,8 +289,9 @@ not cover:
 
 1. *Decouple the forwarder from GP.*  The spec still treats dnsmasq as part of
    the GP subsystem.  For a GP-free host like scandium to get the tether fix,
-   the forwarder must be a host-level primitive (~services.local-dns~) that GP
-   /consumes/ rather than /owns/.
+   the forwarder must be a host-level primitive
+   (~services.dns-c-ares-scopeless-fix~) that GP /consumes/ rather than
+   /owns/.
 2. *A second reconciler.*  The spec's DNS reconcile is the VPN servers-file.
    The tether adds an orthogonal one — filter-AAAA driven by a symptom probe —
    writing its own fragment.  Same servers-file/SIGHUP split the spec relies on;
@@ -278,14 +311,17 @@ note added to that spec.
 - *max-ttl=0 gating:* inherits the spec's open prerequisite — confirm
   ~mDNSResponder~ honours it before leaning on single-flush semantics.
 
-* Milestones (each independently shippable; M1 is the whole point)
+* Milestones (each independently shippable; M1a is the whole point)
 
-The critical functionality is *M1*.  Everything after it is /improvement/, not
-/function/ — listed explicitly so the boundary is visible and M1 does not
+The critical functionality is *M1a*.  Everything after it is /improvement/, not
+/function/ — listed explicitly so the boundary is visible and M1a does not
 quietly absorb them.
 
-- *M1* — tether fix on scandium (the proof).  Definition of done + checklist below.
-- *M2* — GP becomes a /consumer/ of ~services.local-dns~ (on the GP host); delete
+- *M1a* — the forwarder + DHCPv6 harvest on scandium — fixes the observed
+  pathology-A tether.  Definition of done + checklist below.
+- *M1b* — ~tether-reconcile~ + the filter-AAAA sytt for pathology B.
+  /Deferred/ until a network actually exhibiting black-holed v6 is observed.
+- *M2* — GP becomes a /consumer/ of ~services.dns-c-ares-scopeless-fix~ (on the GP host); delete
   GP's dnsmasq stand-up.  Pulls in the spec's ~max-ttl=0~ / single-flush work.
 - *M3* — portable ~network-change~ trigger (sytter) + reusable conditions
   (~physical-uplink?~, ~direct-v6-broken?~, ~is-it-my-wg?~); reconcilers go
@@ -294,20 +330,29 @@ quietly absorb them.
   (shared interface detection, one state dir, one scoped sudo rule).
 - *M5* — Linux support + rollout to the other Nix macOS/Linux hosts.
 
-* M1 — definition of done
+* M1a — definition of done
 
-On scandium: when direct IPv6 is black-holed (a NAT64/CLAT tether), =curl=,
-=git=, and =nix-daemon= stop hanging and resolve/transfer normally; when v6 is
-healthy, behaviour is unchanged; the toggle flips automatically within 60s and
-is hand-overridable.  No GP, no Rust, no new sytter trigger, no Linux.  When the
-acceptance test passes, *M1 is done — do not extend it.*
+On scandium: on a tether whose only nameserver is a scoped link-local address
+(pathology A), =curl=, =git=, and =nix-daemon= resolve and transfer normally
+within one upstream-sync poll (30 s) of joining; on healthy networks,
+behaviour is unchanged.  No GP, no Rust, no sytter work, no Linux.
 
-** Explicitly OUT of M1 (anti-balloon)
+* M1b — definition of done (deferred)
 
-- GP integration / repointing GP DNS at ~services.local-dns~ → *M2*.
+On scandium: when direct IPv6 is black-holed (a NAT64/CLAT tether exhibiting
+pathology B), =curl=, =git=, and =nix-daemon= stop hanging and
+resolve/transfer normally; when v6 is healthy, behaviour is unchanged; the
+toggle flips automatically within 60s and is hand-overridable.  No GP, no
+Rust, no new sytter trigger, no Linux.  When the acceptance test passes, *M1b
+is done — do not extend it.*
+
+** Explicitly OUT of M1a/M1b (anti-balloon)
+
+- GP integration / repointing GP DNS at ~services.dns-c-ares-scopeless-fix~ →
+  *M2*.
 - portable ~network-change~ trigger, interface/event vars, Add/Remove/Up/Down,
-  reusable conditions, event-driven reconcile → *M3*.  M1 rides the 60s floor +
-  the existing ~device-connection~ =network= =Add= event.
+  reusable conditions, event-driven reconcile → *M3*.  M1b rides the 60s floor
+  + the existing ~device-connection~ =network= =Add= event.
 - Rust ~net-reconcile~ → *M4*.
 - Linux support, other hosts → *M5*.
 - ~max-ttl=0~ / ~mDNSResponder~ double-cache verification → *M2* (only matters
@@ -315,18 +360,24 @@ acceptance test passes, *M1 is done — do not extend it.*
 
 ** Checklist
 
-*** ~services.local-dns~ — always-on forwarder
-- [ ] module with ~services.local-dns.enable~ (lift the forwarder out of
-      ~global-protect-persistent.nix~; do *not* couple to GP)
-- [ ] dnsmasq launchd daemon: ~listen-address=127.0.0.1~, ~bind-interfaces~,
-      ~conf-dir=/var/run/dnsmasq.d,*.conf~, cache, ~resolv-file~ = upstream file
-- [ ] reuse the existing ~dnsmasq-upstream-sync~ daemon (DHCP → upstream file)
-- [ ] activation: create =/var/run/dnsmasq.d=; point every ~networksetup~ service
+*** ~services.dns-c-ares-scopeless-fix~ — always-on forwarder (M1a)
+- [X] module with ~services.dns-c-ares-scopeless-fix.enable~ (lifted out of
+      ~global-protect-persistent.nix~; not coupled to GP)
+- [X] dnsmasq launchd daemon: ~listen-address=127.0.0.1~, ~bind-interfaces~,
+      ~conf-dir=/var/run/dnsmasq.d,*.conf~, cache, ~resolv-file~ = upstream
+      file.  A start wrapper recreates the conf-dir before every start —
+      =/var/run= is cleared at boot and dnsmasq exits fatally when the
+      directory is missing.
+- [X] ~dnsmasq-upstream-sync~: harvest DHCPv6 nameservers (option 23, via
+      ~ipconfig getv6packet~) alongside DHCPv4, appending the =%<iface>= zone
+      to link-local entries; dedupe; write-on-change preserved
+- [X] activation: create =/var/run/dnsmasq.d=; point every ~networksetup~ service
       and =/etc/resolv.conf= at =127.0.0.1=
 - [ ] enable on scandium; confirm dnsmasq is the resolver and normal DNS works
-      *before* wiring the tether knob
+      *before* wiring the tether knob (enabled in config; confirmation pending
+      deploy)
 
-*** ~tether-reconcile~ — shell, mirrors ~vpn-reconcile~
+*** ~tether-reconcile~ — shell, mirrors ~vpn-reconcile~ (M1b, deferred)
 - [ ] ~packages/tether-reconcile.sh~ + ~.nix~ wrapper (inject probe targets and
       paths; PATH deps)
 - [ ] read =/var/lib/tether-dns/mode= (=auto= | =force-on= | =force-off=)
@@ -337,14 +388,28 @@ acceptance test passes, *M1 is done — do not extend it.*
 - [ ] on change: ~launchctl kickstart -k system/<dnsmasq-label>~
 - [ ] idempotent: no write and no restart when state is unchanged
 
-*** ~tether-dns~ sytt + privilege
+*** ~tether-dns~ sytt + privilege (M1b, deferred)
 - [ ] sytt in ~darwin-configs/sytter.nix~: triggers = cron ~0 * * * * *~ + power
       =Wake= + ~device-connection~ =network= =Add=; condition = ~true~; executor
       = ~tether-reconcile~ via sudo
 - [ ] scoped ~NOPASSWD~ sudoers for the ~tether-reconcile~ store path (as
       ~vpn-reconcile~ does)
 
-** Acceptance test (M1 done ⇔ all five pass)
+** Acceptance test — M1a
+
+1. On the scoped-link-local tether: within one upstream-sync poll (30 s) of
+   joining, =/var/run/dnsmasq-upstream-resolv.conf= contains the scoped
+   =fe80::…%<iface>= line, and previously-failing =curl=/=git=/=nix-daemon=
+   resolve and transfer — no =20-tether.conf= involved.
+2. On the home network: =dig example.com @127.0.0.1= answers, plain lookups
+   are unchanged, and =.proton= names still resolve (the scoped
+   =/etc/resolver/proton= path is unaffected by the takeover).
+
+** Acceptance test — M1b (M1b done ⇔ all five pass)
+
+Test 1 requires a genuinely dual-stack network (a v4-only network classifies
+as broken-v6 by design), and test 2 requires a network actually exhibiting
+pathology B — the observed iOS tether does not.
 
 1. Home / healthy v6: no =20-tether.conf=; =dig AAAA= returns AAAA; curl/git normal.
 2. On the broken tether: within 60s =20-tether.conf= appears, dnsmasq is
