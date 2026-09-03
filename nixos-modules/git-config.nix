@@ -96,9 +96,7 @@ let
             init = {
               defaultBranch = "main";
             };
-            merge = {
-              ff-only = "true";
-            };
+            merge = { };
             core = {
               # By default git uses vi, which isn't always what we want. Set it to
               # vim instead. See:
@@ -117,8 +115,14 @@ let
               # autocrlf = true;
             };
             pull = {
-              ff-only = true;
-              rebase = true;
+              # This wording is a little confusing but this doesn't mean do
+              # merge commits.  Instead it means when you pull and you would
+              # merge, do a rebase.  But this also means it won't trip over our
+              # `rebase.autosquash = true` setting.  `true` for this value
+              # instead means it will try to autosquash, which basically means
+              # it does a squash on pull - something we should basically never
+              # want to do automatically.
+              rebase = "merges";
             };
             push = {
               # Prevent obnoxious guards that prevent pushing to a newly created
