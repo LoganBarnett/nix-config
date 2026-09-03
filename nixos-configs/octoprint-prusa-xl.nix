@@ -224,6 +224,15 @@
       };
       serial = {
         autoconnect = true;
+        # The XL is a USB CDC device, so baud is meaningless on the wire and the
+        # Buddy firmware answers at 115200.  Leaving this on AUTO makes
+        # OctoPrint cycle seven baud candidates with three handshakes each.
+        # While the printer is in a calibration wizard it stops reading USB, so
+        # that many unanswered writes fill the kernel cdc_acm queue and
+        # OctoPrint spins forever instead of timing out (pyserial ignores EAGAIN
+        # when write_timeout is 0).  A single candidate gives up after three
+        # attempts, well before the queue fills.
+        baudrate = 115200;
         log = false;
       };
       server = {
