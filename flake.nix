@@ -353,6 +353,7 @@
             flake-inputs.home-manager.darwinModules.home-manager
             # flake-inputs.nix-option-search.darwinModules.default
             flake-inputs.nix-remote-builder-doctor.darwinModules.default
+            ./darwin-modules/applications.nix
             {
               nixpkgs.overlays = [
                 (final: prev: {
