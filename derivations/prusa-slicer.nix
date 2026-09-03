@@ -33,8 +33,10 @@
   openvdb,
   pcre,
   qhull,
+  rcodesign,
   tbb_2022,
   wxGTK32,
+  xmlstarlet,
   xorg,
   libbgcode,
   heatshrink,
@@ -109,6 +111,10 @@ stdenv.mkDerivation (finalAttrs: {
     pkg-config
     wrapGAppsHook3
     wxGTK-override'
+  ]
+  ++ lib.optionals stdenv.hostPlatform.isDarwin [
+    rcodesign
+    xmlstarlet
   ];
 
   buildInputs = [
@@ -184,10 +190,11 @@ stdenv.mkDerivation (finalAttrs: {
     substituteInPlace src/PrusaSlicer.cpp \
       --replace "#ifdef __APPLE__" "#if 0"
 
-    # Stash the upstream macOS Info.plist template for postInstall.  cmake
-    # switches into a build subdir, so capturing it here (at source root)
-    # avoids relying on phase-specific cwd later.
-    install -D src/platform/osx/Info.plist.in "$TMPDIR/Info.plist.in"
+    # Stash the upstream macOS Info.plist template and entitlements for the
+    # darwin bundle steps.  cmake switches into a build subdir, so capturing
+    # them here (at source root) avoids relying on phase-specific cwd later.
+    cp src/platform/osx/Info.plist.in "$TMPDIR/Info.plist.in"
+    cp src/platform/osx/entitlements.plist "$TMPDIR/entitlements.plist"
   '';
 
   cmakeFlags = [
@@ -209,40 +216,135 @@ stdenv.mkDerivation (finalAttrs: {
     ln -s "$out/share/PrusaSlicer/icons/PrusaSlicer-gcodeviewer_192px.png" "$out/share/pixmaps/PrusaSlicer-gcodeviewer.png"
   ''
   + lib.optionalString stdenv.hostPlatform.isDarwin ''
-    # Lay down a macOS .app bundle so PrusaSlicer is launchable from Finder
-    # / Launchpad and picked up by nix-darwin's Applications symlinker.  The
-    # bundle is metadata + icon over the existing wrapped CLI binary.
+    # Lay down a macOS .app bundle so PrusaSlicer can be launched from Finder
+    # and Launchpad once nix-darwin or Home Manager installs it into an
+    # Applications folder.
     app="$out/Applications/PrusaSlicer.app"
-    mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+    plist="$app/Contents/Info.plist"
+    mkdir --parents "$app/Contents/MacOS" "$app/Contents/Resources"
+
+    # The binary lives in the bundle so that the process macOS sees at runtime
+    # is the bundle's own.  Privacy grants (TCC) and the running application's
+    # identity, name and icon are derived from the executable that is actually
+    # running; a bundle whose launcher execs a binary outside itself shows up as
+    # that outside binary.  bin/ points back into the bundle so the CLI is the
+    # same executable.
+    mv "$out/bin/PrusaSlicer" "$app/Contents/MacOS/PrusaSlicer"
+    ln --symbolic "$app/Contents/MacOS/PrusaSlicer" "$out/bin/PrusaSlicer"
 
     # Use upstream's Info.plist template so file associations (.stl, .3mf,
     # .gcode, etc.) and the prusaslicer:// URL handler match Prusa's
     # official builds.
-    install -m 644 "$TMPDIR/Info.plist.in" "$app/Contents/Info.plist"
-    substituteInPlace "$app/Contents/Info.plist" \
-      --replace "@SLIC3R_APP_KEY@"  "PrusaSlicer" \
-      --replace "@SLIC3R_APP_NAME@" "PrusaSlicer" \
-      --replace "@SLIC3R_BUILD_ID@" "${finalAttrs.version}"
+    install --mode=644 "$TMPDIR/Info.plist.in" "$plist"
+    substituteInPlace "$plist" \
+      --replace-fail "@SLIC3R_APP_KEY@"  "PrusaSlicer" \
+      --replace-fail "@SLIC3R_APP_NAME@" "PrusaSlicer" \
+      --replace-fail "@SLIC3R_BUILD_ID@" "${finalAttrs.version}"
 
+    # Upstream's template sets LSEnvironment (an ASAN knob, meaningless in a
+    # non-sanitizer build).  Any LSEnvironment entry makes LaunchServices
+    # demand a "secure launch", which requires a code signature carrying spawn
+    # constraints.  Without one the launch fails with permErr (-54):
+    # CoreServicesUIAgent logs "Launch requires secure launch with spawn
+    # constraints, but none are present or valid", and Finder reports that it
+    # does not have permission to open "(null)".  Seen on macOS 15.
+    #
+    # The template's CFBundleIdentifier also carries a trailing slash, which
+    # Apple disallows in bundle identifiers and which would otherwise become the
+    # signed identity established in postFixup.
+    #
+    # Edits apply in order: the LSEnvironment value dict goes first, while the
+    # key still anchors the following-sibling axis.
+    ls_env_key='/plist/dict/key[text()="LSEnvironment"]'
+    bundle_id_key='/plist/dict/key[text()="CFBundleIdentifier"]'
+    xmlstarlet edit --inplace \
+      --delete "$ls_env_key/following-sibling::*[1]" \
+      --delete "$ls_env_key" \
+      --update "$bundle_id_key/following-sibling::string[1]" \
+        --value 'com.prusa3d.slic3r' \
+      "$plist"
+    # --delete is a silent no-op when nothing matches.
+    remaining=$(
+      xmlstarlet select --template --value-of "count($ls_env_key)" "$plist"
+    )
+    if [ "$remaining" != 0 ]; then
+      echo "LSEnvironment survived removal from Info.plist" >&2
+      exit 1
+    fi
+
+    # Copies rather than symlinks into share/: the bundle is sealed in
+    # postFixup and the seal records a symlink as a symlink.  nix-darwin
+    # installs bundles into /Applications with rsync --copy-unsafe-links, which
+    # turns links pointing outside the bundle into regular files, so a symlinked
+    # icon would fail seal verification once installed.
     for icns in PrusaSlicer.icns stl.icns gcode.icns bgcode.icns; do
       icns_src="$out/share/PrusaSlicer/icons/$icns"
-      [ -f "$icns_src" ] && ln -s "$icns_src" "$app/Contents/Resources/$icns"
+      if [ -f "$icns_src" ]; then
+        install --mode=644 "$icns_src" "$app/Contents/Resources/$icns"
+      fi
     done
-
-    # Launch Services strips most of the user's shell env, so DISPLAY won't
-    # be set when launched from Finder.  XQuartz listens on :0 by default.
-    cat > "$app/Contents/MacOS/PrusaSlicer" <<SHIM
-    #!/bin/sh
-    export DISPLAY="\''${DISPLAY:-:0}"
-    exec "$out/bin/PrusaSlicer" "\$@"
-    SHIM
-    chmod +x "$app/Contents/MacOS/PrusaSlicer"
   '';
 
   preFixup = ''
     gappsWrapperArgs+=(
       --prefix LD_LIBRARY_PATH : "$out/lib"
     )
+  '';
+
+  # On darwin the only executable is wrapped by hand inside the bundle (see
+  # postFixup).  Left on, wrapGAppsHook would also wrap the bin/ symlink that
+  # points into the bundle, stacking a second wrapper on top.
+  dontWrapGApps = stdenv.hostPlatform.isDarwin;
+
+  postFixup = lib.optionalString stdenv.hostPlatform.isDarwin ''
+    app="$out/Applications/PrusaSlicer.app"
+
+    # makeBinaryWrapper leaves a Mach-O at the bundle's advertised executable
+    # path.  A shell script there cannot carry a code signature at all, so the
+    # bundle could neither be sealed below nor pass a LaunchServices secure
+    # launch.
+    wrapGApp "$app/Contents/MacOS/PrusaSlicer"
+
+    # Sign the bundle so macOS has a code identity for it.  Up to this point the
+    # binaries carry only the ad-hoc signature the linker emits: an identifier
+    # equal to the file name, no entitlements, Info.plist not bound, no sealed
+    # resources.  With no identity to attach a privacy (TCC) grant to, macOS
+    # keys grants by the executable's absolute path, which is a store path that
+    # changes on every rebuild.  Each rebuild then leaves a dead row behind in
+    # System Settings, and a grant added there by hand is inert, because it is
+    # keyed by bundle identifier while the binary identifies itself by file
+    # name.  PrusaSlicer hits this for Local Network access when talking to
+    # PrusaLink or OctoPrint printers.
+    #
+    # Sign the .app directory, not the binaries inside it.  Signing a Mach-O
+    # file cannot seal the bundle, and an unsealed Info.plist means macOS cannot
+    # trust CFBundleIdentifier, which is the identity this exists to establish.
+    # Signing the directory binds Info.plist and generates CodeResources, and
+    # rcodesign signs the nested Mach-O behind the wrapper as part of the same
+    # pass.
+    #
+    # rcodesign rather than the host /usr/bin/codesign or sigtool: the host
+    # codesign is an impure path gated behind allowed-impure-host-deps and fails
+    # outright under the sandbox, and sigtool has no concept of a bundle.  The
+    # result passes Apple's `codesign --verify --deep --strict`.
+    #
+    # Upstream's entitlements only disable library validation, which upstream
+    # needs for 3Dconnexion drivers and which also covers the store dylibs, each
+    # carrying its own ad-hoc signature.
+    #
+    # This is the last step of fixupPhase: after stripping, which would
+    # invalidate an earlier signature, and after wrapGApp, so the wrapper is
+    # covered.
+    #
+    # This does not make grants survive rebuilds.  TCC stores the designated
+    # requirement presented when a grant is made, and an ad-hoc signature's
+    # designated requirement is its cdhash, so any rebuild forces re-approval.
+    # Only a certificate-anchored requirement survives content changes, and no
+    # derivation can carry a private key without publishing it in the store.
+    rcodesign sign \
+      --binary-identifier com.prusa3d.slic3r \
+      --entitlements-xml-file "$TMPDIR/entitlements.plist" \
+      "$app"
   '';
 
   doCheck = true;
