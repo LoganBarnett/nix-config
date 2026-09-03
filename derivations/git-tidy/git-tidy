@@ -1,0 +1,310 @@
+#!/usr/bin/env bash
+
+# Deletes local branches whose changes have already landed on a base branch.
+#
+# Ancestry alone misses GitHub's "Squash and merge" and "Rebase and merge",
+# which rewrite the branch into fresh commits, so this also compares patch
+# ids: a branch is gone when the base holds a commit matching the branch
+# squashed into one diff, or when every commit on the branch has a patch
+# equivalent on the base.
+#
+# The base branches are the default branch of every selected remote plus any
+# local branch of the same name.  HEAD only serves as a base when no remote
+# default can be resolved; otherwise a stacked branch checked out on top of
+# another would tidy its own foundation away.
+#
+# Usage: git tidy [--dry-run] [--no-fetch] [<remote>...]
+
+set -euo pipefail
+
+usage() {
+  cat >&2 <<'USAGE'
+Usage: git tidy [--dry-run] [--no-fetch] [<remote>...]
+
+Fetch and prune the given remotes (every remote when none are given), then
+delete local branches whose changes have already landed on each remote's
+default branch, including squash and rebase merges.
+
+  --dry-run   Report what would be deleted without deleting anything.
+  --no-fetch  Skip the network entirely and use the remote-tracking refs
+              as they are.
+USAGE
+}
+
+die() {
+  printf 'git-tidy: %s\n' "$*" >&2
+  exit 1
+}
+
+warn() {
+  printf 'git-tidy: warning: %s\n' "$*" >&2
+}
+
+dry_run=0
+do_fetch=1
+requested_remotes=()
+while (( $# > 0 )); do
+  case "$1" in
+    --dry-run) dry_run=1 ;;
+    --no-fetch) do_fetch=0 ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    --)
+      shift
+      requested_remotes+=("$@")
+      break
+      ;;
+    -*)
+      usage
+      die "unknown option: $1"
+      ;;
+    *) requested_remotes+=("$1") ;;
+  esac
+  shift
+done
+
+git rev-parse --git-dir >/dev/null
+
+remotes=()
+all_remotes="$(git remote)"
+if [[ -n "$all_remotes" ]]; then
+  mapfile -t remotes <<< "$all_remotes"
+fi
+if (( ${#requested_remotes[@]} > 0 )); then
+  for remote in "${requested_remotes[@]}"; do
+    known=0
+    for candidate in "${remotes[@]}"; do
+      if [[ "$candidate" == "$remote" ]]; then
+        known=1
+      fi
+    done
+    if (( ! known )); then
+      die "unknown remote: ${remote}"
+    fi
+  done
+  remotes=("${requested_remotes[@]}")
+fi
+
+if (( do_fetch )); then
+  for remote in "${remotes[@]}"; do
+    # Stale remote-tracking refs can only hide merges, never invent them, so
+    # an unreachable remote degrades the result instead of aborting the run.
+    if ! git fetch --prune --quiet "$remote"; then
+      warn "fetch of ${remote} failed; using its remote-tracking refs as-is"
+    fi
+  done
+fi
+
+# Prints the remote-tracking ref of the remote's default branch, or fails
+# when it cannot be determined.
+remote_default_ref() {
+  local remote="$1"
+  local ref
+  local guess
+  if ref="$(git symbolic-ref --quiet "refs/remotes/${remote}/HEAD")"; then
+    printf '%s\n' "$ref"
+    return 0
+  fi
+  # A default branch that was never recorded locally can only be learned by
+  # asking the remote, which needs the network.
+  if (( do_fetch )) \
+    && git remote set-head "$remote" --auto >/dev/null 2>&1 \
+    && ref="$(git symbolic-ref --quiet "refs/remotes/${remote}/HEAD")"; then
+    printf '%s\n' "$ref"
+    return 0
+  fi
+  for guess in main master; do
+    if git show-ref --verify --quiet "refs/remotes/${remote}/${guess}"; then
+      printf 'refs/remotes/%s/%s\n' "$remote" "$guess"
+      return 0
+    fi
+  done
+  return 1
+}
+
+label_of() {
+  local ref="${1#refs/remotes/}"
+  printf '%s\n' "${ref#refs/heads/}"
+}
+
+bases=()
+declare -A base_seen
+declare -A protected
+
+# Records a base ref, skipping refs that do not resolve and refs whose tip an
+# earlier base already covers, so one patch-id table serves every alias of
+# the same commit.
+add_base() {
+  local ref="$1"
+  local sha
+  if ! sha="$(git rev-parse --verify --quiet "${ref}^{commit}")"; then
+    return 0
+  fi
+  if [[ -n "${base_seen["$sha"]:-}" ]]; then
+    return 0
+  fi
+  base_seen["$sha"]=1
+  bases+=("$ref")
+}
+
+default_names=()
+for remote in "${remotes[@]}"; do
+  if ref="$(remote_default_ref "$remote")"; then
+    add_base "$ref"
+    default_names+=("${ref#refs/remotes/"${remote}"/}")
+  else
+    warn "cannot determine the default branch of ${remote}; skipping it"
+  fi
+done
+for name in "${default_names[@]}"; do
+  protected["$name"]=1
+  add_base "refs/heads/${name}"
+done
+if (( ${#bases[@]} == 0 )); then
+  add_base HEAD
+fi
+
+worktrees="$(git worktree list --porcelain)"
+while IFS= read -r line; do
+  if [[ "$line" == "branch refs/heads/"* ]]; then
+    protected["${line#branch refs/heads/}"]=1
+  fi
+done <<< "$worktrees"
+
+candidates=()
+heads="$(git for-each-ref --format='%(refname)' refs/heads/)"
+while IFS= read -r ref; do
+  if [[ -z "$ref" ]]; then
+    continue
+  fi
+  name="${ref#refs/heads/}"
+  case "$name" in
+    main|master|develop|release*) protected["$name"]=1 ;;
+  esac
+  if [[ -z "${protected["$name"]:-}" ]]; then
+    candidates+=("$name")
+  fi
+done <<< "$heads"
+
+# Both tables are keyed "<base ref> <key>" because bash cannot nest arrays,
+# and neither a ref nor a sha contains a space.
+declare -A merge_bases
+declare -A patch_table
+for base in "${bases[@]}"; do
+  lower_candidates=()
+  for name in "${candidates[@]}"; do
+    rc=0
+    mb="$(git merge-base "refs/heads/${name}" "$base")" || rc=$?
+    if (( rc == 0 )); then
+      merge_bases["${base} ${name}"]="$mb"
+      lower_candidates+=("$mb")
+    elif (( rc != 1 )); then
+      die "git merge-base failed for ${name} against ${base}"
+    fi
+  done
+  if (( ${#lower_candidates[@]} == 0 )); then
+    continue
+  fi
+  # One patch listing per base, bounded below by the oldest merge base,
+  # replaces a listing per branch.
+  lower="$(git merge-base --octopus "${lower_candidates[@]}")"
+  listing="$(git log --patch --no-merges --no-color --no-ext-diff \
+    --no-textconv --format='commit %H' "${lower}..${base}" \
+    | git patch-id --stable)"
+  while read -r pid commit; do
+    if [[ -n "$pid" ]]; then
+      patch_table["${base} ${pid}"]="$commit"
+    fi
+  done <<< "$listing"
+done
+
+reason=''
+# Sets reason to why the branch is safe to delete relative to the base, or
+# to the empty string when it is not.  Always returns 0 so that errexit
+# stays in force inside the body.
+classify() {
+  local name="$1"
+  local base="$2"
+  local label
+  local mb
+  local rc=0
+  local out
+  local pid
+  local commit
+  local count=0
+  reason=''
+  label="$(label_of "$base")"
+  mb="${merge_bases["${base} ${name}"]:-}"
+  if [[ -z "$mb" ]]; then
+    return 0
+  fi
+  git merge-base --is-ancestor "refs/heads/${name}" "$base" || rc=$?
+  if (( rc == 0 )); then
+    reason="merged into ${label}"
+    return 0
+  elif (( rc != 1 )); then
+    die "git merge-base --is-ancestor failed for ${name} against ${base}"
+  fi
+  out="$(git diff --no-color --no-ext-diff --no-textconv \
+    "$mb" "refs/heads/${name}" | git patch-id --stable)"
+  pid="${out%% *}"
+  if [[ -z "$pid" ]]; then
+    reason="no changes relative to ${label}"
+    return 0
+  fi
+  commit="${patch_table["${base} ${pid}"]:-}"
+  if [[ -n "$commit" ]]; then
+    reason="squashed into ${label} as ${commit:0:7}"
+    return 0
+  fi
+  out="$(git log --patch --no-merges --no-color --no-ext-diff \
+    --no-textconv --format='commit %H' "${mb}..refs/heads/${name}" \
+    | git patch-id --stable)"
+  while read -r pid commit; do
+    if [[ -z "$pid" ]]; then
+      continue
+    fi
+    if [[ -z "${patch_table["${base} ${pid}"]:-}" ]]; then
+      return 0
+    fi
+    count=$((count + 1))
+  done <<< "$out"
+  # A range holding only merge commits must not count as vacuously rebased.
+  if (( count > 0 )); then
+    reason="rebased into ${label}"
+  fi
+  return 0
+}
+
+kept=()
+for name in "${candidates[@]}"; do
+  reason=''
+  for base in "${bases[@]}"; do
+    classify "$name" "$base"
+    if [[ -n "$reason" ]]; then
+      break
+    fi
+  done
+  if [[ -z "$reason" ]]; then
+    kept+=("$name")
+    continue
+  fi
+  if (( dry_run )); then
+    printf 'would delete %s (%s)\n' "$name" "$reason"
+  else
+    git branch --delete --force --quiet "$name"
+    printf 'deleted %s (%s)\n' "$name" "$reason"
+  fi
+done
+for name in "${kept[@]}"; do
+  printf 'kept %s\n' "$name"
+done
+if (( ${#protected[@]} > 0 )); then
+  for name in "${!protected[@]}"; do
+    if git show-ref --verify --quiet "refs/heads/${name}"; then
+      printf 'kept %s (protected)\n' "$name"
+    fi
+  done
+fi

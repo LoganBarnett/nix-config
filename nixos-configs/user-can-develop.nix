@@ -14,6 +14,7 @@ let
   git-outstanding-repos =
     pkgs.callPackage ../derivations/git-outstanding-repos.nix
       { };
+  git-tidy = pkgs.callPackage ../derivations/git-tidy/default.nix { };
   host-wait = pkgs.callPackage ../derivations/host-wait.nix { };
   image-create = pkgs.callPackage ../derivations/image-create.nix { };
   nix-direnv-add-envrc =
@@ -87,6 +88,9 @@ in
     gpg-dev-signing-key-setup
     # Report git repositories with unstaged changes or unpushed commits.
     git-outstanding-repos
+    # Delete local branches whose changes already landed on a base branch,
+    # including squash and rebase merges that leave no ancestry link.
+    git-tidy
     # Poll a host with ping until it responds.
     host-wait
     # Build a Raspberry Pi disk image for a named host.

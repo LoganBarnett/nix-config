@@ -41,11 +41,6 @@ let
             alias = {
               branchg = "!git branch -avv | grep";
               fast-amend = "commit --amend --no-edit";
-              # Removes branches that have been merged already.
-              tidy = ''
-                !(git branch --merged | sed /^\\*/d | xargs git branch -d ); \
-                git remote prune origin
-              '';
               tip = "log -1";
               # Removes remote branches that have been merged already. Guards
               # against some special branches that should probably be removed
