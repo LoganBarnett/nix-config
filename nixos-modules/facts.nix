@@ -379,6 +379,8 @@
         system = "aarch64-linux";
       };
       silicon = {
+        # We might need to really specify this, because otherwise silicon winds
+        # up blocking itself.
         blockProfiles = [ "adult" ];
         controlledHost = true;
         # Secondary addresses: additional IPs bound to the same interface.

@@ -373,9 +373,10 @@ is done — do not extend it.*
       to link-local entries; dedupe; write-on-change preserved
 - [X] activation: create =/var/run/dnsmasq.d=; point every ~networksetup~ service
       and =/etc/resolv.conf= at =127.0.0.1=
-- [ ] enable on scandium; confirm dnsmasq is the resolver and normal DNS works
-      *before* wiring the tether knob (enabled in config; confirmation pending
-      deploy)
+- [X] enable on scandium; confirm dnsmasq is the resolver and normal DNS works
+      *before* wiring the tether knob (baseline confirmed on the home network
+      2026-09-01; the on-tether acceptance test awaits the next tether
+      session)
 
 *** ~tether-reconcile~ — shell, mirrors ~vpn-reconcile~ (M1b, deferred)
 - [ ] ~packages/tether-reconcile.sh~ + ~.nix~ wrapper (inject probe targets and
