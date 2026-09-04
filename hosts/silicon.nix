@@ -59,6 +59,9 @@ in
     ../nixos-configs/sonify-health-goss.nix
     ../nixos-configs/nix-builder-provide.nix
     ../nixos-modules/linux-host.nix
+    # This is a naughty module in that it also includes its config.  Next chance
+    # we get, we should split it.
+    ../nixos-modules/dns-dynamic-ip-home.nix
     # TODO: Right now agenix-rekey wants to build wireguard to do the
     # generation.  This fails due to a problem with macOS building wireguard-go
     # (documented in the overlay in this repository).  It is not understood why
