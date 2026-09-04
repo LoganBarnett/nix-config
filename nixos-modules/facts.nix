@@ -366,6 +366,7 @@
         flake-input-overrides = {
           nixpkgs = "nixpkgs";
         };
+        macAddresses = [ "bc:d0:74:1a:78:d1" ];
         ipv4 = 101;
         roaming = true;
         system = "aarch64-darwin";
