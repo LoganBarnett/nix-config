@@ -95,6 +95,18 @@ in
         # clients = [];
       };
       blocking = {
+        # Use an aggressive TTL for blocked records.  This allows for rapid
+        # cache correction, and a quick lookup on the local network shouldn't be
+        # that expensive.
+        #
+        # One would otherwise reach for `blockType = "nxDomain"`, since blocky
+        # emits NXDOMAIN with no SOA record and RFC 2308 gives a resolver no
+        # negative-cache TTL to latch onto, so the answer is effectively
+        # uncacheable.  That does work, but it also makes a blocked domain
+        # indistinguishable from one that does not exist, and which of the two
+        # is happening is the first thing you want to know when a host cannot
+        # reach something.
+        blockTTL = "60s";
         # Blocky's download timeout defaults to 5s, and it is not a network
         # timeout -- it bounds the whole request including reading the body,
         # and blocky validates every domain as it streams.  Parsing is the
