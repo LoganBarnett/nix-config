@@ -178,6 +178,14 @@ in
                 "adult"
                 "gaming"
               ];
+              # Unrestricted is generally going to be on the same host that does
+              # domain classification, since we need to be able to resolve a
+              # domain in order to classify it.
+              #
+              # An empty list will not do: Blocky reads a client whose group
+              # list is empty as having no entry at all and falls back to
+              # `default`, so "block nothing" has to name a group that exists.
+              unrestricted = [ "none" ];
               # TODO: Consider making a guest profile, wherein only a select
               # allow list is used.  All hosts either use this unless they are
               # declared somewhere via facts.  This can help some entities from
@@ -244,6 +252,27 @@ in
                   name = mac;
                   value = blockLists;
                 }) (data.macAddresses or [ ]))
+                # This host resolves through its own Blocky (see
+                # `networking.nameservers` above), so the queries it originates
+                # arrive from loopback rather than from its LAN address, and
+                # match none of the keys derived from facts.  Left out, the
+                # machine running Blocky lands on `default` and blocks itself.
+                ++ (optionals (name == host-id) [
+                  {
+                    name = "127.0.0.1";
+                    value = blockLists;
+                  }
+                  {
+                    name = "::1";
+                    value = blockLists;
+                  }
+                ])
+                # Secondary addresses are the same machine, so they answer to
+                # the same profile.  Only `ipv4` is already covered above.
+                ++ (mapAttrsToList (_: octet: {
+                  name = "${facts.network.subnets.barnett-main}.${toString octet}";
+                  value = blockLists;
+                }) (data.extraAddresses or { }))
               ))
               flatten
               builtins.listToAttrs

@@ -380,8 +380,10 @@
       };
       silicon = {
         # We might need to really specify this, because otherwise silicon winds
-        # up blocking itself.
-        blockProfiles = [ "adult" ];
+        # up blocking itself.  The main host also needs a mean of evaluating
+        # potentially problematic domains for domain classification, so it needs
+        # to be reach even potentially hostile domains.
+        blockProfiles = [ "unrestricted" ];
         controlledHost = true;
         # Secondary addresses: additional IPs bound to the same interface.
         # Each entry generates a DNS A record; no DHCP reservation is created.

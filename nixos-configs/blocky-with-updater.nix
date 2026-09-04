@@ -97,6 +97,12 @@ in
       ads = [ "${listsBaseUrl}/ads.txt" ];
       adult = [ "${listsBaseUrl}/adult.txt" ];
       malware = [ "${listsBaseUrl}/malware.txt" ];
+      # Backs the `unrestricted` profile over in blocky.nix.  Blocky treats a
+      # client whose group list is empty as having no entry and falls back to
+      # `default`, so a profile that blocks nothing still has to name a group
+      # that exists.  The trailing newline is what makes Blocky read the entry
+      # as inline content rather than as a file path.
+      none = [ "# Intentionally empty.\n" ];
       social = [ "${listsBaseUrl}/social.txt" ];
       video = [ "${listsBaseUrl}/video.txt" ];
       # Add the classifier watch list as a dynamic source.
