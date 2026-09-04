@@ -379,6 +379,7 @@
         system = "aarch64-linux";
       };
       silicon = {
+        blockProfiles = [ "adult" ];
         controlledHost = true;
         # Secondary addresses: additional IPs bound to the same interface.
         # Each entry generates a DNS A record; no DHCP reservation is created.
