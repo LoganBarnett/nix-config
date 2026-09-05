@@ -25,6 +25,17 @@ let
       inherit (d) host-id ip;
     }))
   ];
+  # Group the vpn devices by their assigned host octet so a duplicate is caught
+  # at build time.  A collision is not something WireGuard reports: given two
+  # peers with the same allowed-ip the server silently keeps the /32 on one and
+  # leaves the other with none, blackholing the loser's return traffic.  The
+  # assertion below turns that into a build failure instead.
+  vpnIpToHosts = lib.foldl' (
+    acc: p: acc // { ${p.ip} = (acc.${p.ip} or [ ]) ++ [ p.host-id ]; }
+  ) { } peers;
+  vpnIpCollisions = lib.filterAttrs (
+    _: hosts: builtins.length hosts > 1
+  ) vpnIpToHosts;
   wireguard-client-peer =
     { host-id, ip }:
     {
@@ -41,6 +52,21 @@ let
   };
 in
 {
+  assertions = [
+    {
+      assertion = vpnIpCollisions == { };
+      message =
+        "WireGuard client VPN addresses must be unique per device, but "
+        + "facts.network.users assigns the same address to more than one "
+        + "device.  The server drops the duplicate allowed-ip, silently "
+        + "blackholing one peer's return traffic.  Collisions:\n"
+        + lib.concatStringsSep "\n" (
+          lib.mapAttrsToList (
+            ip: hosts: "  ${vpn-subnet-prefix}.${ip} -> ${lib.concatStringsSep ", " hosts}"
+          ) vpnIpCollisions
+        );
+    }
+  ];
   age.secrets = {
     "${host-id}-wireguard-server" = {
       generator.script = "wireguard-priv";
