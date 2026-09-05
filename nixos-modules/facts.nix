@@ -573,7 +573,7 @@
             }
             {
               host-id = "cassandra-iphone";
-              ip = "22";
+              ip = "24";
               vpn = true;
             }
           ];
