@@ -39,6 +39,11 @@ let
   wireguard-client-peer =
     { host-id, ip }:
     {
+      # Name the peer unit after the device.  The module otherwise derives the
+      # name from the (escaped) public key, which is unreadable and cannot be
+      # referenced by the restartTriggers below.  Host-ids are unique per peer,
+      # so the resulting wireguard-wg0-peer-<host-id>.service names are unique.
+      name = host-id;
       # This demands the actual key and not a path.  Use the ./. idiom to get the
       # path but also put this file in the nix store where we can get to it.
       publicKey = builtins.readFile ../../secrets/${host-id}-wireguard-client.pub;
@@ -50,6 +55,12 @@ let
       rekeyFile = ../../secrets/${host-id}-wireguard-client.age;
     };
   };
+  clientPeers = builtins.map wireguard-client-peer peers;
+  # A digest of the entire peer set, attached as a restartTrigger to every peer
+  # unit below.  nixos-rebuild only restarts a peer unit whose own text changed.
+  # The cost is a sub-second reconnect for every peer whenever the set changes,
+  # which is rare.
+  peerSetDigest = builtins.hashString "sha256" (builtins.toJSON clientPeers);
 in
 {
   assertions = [
@@ -107,6 +118,16 @@ in
   # Nexthop has invalid gateway.
   # networking.dhcpcd.denyInterfaces = [ "wg0" ];
 
+  # Reload every peer unit whenever the peer set changes.  See peerSetDigest.
+  systemd.services = builtins.listToAttrs (
+    builtins.map (
+      p:
+      lib.nameValuePair "wireguard-wg0-peer-${p.host-id}" {
+        restartTriggers = [ peerSetDigest ];
+      }
+    ) peers
+  );
+
   networking.wireguard.enable = true;
   networking.wireguard.interfaces = {
     # "wg0" is the network interface name. You can name the interface
@@ -132,7 +153,7 @@ in
       '';
 
       privateKeyFile = config.age.secrets."${host-id}-wireguard-server".path;
-      peers = (builtins.map wireguard-client-peer peers);
+      peers = clientPeers;
       # peers = [
       #   # List of allowed peers.
       #   { # Feel free to give a meaning full name
