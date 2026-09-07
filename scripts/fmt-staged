@@ -49,7 +49,7 @@ for f in "${staged[@]}"; do
   # returns non-zero, the branch is skipped, and the original staged content
   # is committed untouched.  Broken in, broken out; never silently mangled.
   tmp=$(mktemp)
-  if git show ":$f" | treefmt --stdin "$f" >"$tmp" 2>/dev/null; then
+  if git show ":$f" | treefmt --stdin "$f" >"$tmp"; then
     # --path applies the same gitattributes filters a normal `git add` would,
     # so the blob is byte-identical to hand-staging this formatted content.
     newblob=$(git hash-object -w --path "$f" --stdin <"$tmp")
