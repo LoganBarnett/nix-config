@@ -11,6 +11,8 @@
   # Hint to Electron apps to use Wayland.
   environment.sessionVariables.NIXOS_OZONE_WL = "1";
   environment.systemPackages = [
+    # Allow controlling displays from the command line.
+    pkgs.ddcutil
     # Full screen, hardware accelerated screenshots.  Works for Wayland.
     pkgs.grim
     pkgs.i3status
