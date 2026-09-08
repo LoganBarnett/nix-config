@@ -378,6 +378,15 @@ in
         }
       ];
       transformations = [
+        # Grafana's table panel renders only one query's frame at a time, with
+        # the other frames hidden behind a selector at the bottom of the panel.
+        # Merging first folds the systemd (A) and goss (B) frames into a single
+        # table, and also keeps filterByValue operating on a single frame,
+        # which is the only shape it computes row counts correctly for.
+        {
+          id = "merge";
+          options = { };
+        }
         {
           id = "labelsToFields";
           options = {
