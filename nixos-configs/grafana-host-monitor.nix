@@ -15,13 +15,45 @@
   ...
 }:
 let
+  # PromQL string literals go through Go escape processing, so a bare \d is a
+  # parse error rather than a digit class.  Getting a backslash through to
+  # PromQL takes \\d in an indented string but \\\\d in a double-quoted one,
+  # which is an easy trap when a binding is spliced into a query.  Digit classes
+  # are therefore spelled [0-9] throughout this file.
+
   # Ephemeral, virtual, and network filesystems excluded from disk
   # usage accounting.
-  excludedFstypes = "tmpfs|proc|sysfs|devtmpfs|overlay|squashfs|nfs|nfs4|autofs|devfs|nullfs";
-  # Loopback, container veth pairs, and darwin's tunnel and auxiliary interfaces
-  # are excluded from network accounting; utun VPN tunnels in particular would
-  # double-count traffic already seen on the physical interface.
-  excludedNetworkDevices = "lo\\d*|docker.*|veth.*|utun\\d+|awdl\\d+|llw\\d+|anpi\\d+|ap\\d+|bridge\\d+|gif\\d+|stf\\d+";
+  excludedFstypes = builtins.concatStringsSep "|" [
+    "autofs"
+    "devfs"
+    "devtmpfs"
+    "nfs"
+    "nfs4"
+    "nullfs"
+    "overlay"
+    "proc"
+    "squashfs"
+    "sysfs"
+    "tmpfs"
+  ];
+  # Virtual interfaces, such as tunnels, lookpback, and container interfaces
+  # (veth) all would cause double-counting, so we exclude them.
+  excludedNetworkDevices = builtins.concatStringsSep "|" [
+    "anpi[0-9]+"
+    "ap[0-9]+"
+    "awdl[0-9]+"
+    "bridge[0-9]+"
+    "docker.*"
+    "gif[0-9]+"
+    "llw[0-9]+"
+    # Loopback.
+    "lo[0-9]*"
+    "stf[0-9]+"
+    # VPN tunnels.
+    "utun[0-9]+"
+    # Virtual Ethernet - seen in containers.
+    "veth.*"
+  ];
 in
 {
   id = null;
@@ -156,13 +188,13 @@ in
             (1 - (
               sum(node_filesystem_avail_bytes{
                 fstype!~"${excludedFstypes}",
-                device!~"^loop\d+$|none|ramfs",
+                device!~"^loop[0-9]+$|none|ramfs",
                 mountpoint!~"/nix/store.*|.*boot.*"
               }) by (instance, mountpoint)
               /
               sum(node_filesystem_size_bytes{
                 fstype!~"${excludedFstypes}",
-                device!~"^loop\d+$|none|ramfs",
+                device!~"^loop[0-9]+$|none|ramfs",
                 mountpoint!~"/nix/store.*|.*boot.*"
               }) by (instance, mountpoint)
             )) * 100
