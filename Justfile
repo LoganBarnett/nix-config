@@ -80,3 +80,23 @@ revive host='silicon.proton' passes='3':
       echo; echo "=== still failed ==="; \
       systemctl list-units --state=failed --no-pager || true; \
       systemctl is-system-running || true'
+
+# The kiosk browsers are systemd *user* units.  A deploy restarts system units
+# whose restartTriggers changed, but NixOS's switch-to-configuration applies
+# that logic to system units only; user units receive just a daemon-reexec and
+# keep running whatever page they loaded.  This is a known gap:
+# https://github.com/NixOS/nixpkgs/issues/246611
+# Grafana also reads a dashboard's JSON only at page load, and its refresh
+# interval only re-runs the panel queries, so a redefined dashboard is not
+# shown until the browser relaunches.  The kiosk user's manager is reachable
+# only with its runtime directory set, hence XDG_RUNTIME_DIR.  The glob
+# matches every display's unit, so this needs no knowledge of the host's
+# monitors.
+
+# Relaunch a host's Grafana kiosk browsers so they pick up dashboard changes.
+kiosk-restart host='bromine' user='kiosk':
+    ssh {{host}}.proton 'runtime=/run/user/$(id --user {{user}}); \
+      sudo --user={{user}} XDG_RUNTIME_DIR=$runtime \
+        systemctl --user restart "grafana-kiosk-*.service" \
+      && sudo --user={{user}} XDG_RUNTIME_DIR=$runtime \
+        systemctl --user list-units --no-pager "grafana-kiosk-*.service"'
