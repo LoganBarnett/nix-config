@@ -354,15 +354,28 @@ in
       };
       targets = [
         {
+          # Failed units are reshaped into the goss label set (resource_id,
+          # type, outcome) so both queries share one set of columns after the
+          # merge below.  A label_replace with an empty source label and empty
+          # regex always matches, which is how a constant label is set.
           expr = without-socket-port ''
-            (systemd_unit_state{
-              state="failed"
-            } == 1)
-            or
-            (systemd_unit_state{
-              name="basic.target",
-              state="active"
-            } == 1)
+            label_replace(
+              label_replace(
+                label_replace(
+                  (systemd_unit_state{
+                    state="failed"
+                  } == 1)
+                  or
+                  (systemd_unit_state{
+                    name="basic.target",
+                    state="active"
+                  } == 1),
+                  "resource_id", "$1", "name", "(.*)"
+                ),
+                "type", "systemd", "", ""
+              ),
+              "outcome", "fail", "", ""
+            )
           '';
           format = "table";
           refId = "A";
@@ -393,20 +406,8 @@ in
             mode = "columns";
           };
         }
-        {
-          id = "filterFieldsByName";
-          options = {
-            include = {
-              names = [
-                "instance"
-                "name"
-                "outcome"
-                "resource_id"
-                "type"
-              ];
-            };
-          };
-        }
+        # The zero-fill sentinel is dropped on its systemd unit name, so this
+        # has to run before that column is discarded.
         {
           id = "filterByValue";
           options = {
@@ -426,11 +427,29 @@ in
           };
         }
         {
+          id = "filterFieldsByName";
+          options = {
+            include = {
+              names = [
+                "instance"
+                "outcome"
+                "resource_id"
+                "type"
+              ];
+            };
+          };
+        }
+        {
           id = "organize";
           options = {
+            indexByName = {
+              "instance" = 0;
+              "resource_id" = 1;
+              "type" = 2;
+              "outcome" = 3;
+            };
             renameByName = {
               "instance" = "Host";
-              "name" = "Service";
               "outcome" = "Result";
               "resource_id" = "Check";
               "type" = "Type";
