@@ -1,27 +1,33 @@
 #!/usr/bin/env bash
 
 ################################################################################
-# Updates static.nix with the new version and per-platform hashes for
-# claude-code.
-#
-# Claude Code 2.1.x ships as a native binary via platform-specific npm
-# packages (e.g. @anthropic-ai/claude-code-darwin-arm64).  We fetch each
-# platform tarball and compute its hash for use by the overlay.
+# Updates static.nix with a new version + per-platform checksums for
+# claude-code (static.nix.claude-code; overlays/claude-code.nix hands them to
+# the vendored nixpkgs derivation as its manifest).  The checksums come straight
+# from the release manifest that nixpkgs's own updater reads
+# (../derivations/claude-code/update.sh), converted to the SRI form static.nix
+# uses, so nothing but the manifest is downloaded.  Defaults to the latest
+# release; pass a version (e.g. 2.1.257) to pin a specific one.
 ################################################################################
 
 set -euo pipefail
 
 repo_root="$PWD"
 
-# Get latest version from npm.
-version="$(curl --location --silent \
-  https://registry.npmjs.org/@anthropic-ai/claude-code \
-    | jq --raw-output '.["dist-tags"].latest'
-)"
+base_url="https://downloads.claude.ai/claude-code-releases"
+
+version="${1:-}"
+if [ -z "${version}" ]; then
+  version="$(curl --fail --silent --show-error --location "${base_url}/latest")"
+fi
 
 echo "Version: ${version}"
 
-# Platform suffixes that correspond to Nix system identifiers.
+manifest="$(curl --fail --silent --show-error --location \
+  "${base_url}/${version}/manifest.zst.json"
+)"
+
+# Manifest platform keys that correspond to Nix system identifiers.
 declare -A platforms=(
   [aarch64-darwin]=darwin-arm64
   [x86_64-darwin]=darwin-x64
@@ -32,13 +38,16 @@ declare -A platforms=(
 declare -A hashes
 
 for nix_system in "${!platforms[@]}"; do
-  suffix="${platforms[$nix_system]}"
-  url="https://registry.npmjs.org/@anthropic-ai/claude-code-${suffix}/-/claude-code-${suffix}-${version}.tgz"
-  echo "Fetching ${nix_system} (${suffix})..."
-  hash_32="$(nix-prefetch-url --type sha256 --unpack "${url}")"
-  hash_sri="$(nix hash to-sri --type sha256 "${hash_32}")"
-  hashes[${nix_system}]="${hash_sri}"
-  echo "  ${nix_system}: ${hash_sri}"
+  key="${platforms[$nix_system]}"
+  checksum="$(jq --raw-output --arg key "${key}" \
+    '.platforms[$key].checksum // empty' <<< "${manifest}"
+  )"
+  if [ -z "${checksum}" ]; then
+    echo "No ${key} entry in the ${version} manifest." >&2
+    exit 1
+  fi
+  hashes[${nix_system}]="$(nix hash to-sri --type sha256 "${checksum}")"
+  echo "  ${nix_system}: ${hashes[$nix_system]}"
 done
 
 # Update static.nix.

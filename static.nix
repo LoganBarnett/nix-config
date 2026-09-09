@@ -21,15 +21,16 @@
     };
   };
 
-  # Claude Code 2.1.x ships as a native binary per platform instead of a
-  # Node.js bundle.  Each platform has its own npm package with a single
-  # compiled executable.
+  # Claude Code ships as a native binary per platform.  These are the checksums
+  # of the zstd-compressed binaries from Anthropic's release manifest, in SRI
+  # form; overlays/claude-code.nix hands them to the vendored nixpkgs
+  # derivation as its manifest.
   claude-code = {
     version = "2.1.257";
-    aarch64-darwin.hash = "sha256-Dy2JtRjt4TFrl8VT85LMR98MvnJBqD3H5gofFz97xEY=";
-    x86_64-darwin.hash = "sha256-oaggvxBP5BJoyk0YvfgyqsQoCdGeu5MEp0qm2UJQAfI=";
-    x86_64-linux.hash = "sha256-sB4XNFEnCMB7Dh2QZX6N7pC5/qych9gXR1cwmzFWJ/c=";
-    aarch64-linux.hash = "sha256-1sjV3IWja+YKzQHVOyIIBblPtXDU9IpCTF33s+jTRqI=";
+    aarch64-darwin.hash = "sha256-za6C3cmdNWga3QdKm//MQtBdapoDST+jaavUOtvzXjQ=";
+    x86_64-darwin.hash = "sha256-IKS0DOKov2uebe9L88Q7PFChRt/f+FvBRY0odRJEl8M=";
+    x86_64-linux.hash = "sha256-8bBbqkh/fhAtjjG2sMBOz992fFURN3ADv0wPmPxNvdU=";
+    aarch64-linux.hash = "sha256-BnQvf5Shc4assnafhFJKPTTFzBLPElU7N/UmzO5Pzz4=";
   };
 
   # opencode is built from source via the vendored derivation
