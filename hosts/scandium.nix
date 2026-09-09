@@ -57,6 +57,7 @@ in
   # won't need it.
   ids.gids.nixbld = 350;
   imports = [
+    ../agnostic-configs/deploy-identity.nix
     ../agnostic-configs/iot-utils.nix
     ../nixos-configs/nix-store-tools.nix
     ../nixos-configs/sd-image-raspberrypi.nix

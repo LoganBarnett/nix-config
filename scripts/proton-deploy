@@ -76,12 +76,28 @@ else
     # See
     # https://discourse.nixos.org/t/deploy-nixos-configurations-on-other-machines/22940/23
     # for more oddities on the topic.
+
+    # Log in as root with the deploy identity when the host accepts it, so
+    # nothing on the target needs passwordless sudo.  Hosts that don't accept it
+    # yet, including one being bootstrapped onto the identity, fall back to the
+    # invoking user with remote sudo, which prompts for a password on hosts that
+    # require one.
+    if ssh -o BatchMode=yes -o ConnectTimeout=10 "root@$host.proton" true \
+        2>/dev/null; then
+      echo "Deploying to $host.proton as root via the deploy identity..." >&2
+      target="root@$host.proton"
+      sudo_flags=()
+    else
+      echo "Deploy identity not accepted by $host.proton; using remote sudo..." >&2
+      target="$host.proton"
+      sudo_flags=(--use-remote-sudo)
+    fi
     nixos-rebuild \
       "$verb" \
       --flake '.#'"$host" \
-      --target-host "$host.proton" \
-      --build-host "$host.proton" \
-      --use-remote-sudo \
+      --target-host "$target" \
+      --build-host "$target" \
+      "${sudo_flags[@]}" \
       --use-substitutes \
       --accept-flake-config \
       --fast \
