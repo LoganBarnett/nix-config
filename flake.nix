@@ -186,8 +186,12 @@
     # This is forced at the moment, because we have some heavy deltas coming
     # into flake.lock and I want that to stabilize before I pin it here.
     # nixpkgs.url = "github:nixos/nixpkgs?ref=f9f59197478b3ec9c954b67ae0d1d5429de23124";
-    nixpkgs.url = "github:nixos/nixpkgs/25.11";
-    nixpkgs-25-11.url = "github:nixos/nixpkgs/25.11";
+    # The bare `25.11` ref is the frozen release tag, which never receives
+    # backports; `nixos-25.11` is the maintained release branch.  The branch is
+    # required because `importCargoLock`'s fix to fetch crates from
+    # static.crates.io (crates.io now 403s curl User-Agents, which is what
+    # fetchurl sends) exists on 25.11 only as a backport.
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-25.11";
     nixpkgs-openscad-bin.url = "github:LoganBarnett/nixpkgs/openscad-darwin-preserve-cli";
     # So we can pull in mcp-server-git.
     nixpkgs-mcp-server-git.url = "github:nixos/nixpkgs/26.05";
