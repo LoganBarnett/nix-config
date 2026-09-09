@@ -25,13 +25,19 @@ let
   statics = (import ../static.nix).opencode;
   bunStatics = (import ../static.nix).opencode-bun;
 
-  # Bun's release zips have platform-specific names (note the x86_64-darwin
-  # "baseline" variant), matching nixpkgs's own bun derivation.
+  # Bun's release zips have platform-specific names.  Both x86_64 entries take
+  # the "baseline" variant.  nixpkgs's own bun derivation uses the AVX2 build for
+  # x86_64-linux, but the x86_64-linux hosts here and the remote builder that
+  # builds for them are Ivy Bridge, which has AVX and no AVX2.  This Bun gets
+  # executed on that hardware twice over: the derivation runs `bun completions`
+  # in postPatchelf, and opencode's `bun build --compile` embeds the running
+  # Bun into the opencode binary.  The AVX2 build dies with SIGILL at both
+  # points; baseline needs only AVX.
   bunFileMap = {
     "aarch64-darwin" = "bun-darwin-aarch64.zip";
     "x86_64-darwin" = "bun-darwin-x64-baseline.zip";
     "aarch64-linux" = "bun-linux-aarch64.zip";
-    "x86_64-linux" = "bun-linux-x64.zip";
+    "x86_64-linux" = "bun-linux-x64-baseline.zip";
   };
   bunFile =
     bunFileMap.${system} or (throw "opencode-bun: unsupported system ${system}");

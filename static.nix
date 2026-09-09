@@ -50,13 +50,14 @@
   # embeds its web UI through a Bun virtual-module entrypoint that needs a newer
   # Bun than 25.11 ships (1.3.2); this pins the version nixpkgs master builds
   # opencode against.  Bun is distributed only as prebuilt release zips, so this
-  # is one flat file hash per platform.
+  # is one flat file hash per platform.  The x86_64 hashes are for the
+  # "baseline" zips (see the bunFileMap note in overlays/opencode.nix).
   opencode-bun = {
     version = "1.3.13";
     aarch64-darwin.hash = "sha256-VGfj9l26Umuf6pjwzOBO+vwMY+Fpcz7Ce4dqOtMtoZA=";
     x86_64-darwin.hash = "sha256-qYumpIDyL9qbNDYmuQak4mqlNhi/hdK8WSjs8rpF8O0=";
     aarch64-linux.hash = "sha256-cLrkGzkIsKEg4eWMXIrzDnSvrjuNEbDT/djnh937SyI=";
-    x86_64-linux.hash = "sha256-ecB3H6i5LDOq5B4VoODTB+qZ0OLwAxfHHGxTI3p44lo=";
+    x86_64-linux.hash = "sha256-nYokKSpwaAkCBdqsCloiP19pc29Sh+N7+I07QDHtx1A=";
   };
 
   makemkv = {

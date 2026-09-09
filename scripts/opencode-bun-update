@@ -25,13 +25,14 @@ fi
 
 echo "Bun version: ${version}"
 
-# Platform-specific zip names (note the x86_64-darwin "baseline" variant),
-# matching nixpkgs's own bun derivation.
+# Platform-specific zip names.  Both x86_64 entries use the "baseline" (AVX,
+# no AVX2) variant; see the bunFileMap note in overlays/opencode.nix.  Keep the
+# two maps in sync.
 declare -A files=(
   [aarch64-darwin]=bun-darwin-aarch64.zip
   [x86_64-darwin]=bun-darwin-x64-baseline.zip
   [aarch64-linux]=bun-linux-aarch64.zip
-  [x86_64-linux]=bun-linux-x64.zip
+  [x86_64-linux]=bun-linux-x64-baseline.zip
 )
 
 declare -A hashes
