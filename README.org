@@ -2143,6 +2143,20 @@ darwin-module runs a local dnsmasq that all DNS routes through.  Design,
 failure taxonomy, and the deferred filter-AAAA reconciler are in
 [[file:docs/tether-dns.org][docs/tether-dns.org]].
 
+** Claude Code leaving the Mac thrashing
+
+Symptom: many ~.claude-wrapped~ / ~claude bg-spare~ processes in ~ps~, swap
+climbing, everything sluggish, long after the Claude session that started
+them is gone.
+
+Cause is Claude Code not reaping what it spawns: Bash tool shells are their
+own session leaders and survive their session, scratchpad-launched servers
+have no parent link at all, and the transient daemon leaks its pre-warmed
+spares.  ~claude-dislodge~ reports every Claude-related process and, with
+~--execute~, kills the orphans and the daemon while leaving live sessions
+alone.  Process taxonomy, the macOS ~ps~ gotcha, and the procedure are in
+[[file:docs/claude-code-runaway.org][docs/claude-code-runaway.org]].
+
 ** File syncing
 
 Example invocation to sync over my music files.  Note that this preserves the

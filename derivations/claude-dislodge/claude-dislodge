@@ -1,0 +1,682 @@
+#!/usr/bin/env bash
+
+# Reports every Claude Code process on this host and, on request, kills the
+# ones nothing is using any more.
+#
+# Claude Code leaves work behind when a session dies uncleanly.  Each Bash
+# tool call runs as its own session leader, so it outlives the session that
+# started it, gets reparented to launchd, and keeps burning CPU (a
+# `nix develop … cargo clippy` left behind is an entire Rust build).  A
+# server started from a session scratchpad has no parent link to the session
+# at all.  The transient daemon and its pre-warmed spares are meant to exit on
+# idle but leak.  The spares also sit on a pseudo-tty allocated by their pty
+# host, so a `+` in STAT does not mean a human is attached.  Liveness here
+# therefore comes from Claude's own session registry and daemon roster, never
+# from tty state.
+#
+# See docs/claude-code-runaway.org for the runbook.
+#
+# Usage: claude-dislodge [--execute] [--all] [--porcelain]
+
+set -euo pipefail
+
+usage() {
+  cat >&2 <<'USAGE'
+Usage: claude-dislodge [--execute] [--all] [--porcelain]
+
+Without --execute: report every Claude Code process and what would be
+killed (dry run).
+With    --execute: kill the daemon, its spares and background workers,
+orphaned Bash tool shells and scratchpad processes (each with its whole
+process tree), and remove stale sockets.
+
+  --all        Also kill live interactive sessions in other terminals.  A
+               session that is an ancestor of this shell is never touched.
+  --porcelain  One "class<TAB>pid<TAB>detail" line per finding, for scripts.
+USAGE
+}
+
+die() {
+  printf 'claude-dislodge: %s\n' "$*" >&2
+  exit 1
+}
+
+OS="$(uname -s)"
+case "$OS" in
+  Darwin)
+    # The procps ps that Nix puts first on PATH cannot read rss on macOS 15
+    # ("requires entitlement"); the system binary can.
+    PS=/bin/ps
+    ;;
+  Linux)
+    PS="ps"
+    ;;
+  *)
+    die "unsupported platform: $OS"
+    ;;
+esac
+
+for tool in jq sort; do
+  command -v "$tool" >/dev/null 2>&1 || die "required tool not found: $tool"
+done
+if [[ "$OS" == Darwin ]]; then
+  command -v lsof >/dev/null 2>&1 || die "required tool not found: lsof"
+fi
+
+# --- Argument parsing ----------------------------------------------------
+
+EXECUTE=false
+ALL=false
+PORCELAIN=false
+
+while true; do
+  case "${1:-}" in
+    --execute)
+      EXECUTE=true
+      shift
+      ;;
+    --all)
+      ALL=true
+      shift
+      ;;
+    --porcelain)
+      PORCELAIN=true
+      shift
+      ;;
+    --help | -h)
+      usage
+      exit 0
+      ;;
+    "")
+      break
+      ;;
+    *)
+      printf 'claude-dislodge: unknown argument: %s\n' "$1" >&2
+      usage
+      exit 2
+      ;;
+  esac
+done
+
+# --- Locations -----------------------------------------------------------
+
+UID_NUM="$(id -u)"
+CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+SOCK_DIR="/tmp/cc-socks"
+DAEMON_DIR="/tmp/cc-daemon-${UID_NUM}"
+# A scratchpad path is <root>/claude-<uid>/<cwd-slug>/<session-uuid>/...; the
+# capture group is the session uuid.
+SCRATCH_RE="claude-${UID_NUM}/[^/ ]+/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(/|\$| )"
+SPAWNED_BY_RE='"pid":([0-9]+)'
+LOG=""
+
+# --- Process table -------------------------------------------------------
+
+declare -A UID_OF PPID_OF RSS_OF ETIME_OF ARGS_OF CWD_OF
+declare -A CLASS REASON ROOT
+declare -A SESSION_KIND SESSION_NAME
+declare -A LIVE_SESSION_IDS
+declare -A WORKER_OF
+declare -a ALL_PIDS ROOTS STALE_SESSION_FILES
+SUPERVISOR_PID=""
+
+argv0_base() {
+  local argv0="${1%% *}"
+  printf '%s' "${argv0##*/}"
+}
+
+second_token() {
+  local rest="${1#* }"
+  if [[ "$rest" == "$1" ]]; then
+    printf ''
+  else
+    printf '%s' "${rest%% *}"
+  fi
+}
+
+# argv[0] of a spare is rewritten to a bare "claude", so match on the
+# basename rather than on a store path.
+is_claude_binary() {
+  case "$(argv0_base "$1")" in
+    claude | .claude-wrapped*) return 0 ;;
+  esac
+  return 1
+}
+
+is_alive() {
+  [[ -n "$("$PS" -o pid= -p "$1" 2>/dev/null)" ]]
+}
+
+human_kb() {
+  local kb="$1"
+  if (( kb >= 1048576 )); then
+    printf '%d.%dG' $(( kb / 1048576 )) $(( (kb % 1048576) * 10 / 1048576 ))
+  elif (( kb >= 1024 )); then
+    printf '%dM' $(( kb / 1024 ))
+  else
+    printf '%dK' "$kb"
+  fi
+}
+
+gather() {
+  UID_OF=()
+  PPID_OF=()
+  RSS_OF=()
+  ETIME_OF=()
+  ARGS_OF=()
+  CWD_OF=()
+  SESSION_KIND=()
+  SESSION_NAME=()
+  LIVE_SESSION_IDS=()
+  WORKER_OF=()
+  ALL_PIDS=()
+  STALE_SESSION_FILES=()
+  SUPERVISOR_PID=""
+
+  local uid pid ppid rss etime args
+  # ps: a = every user's processes, x = including those without a terminal,
+  # o = output columns.  The trailing "=" on each column suppresses headers.
+  while read -r uid pid ppid rss etime args; do
+    [[ "$pid" =~ ^[0-9]+$ ]] || continue
+    UID_OF[$pid]="$uid"
+    PPID_OF[$pid]="$ppid"
+    RSS_OF[$pid]="$rss"
+    ETIME_OF[$pid]="$etime"
+    ARGS_OF[$pid]="$args"
+    ALL_PIDS+=("$pid")
+  done < <("$PS" axo uid=,pid=,ppid=,rss=,etime=,args= | sort --numeric-sort --key=2,2)
+
+  local f kind sid name
+  for f in "$CLAUDE_DIR"/sessions/*.json; do
+    [[ -e "$f" ]] || continue
+    IFS=$'\t' read -r pid kind sid name < <(
+      jq --raw-output '[(.pid // ""), (.kind // ""), (.sessionId // ""), (.name // "")] | @tsv' "$f" 2>/dev/null
+    ) || continue
+    [[ "$pid" =~ ^[0-9]+$ ]] || continue
+    if [[ -n "${ARGS_OF[$pid]:-}" ]] && is_claude_binary "${ARGS_OF[$pid]}"; then
+      SESSION_KIND[$pid]="$kind"
+      SESSION_NAME[$pid]="$name"
+      LIVE_SESSION_IDS[$sid]="$pid"
+    else
+      STALE_SESSION_FILES+=("$f")
+    fi
+  done
+
+  local roster="$CLAUDE_DIR/daemon/roster.json" wid wpid rpid
+  if [[ -r "$roster" ]]; then
+    SUPERVISOR_PID="$(jq --raw-output '.supervisorPid // empty' "$roster" 2>/dev/null || true)"
+    while IFS=$'\t' read -r wid wpid rpid; do
+      [[ "$wpid" =~ ^[0-9]+$ && "$wpid" -gt 0 ]] && WORKER_OF[$wpid]="$wid"
+      [[ "$rpid" =~ ^[0-9]+$ && "$rpid" -gt 0 ]] && WORKER_OF[$rpid]="$wid"
+    done < <(
+      jq --raw-output '.workers // {} | to_entries[] | [.key, (.value.pid // 0), (.value.replPid // 0)] | @tsv' "$roster" 2>/dev/null || true
+    )
+  fi
+
+  local line
+  case "$OS" in
+    Darwin)
+      pid=""
+      # lsof: w = no warnings, a = AND the selectors, d cwd = only the working
+      # directory descriptor, u = this user, F pn = field output of pid and
+      # name.
+      while read -r line; do
+        case "$line" in
+          p*) pid="${line#p}" ;;
+          n*)
+            if [[ -n "$pid" ]]; then
+              CWD_OF[$pid]="${line#n}"
+            fi
+            ;;
+        esac
+      done < <(lsof -w -a -d cwd -u "$UID_NUM" -F pn 2>/dev/null || true)
+      ;;
+    Linux)
+      for pid in "${ALL_PIDS[@]}"; do
+        [[ "${UID_OF[$pid]}" == "$UID_NUM" ]] || continue
+        CWD_OF[$pid]="$(readlink "/proc/$pid/cwd" 2>/dev/null || true)"
+      done
+      ;;
+  esac
+}
+
+# --- Classification ------------------------------------------------------
+
+set_root() {
+  local pid="$1" class="$2" reason="$3"
+  CLASS[$pid]="$class"
+  REASON[$pid]="$reason"
+  ROOT[$pid]="$pid"
+  ROOTS+=("$pid")
+}
+
+# Print the nearest ancestor of $1 (exclusive) that already has a class.
+nearest_classified_ancestor() {
+  local pid="${PPID_OF[$1]:-}" hops=0
+  while [[ -n "$pid" && "$pid" != 0 && "$pid" != 1 && "$hops" -lt 256 ]]; do
+    if [[ -n "${CLASS[$pid]:-}" ]]; then
+      printf '%s' "$pid"
+      return 0
+    fi
+    pid="${PPID_OF[$pid]:-}"
+    hops=$(( hops + 1 ))
+  done
+  return 1
+}
+
+owned_and_unclassified() {
+  [[ "${UID_OF[$1]}" == "$UID_NUM" && -z "${CLASS[$1]:-}" ]]
+}
+
+classify() {
+  CLASS=()
+  REASON=()
+  ROOT=()
+  ROOTS=()
+
+  local pid
+  pid="$$"
+  while [[ -n "$pid" && "$pid" != 0 && "$pid" != 1 ]]; do
+    if [[ "${UID_OF[$pid]:-}" == "$UID_NUM" ]] && is_claude_binary "${ARGS_OF[$pid]:-}"; then
+      set_root "$pid" self "ancestor of this shell"
+    fi
+    pid="${PPID_OF[$pid]:-}"
+  done
+
+  local args sub spawner state
+  for pid in "${ALL_PIDS[@]}"; do
+    owned_and_unclassified "$pid" || continue
+    args="${ARGS_OF[$pid]}"
+    is_claude_binary "$args" || continue
+    sub="$(second_token "$args")"
+    if [[ "$sub" == daemon || "$pid" == "$SUPERVISOR_PID" ]]; then
+      if [[ "$args" =~ $SPAWNED_BY_RE ]]; then
+        spawner="${BASH_REMATCH[1]}"
+        state="dead"
+        if [[ -n "${ARGS_OF[$spawner]:-}" ]]; then
+          state="alive"
+        fi
+        set_root "$pid" daemon "supervisor spawned by pid $spawner ($state)"
+      else
+        set_root "$pid" daemon "supervisor"
+      fi
+    elif [[ -n "${WORKER_OF[$pid]:-}" ]]; then
+      set_root "$pid" worker "background session ${WORKER_OF[$pid]}"
+    elif [[ -n "${SESSION_KIND[$pid]:-}" && "${SESSION_KIND[$pid]}" != interactive ]]; then
+      set_root "$pid" worker "${SESSION_KIND[$pid]} session \"${SESSION_NAME[$pid]}\""
+    elif [[ "$sub" == bg-* || "$sub" == --bg-* ]]; then
+      set_root "$pid" spare "pre-warmed spare ($sub)"
+    elif [[ "${SESSION_KIND[$pid]:-}" == interactive ]]; then
+      set_root "$pid" live "interactive session \"${SESSION_NAME[$pid]}\""
+    else
+      set_root "$pid" unregistered "claude binary with no session registration"
+    fi
+  done
+
+  local parent
+  for pid in "${ALL_PIDS[@]}"; do
+    owned_and_unclassified "$pid" || continue
+    [[ "${ARGS_OF[$pid]}" == *shell-snapshots/snapshot-* ]] || continue
+    if nearest_classified_ancestor "$pid" >/dev/null; then
+      continue
+    fi
+    parent="${PPID_OF[$pid]}"
+    set_root "$pid" orphan-shell \
+      "Bash tool shell whose parent pid $parent ($(argv0_base "${ARGS_OF[$parent]:-?}")) is not a Claude session"
+  done
+
+  local sid where
+  for pid in "${ALL_PIDS[@]}"; do
+    owned_and_unclassified "$pid" || continue
+    if [[ "${ARGS_OF[$pid]}" =~ $SCRATCH_RE ]]; then
+      sid="${BASH_REMATCH[1]}"
+      where="args"
+    elif [[ "${CWD_OF[$pid]:-}" =~ $SCRATCH_RE ]]; then
+      sid="${BASH_REMATCH[1]}"
+      where="cwd"
+    else
+      continue
+    fi
+    if nearest_classified_ancestor "$pid" >/dev/null; then
+      continue
+    fi
+    if [[ -n "${LIVE_SESSION_IDS[$sid]:-}" ]]; then
+      set_root "$pid" detached \
+        "scratchpad ($where) of live session ${sid:0:8} (pid ${LIVE_SESSION_IDS[$sid]}) but not its descendant"
+    else
+      set_root "$pid" orphan-scratch "scratchpad ($where) of session ${sid:0:8}, which is dead"
+    fi
+  done
+
+  # Pid order does not guarantee parent-before-child, so an orphan root may
+  # have been classified before an ancestor that is itself an orphan root.
+  # Fold such roots into the ancestor's tree.
+  local ancestor root
+  for pid in "${ROOTS[@]}"; do
+    case "${CLASS[$pid]}" in
+      orphan-shell | orphan-scratch) ;;
+      *) continue ;;
+    esac
+    ancestor="$(nearest_classified_ancestor "$pid")" || continue
+    root="${ROOT[$ancestor]}"
+    CLASS[$pid]="tree"
+    ROOT[$pid]="$root"
+    REASON[$pid]="under pid $root"
+  done
+
+  for pid in "${ALL_PIDS[@]}"; do
+    owned_and_unclassified "$pid" || continue
+    ancestor="$(nearest_classified_ancestor "$pid")" || continue
+    root="${ROOT[$ancestor]}"
+    case "${CLASS[$root]}" in
+      self | live | detached) CLASS[$pid]="child" ;;
+      *) CLASS[$pid]="tree" ;;
+    esac
+    ROOT[$pid]="$root"
+    REASON[$pid]="under pid $root"
+  done
+}
+
+is_actionable() {
+  local root="${ROOT[$1]}"
+  case "${CLASS[$root]}" in
+    daemon | spare | worker | orphan-shell | orphan-scratch) return 0 ;;
+    live | unregistered) [[ "$ALL" == true ]] ;;
+    *) return 1 ;;
+  esac
+}
+
+daemon_alive() {
+  local pid
+  for pid in "${ROOTS[@]}"; do
+    [[ "${CLASS[$pid]}" == daemon ]] && return 0
+  done
+  return 1
+}
+
+# --- Stale leftovers -----------------------------------------------------
+
+stale_sockets() {
+  local s base spid
+  for s in "$SOCK_DIR"/*.sock; do
+    [[ -e "$s" ]] || continue
+    base="${s##*/}"
+    spid="${base%.sock}"
+    [[ "$spid" =~ ^[0-9]+$ ]] || continue
+    if ! is_alive "$spid"; then
+      printf '%s\n' "$s"
+    fi
+  done
+}
+
+stale_daemon_dirs() {
+  local d
+  # Captured rather than piped into grep --quiet: an early grep exit would
+  # SIGPIPE ps, and under pipefail that reads as "no daemon", whose
+  # directory we are about to delete.
+  if [[ -n "$("$PS" axo args= | grep --extended-regexp '\.claude-wrapped_* daemon run' || true)" ]]; then
+    return 0
+  fi
+  for d in "$DAEMON_DIR"/*/; do
+    [[ -d "$d" ]] || continue
+    printf '%s\n' "$d"
+  done
+}
+
+# --- Report --------------------------------------------------------------
+
+short_command() {
+  local args="$1" base rest
+  base="$(argv0_base "$args")"
+  rest="${args#* }"
+  if [[ "$rest" == "$args" ]]; then
+    printf '%s' "$base"
+  elif (( ${#rest} > 60 )); then
+    printf '%s %s…' "$base" "${rest:0:60}"
+  else
+    printf '%s %s' "$base" "$rest"
+  fi
+}
+
+tag_for() {
+  if is_actionable "$1"; then
+    printf '[would-kill]'
+  else
+    printf '[keep]'
+  fi
+}
+
+print_pid_line() {
+  local pid="$1" tag="${2:-}" rss
+  [[ -n "$tag" ]] || tag="$(tag_for "$pid")"
+  rss="${RSS_OF[$pid]}"
+  [[ "$rss" =~ ^[0-9]+$ ]] || rss=0
+  if [[ "$PORCELAIN" == true ]]; then
+    printf '%s\t%s\t%s\n' "${CLASS[$pid]}" "$pid" "${REASON[$pid]}"
+  else
+    printf '%-12s %-15s pid=%-7s rss=%-7s etime=%-12s %s: %s\n' \
+      "$tag" "${CLASS[$pid]}" "$pid" "$(human_kb "$rss")" \
+      "${ETIME_OF[$pid]}" "$(short_command "${ARGS_OF[$pid]}")" "${REASON[$pid]}"
+  fi
+}
+
+memory_header() {
+  local total=0 count=0 pid rss
+  for pid in "${ALL_PIDS[@]}"; do
+    [[ -n "${CLASS[$pid]:-}" ]] || continue
+    rss="${RSS_OF[$pid]}"
+    [[ "$rss" =~ ^[0-9]+$ ]] || rss=0
+    total=$(( total + rss ))
+    count=$(( count + 1 ))
+  done
+  printf 'Claude-related processes: %d, resident memory: %s\n' "$count" "$(human_kb "$total")"
+  case "$OS" in
+    Darwin)
+      printf 'Swap: %s\n' "$(/usr/sbin/sysctl -n vm.swapusage 2>/dev/null || printf 'unknown')"
+      printf 'Memory pressure: %s\n' "$(/usr/bin/memory_pressure 2>/dev/null | tail -n 1 || printf 'unknown')"
+      ;;
+    Linux)
+      free -m | awk 'NR == 2 { printf "Memory: %s MB used of %s MB\n", $3, $2 } NR == 3 { printf "Swap: %s MB used of %s MB\n", $3, $2 }'
+      ;;
+  esac
+  printf '\n'
+}
+
+report() {
+  if [[ "$PORCELAIN" != true ]]; then
+    memory_header
+  fi
+
+  local class root pid members member_rss rss
+  for class in self live detached unregistered worker daemon spare orphan-shell orphan-scratch; do
+    for root in "${ROOTS[@]}"; do
+      [[ "${CLASS[$root]}" == "$class" ]] || continue
+      print_pid_line "$root"
+      members=0
+      member_rss=0
+      for pid in "${ALL_PIDS[@]}"; do
+        [[ "${ROOT[$pid]:-}" == "$root" && "$pid" != "$root" ]] || continue
+        if [[ "$PORCELAIN" == true ]] || is_actionable "$root"; then
+          print_pid_line "$pid"
+        fi
+        rss="${RSS_OF[$pid]}"
+        [[ "$rss" =~ ^[0-9]+$ ]] || rss=0
+        members=$(( members + 1 ))
+        member_rss=$(( member_rss + rss ))
+      done
+      if [[ "$PORCELAIN" != true && "$members" -gt 0 ]] && ! is_actionable "$root"; then
+        printf '%-12s %-15s children=%d rss=%s\n' '' '' "$members" "$(human_kb "$member_rss")"
+      fi
+    done
+  done
+
+  local s d f
+  while read -r s; do
+    [[ -n "$s" ]] || continue
+    if [[ "$PORCELAIN" == true ]]; then
+      printf 'stale-sock\t-\t%s\n' "$s"
+    else
+      printf '%-12s %-15s %s (its pid is dead)\n' '[stale]' stale-sock "$s"
+    fi
+  done < <(stale_sockets)
+  while read -r d; do
+    [[ -n "$d" ]] || continue
+    if [[ "$PORCELAIN" == true ]]; then
+      printf 'stale-daemon-dir\t-\t%s\n' "$d"
+    else
+      printf '%-12s %-15s %s (no daemon is running)\n' '[stale]' stale-daemon-dir "$d"
+    fi
+  done < <(stale_daemon_dirs)
+  for f in "${STALE_SESSION_FILES[@]}"; do
+    if [[ "$PORCELAIN" == true ]]; then
+      printf 'stale-session\t-\t%s\n' "$f"
+    else
+      printf '%-12s %-15s %s (its pid is dead; Claude prunes these itself)\n' '[info]' stale-session "$f"
+    fi
+  done
+}
+
+count_actionable() {
+  local pid n=0
+  for pid in "${ALL_PIDS[@]}"; do
+    [[ -n "${CLASS[$pid]:-}" ]] || continue
+    if is_actionable "$pid"; then
+      n=$(( n + 1 ))
+    fi
+  done
+  printf '%d' "$n"
+}
+
+# --- Execution -----------------------------------------------------------
+
+emit() {
+  printf '%s\n' "$*"
+  if [[ -n "$LOG" ]]; then
+    printf '%s\n' "$*" >> "$LOG"
+  fi
+}
+
+execute() {
+  local log_dir="${XDG_STATE_HOME:-$HOME/.local/state}/claude-dislodge"
+  mkdir --parents "$log_dir"
+  LOG="$log_dir/$(date -u +%Y%m%dT%H%M%SZ).log"
+  {
+    printf 'claude-dislodge --execute'
+    [[ "$ALL" == true ]] && printf ' --all'
+    printf ' on %s at %s\n\n' "$(uname -n)" "$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+  } > "$LOG"
+  report | tee --append "$LOG"
+  printf '\n'
+
+  if daemon_alive; then
+    if command -v claude >/dev/null 2>&1; then
+      emit "[stopping]   daemon via 'claude daemon stop --any'"
+      if ! timeout 15 claude daemon stop --any >> "$LOG" 2>&1; then
+        emit "             claude daemon stop failed or timed out; falling back to signals"
+      fi
+      sleep 1
+      gather
+      classify
+    else
+      emit "[warning]    claude is not on PATH; stopping the daemon with signals only"
+    fi
+  fi
+
+  local -a targets=()
+  local pid
+  for pid in "${ALL_PIDS[@]}"; do
+    [[ -n "${CLASS[$pid]:-}" ]] || continue
+    if is_actionable "$pid"; then
+      targets+=("$pid")
+    fi
+  done
+
+  local killed=0 survivors=0 removed=0
+  if (( ${#targets[@]} > 0 )); then
+    for pid in "${targets[@]}"; do
+      emit "$(print_pid_line "$pid" "[killing]")"
+    done
+    kill -TERM "${targets[@]}" 2>/dev/null || true
+
+    local -a remaining=()
+    local wait_count=0
+    while [[ "$wait_count" -lt 10 ]]; do
+      remaining=()
+      for pid in "${targets[@]}"; do
+        if is_alive "$pid"; then
+          remaining+=("$pid")
+        fi
+      done
+      (( ${#remaining[@]} == 0 )) && break
+      sleep 1
+      wait_count=$(( wait_count + 1 ))
+    done
+    killed=$(( ${#targets[@]} - ${#remaining[@]} ))
+    emit "             $killed exited after SIGTERM (${wait_count}s)."
+
+    # PID recycling could hand a target's number to an unrelated process
+    # during the wait, so only escalate when the command line still matches.
+    local current
+    for pid in "${remaining[@]}"; do
+      current="$("$PS" -o args= -p "$pid" 2>/dev/null || true)"
+      current="${current#"${current%%[![:space:]]*}"}"
+      if [[ "$current" != "${ARGS_OF[$pid]}" ]]; then
+        emit "             pid $pid changed identity after SIGTERM; not escalating."
+        continue
+      fi
+      emit "             Sending SIGKILL to pid $pid."
+      kill -KILL "$pid" 2>/dev/null || true
+    done
+    if (( ${#remaining[@]} > 0 )); then
+      sleep 1
+      for pid in "${remaining[@]}"; do
+        if is_alive "$pid"; then
+          emit "             WARNING: pid $pid still running after SIGKILL.  Manual intervention required."
+          survivors=$(( survivors + 1 ))
+        else
+          killed=$(( killed + 1 ))
+        fi
+      done
+    fi
+  fi
+
+  local s d
+  while read -r s; do
+    [[ -n "$s" ]] || continue
+    emit "[removing]   $s"
+    rm --force "$s"
+    removed=$(( removed + 1 ))
+  done < <(stale_sockets)
+  while read -r d; do
+    [[ -n "$d" ]] || continue
+    emit "[removing]   $d"
+    rm --recursive --force "$d"
+    removed=$(( removed + 1 ))
+  done < <(stale_daemon_dirs)
+
+  emit ""
+  emit "Killed $killed process(es), removed $removed stale path(s), $survivors survivor(s)."
+  emit "Log: $LOG"
+  (( survivors == 0 ))
+}
+
+# --- Main ----------------------------------------------------------------
+
+gather
+classify
+
+if [[ "$EXECUTE" == true ]]; then
+  execute
+  exit $?
+fi
+
+report
+if [[ "$PORCELAIN" != true ]]; then
+  actionable="$(count_actionable)"
+  stale="$(( $(stale_sockets | wc -l) + $(stale_daemon_dirs | wc -l) ))"
+  if (( actionable > 0 || stale > 0 )); then
+    printf '\n%d process(es) would be killed and %d stale path(s) removed.  Run with --execute to apply.\n' "$actionable" "$stale"
+  else
+    printf '\nNothing to dislodge.\n'
+  fi
+fi

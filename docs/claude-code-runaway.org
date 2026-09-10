@@ -1,0 +1,95 @@
+#+title:     Claude Code Leaving the Host Thrashing
+#+language:  en
+
+* Symptom
+
+Many ~.claude-wrapped~, ~claude bg-spare~, and ~claude bg-pty-host~ processes
+in ~ps~, swap climbing, the whole machine sluggish, often long after the
+Claude session that started them has been closed.  Each Claude process is
+several hundred megabytes resident, so a handful of leaked ones plus a leaked
+build is enough to push a laptop into swap, and the CPU contention you see is
+mostly the swapper.
+
+The memory columns are invisible from a Nix shell on macOS: the procps ~ps~
+that Nix puts first on ~PATH~ prints ~requires entitlement~ for ~%mem~,
+~vsz~, and ~rss~.  The system ~/bin/ps~ reads them fine, which is what
+~claude-dislodge~ uses.
+
+* What the processes are
+
+Claude Code does not reap what it spawns when a session dies uncleanly.
+The leftovers fall into a few kinds, and the tool classifies each one:
+
+- *Interactive session* (~.claude-wrapped_ --effort xhigh --mcp-config …~).
+  The thing you type in.  Live if ~~/.claude/sessions/<pid>.json~ exists
+  for its pid.
+- *Daemon* (~.claude-wrapped daemon run --origin transient --spawned-by …~).
+  A transient supervisor for background work.  It is meant to exit a few
+  seconds after its last client disconnects, but it leaks.
+- *Spare* (~claude bg-spare~, ~claude bg-pty-host~).  Pre-warmed Claude
+  processes the daemon keeps around for subagents and background jobs.  The
+  pty host gives each one a pseudo-tty, so they show a ~ttysNNN~ and a ~+~
+  in ~STAT~ even though nobody is attached.  A tty is not a sign of life.
+- *Worker*.  A full background session under the daemon (~claude --bg~,
+  ~/loop~, slash-command jobs).  Its conversation is kept on disk, so
+  killing it loses nothing that ~claude --resume~ cannot bring back.
+- *Orphaned Bash tool shell* (~zsh -c source ~/.claude/shell-snapshots/…~).
+  Every Bash tool call is its own session leader, so when the session dies
+  the shell is reparented to launchd and keeps running whatever it was doing.
+  A leaked ~nix develop … cargo clippy~ is an entire Rust build.
+- *Orphaned scratchpad process*.  Anything started from
+  ~/private/tmp/claude-<uid>/<cwd-slug>/<session-id>/scratchpad/~ whose
+  session id no longer belongs to a live session.  A test ~nginx~ lived two
+  weeks this way.
+
+Liveness always comes from Claude's own registry (~~/.claude/sessions/~ and
+~~/.claude/daemon/roster.json~), never from tty state or process names.
+
+* Procedure
+
+1. Run ~claude-dislodge~.  It is read-only and prints the memory situation,
+   every Claude-related process tagged ~[keep]~ or ~[would-kill]~ with the
+   reason, and any stale socket files.
+2. Read the ~[would-kill]~ lines.  The default scope is the daemon, its
+   spares and workers, orphaned shells, and orphaned scratchpad processes,
+   each with its whole process tree.  Live interactive sessions in other
+   terminals are kept.
+3. Run ~claude-dislodge --execute~.  A live daemon is asked to stop through
+   ~claude daemon stop --any~ first; whatever remains gets ~SIGTERM~, ten
+   seconds, then ~SIGKILL~ only if the pid still has the same command line
+   it was classified with.
+4. If the live sessions themselves are the problem, ~claude-dislodge
+   --execute --all~ kills those too.  A session that is an ancestor of the
+   shell you run the tool from is never touched, so this is safe to run from
+   inside a Claude session as well as from a plain terminal.
+
+~--porcelain~ prints one ~class<TAB>pid<TAB>detail~ line per finding for
+scripting.
+
+* Evidence
+
+Every ~--execute~ run writes the full report and every action it took to
+~$XDG_STATE_HOME/claude-dislodge/<timestamp>.log~ (default
+~~/.local/state/claude-dislodge/~) before signalling anything.  When the
+machine is thrashing and you just want it back, run ~--execute~ and read the
+log later.  A dry run can be captured the same way with a redirect.
+
+* Upstream
+
+These are known problems in Claude Code itself, all still open as of 2.1.257.
+The tool exists because none of them are fixed; retire it when they are.
+
+- [[https://github.com/anthropics/claude-code/issues/87891][anthropics/claude-code#87891]]
+  — the daemon never reaps stale workers or unclaimed spares, and re-adopts
+  them on every restart.
+- [[https://github.com/anthropics/claude-code/issues/90039][anthropics/claude-code#90039]]
+  — the daemon endlessly respawns a worker for a background session that has
+  already completed.
+- [[https://github.com/anthropics/claude-code/issues/88996][anthropics/claude-code#88996]]
+  — a spare left over from a dead daemon epoch gets claimed a month later and
+  resumes a stale transcript into the foreground.
+- [[https://github.com/anthropics/claude-code/issues/93126][anthropics/claude-code#93126]]
+  — a self-backgrounding command run through ~run_in_background~ is reported
+  complete immediately and its process is orphaned.
+- [[https://github.com/anthropics/claude-code/issues/93087][anthropics/claude-code#93087]]
+  — stdio MCP servers still connecting at session end are never terminated.

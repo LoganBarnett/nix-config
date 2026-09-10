@@ -597,6 +597,12 @@ in
   };
   programs.claude-code.memory.source = ./claude-memory.org;
 
+  home.packages = [
+    # Recovery tool for when Claude Code leaves orphaned shells, spares, or
+    # its daemon behind; see docs/claude-code-runaway.org.
+    (pkgs.callPackage ../derivations/claude-dislodge/default.nix { })
+  ];
+
   home.shellAliases = {
     # `--effort xhigh` is here because the declarative
     # `settings.effortLevel = "xhigh"` is silently ignored: the Growthbook
