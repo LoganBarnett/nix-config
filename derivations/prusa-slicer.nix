@@ -24,7 +24,6 @@
   gmp,
   gtk3,
   hicolor-icon-theme,
-  ilmbase,
   libpng,
   mpfr,
   nanosvg,
@@ -84,6 +83,9 @@ let
       url = "https://raw.githubusercontent.com/gentoo/gentoo/master/media-gfx/prusaslicer/files/prusaslicer-2.8.0-fixed-linking.patch";
       hash = "sha256-G1JNdVH+goBelag9aX0NctHFVqtoYFnqjwK/43FVgvM=";
     })
+    # PrusaSlicer PR 14207: the IlmBase lookup in FindOpenVDB.cmake is a dead
+    # requirement, and nixpkgs flags ilmbase as insecure.
+    ./prusa-slicer-no-ilmbase.patch
   ];
 in
 stdenv.mkDerivation (finalAttrs: {
@@ -132,7 +134,6 @@ stdenv.mkDerivation (finalAttrs: {
     gmp
     gtk3
     hicolor-icon-theme
-    ilmbase
     libpng
     mpfr
     nanosvg-fltk
