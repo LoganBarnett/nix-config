@@ -20,6 +20,7 @@
   (import ./blueutil.nix)
   (import ./cacert.nix)
   (import ./discord.nix)
+  (import ./element-desktop.nix)
   # (import ./crystal.nix)
   (import ./hiera-eyaml.nix)
   (import ./lastversion.nix)
