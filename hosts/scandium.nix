@@ -137,7 +137,6 @@ in
               "claude-code"
               "discord"
               "firefox-bin"
-              "istat-menus"
               "firefox"
               "firefox-bin-unwrapped"
               "ngrok"
@@ -212,8 +211,6 @@ in
             # ~/Applications/Home Manager Trampolines/Firefox.app — both with the
             # same bundle ID, which confuses Spotlight/Alfred.  The trampoline
             # alone is what carries the home-manager profile (extensions, prefs).
-            # System monitoring in the menu bar.  Moved from homebrew cask.
-            pkgs.istat-menus
             # Open-source keystroke visualizer.  Moved from homebrew cask.
             pkgs.keycastr
             pkgs.moonlight-qt
@@ -295,6 +292,9 @@ in
             #     hash = "sha256-tmxaupVwN8k9ZYtFZjDJuhN9bbkIpcWEJ2JDfrDlBgg=";
             #   };
             # }))
+            # Menu bar system monitor.  Pinned to the latest release via
+            # overlays/stats.nix.
+            pkgs.stats
             # A cloud VPN provider.  It breaks my self hosted proclivities, but
             # others can give me links to go into their VPNs.
             pkgs.tailscale

@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+################################################################################
+# Updates static.nix with the new version and hash for `stats`.
+################################################################################
+
+set -euo pipefail
+
+version="$(curl --location --silent \
+  'https://api.github.com/repos/exelban/stats/releases/latest' \
+    | jq --raw-output '.tag_name | ltrimstr("v")'
+)"
+
+if [[ -z "$version" || "$version" == "null" ]]; then
+  echo "ERROR: Could not determine latest Stats version" >&2
+  exit 1
+fi
+
+echo "Latest version: ${version}"
+
+hash_32="$(nix-prefetch-url \
+  --type sha256 \
+  --name 'Stats.dmg' \
+  "https://github.com/exelban/stats/releases/download/v${version}/Stats.dmg"
+)"
+hash_sri="$(nix hash to-sri --type sha256 "${hash_32}")"
+
+echo "Hash: ${hash_sri}"
+
+nix-editor \
+  static.nix \
+  'stats.version' \
+  --val "\"$version\"" \
+  --inplace
+
+nix-editor \
+  static.nix \
+  'stats.hash' \
+  --val "\"$hash_sri\"" \
+  --inplace \
+  --format
+
+echo "Updated static.nix successfully"

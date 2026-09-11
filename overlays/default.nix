@@ -40,6 +40,7 @@
   (import ./mcp-server-git.nix { inherit flake-inputs system; })
   (import ./opencode.nix { inherit system; })
   (import ./makemkv.nix)
+  (import ./stats.nix)
   # (import (builtins.fetchTarball
   #   "https://github.com/oxalica/rust-overlay/archive/master.tar.gz"))
   # (import ./openconnect-sso.nix)
@@ -63,15 +64,6 @@
   # nixpkgs catches up.
   (final: prev: {
     obs-studio = final.qt6Packages.callPackage ../derivations/obs-studio { };
-  })
-  # Hash mismatch: upstream re-published the zip with different contents.
-  (final: prev: {
-    istat-menus = prev.istat-menus.overrideAttrs (old: {
-      src = prev.fetchurl {
-        url = old.src.url;
-        hash = "sha256-oJApYp7ejtcMrm7CyeohV/euXYkJJ0yCRBW2i5AgcEE=";
-      };
-    });
   })
   # aiohttp ships a wall-clock performance test
   # (test_cookie_pattern_performance) that asserts an operation completes in

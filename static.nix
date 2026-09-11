@@ -86,6 +86,14 @@
     hash = "sha256-iirCRrNcbY9Yb4IpkrUVB0V+zDBNORMKp+ncKla4Dk8=";
   };
 
+  # Stats (exelban/stats), the MIT menu bar system monitor.  Pinned
+  # independently because upstream releases every few weeks and the stable
+  # nixpkgs branch never picks those up.  Bump with scripts/stats-update.
+  stats = {
+    version = "3.0.15";
+    hash = "sha256-ise8PwJo9iMZuuNSyLwJrY4L+vPHpO3hIXGARpM7xiY=";
+  };
+
   bgutil-pot = {
     version = "0.8.1";
     x86_64-linux = {
