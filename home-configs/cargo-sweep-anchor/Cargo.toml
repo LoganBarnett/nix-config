@@ -1,0 +1,8 @@
+# An inert crate whose only purpose is to give cargo-sweep a project to run
+# `cargo metadata` in, so the shared target directory can be swept without
+# tying the launchd agent to any real checkout.  See ../sccache.nix.
+[package]
+name = "cargo-sweep-anchor"
+version = "0.0.0"
+edition = "2021"
+publish = false

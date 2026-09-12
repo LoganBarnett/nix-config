@@ -74,6 +74,7 @@ in
     ./darwin-modules/https.nix
     ./darwin-configs/proton-network.nix
     ./darwin-configs/optnix.nix
+    ./darwin-configs/cargo-sweep.nix
     flake-inputs.hyuqueue.darwinModules.default
     flake-inputs.proc-siding.darwinModules.default
     flake-inputs.sonify-health.darwinModules.default
