@@ -1,0 +1,65 @@
+#+title:     Firefox refusing to load its profile after a deploy
+#+language:  en
+
+* Symptom
+
+Launching Firefox on a Mac shows "Firefox couldn't load your profile.  It may
+be missing or inaccessible." and Firefox exits.  It starts right after a
+~proton-deploy switch~ that produced a new ~firefox-bin~ store path, even
+when the Firefox version did not change.
+
+* Cause
+
+Firefox keeps one default profile per installation, and it identifies an
+installation by hashing the directory holding its binary.  Under Nix that is
+the store path, so every rebuild is a new installation to Firefox.  Startup
+then goes like this:
+
+1. The new hash has no entry in ~profiles.ini~ or ~installs.ini~.
+2. The ~Default=1~ profile is marked ~Locked=1~ for an older hash in
+   ~installs.ini~, so the new installation may not adopt it.
+3. Firefox creates an empty ~Profiles/<random>.default-release~ and writes
+   its bookkeeping: ~installs.ini~ first (a plain file, succeeds), then
+   ~profiles.ini~, which home-manager owns as a read-only store symlink.
+4. The failed write aborts startup with the dialog above.
+
+Nothing inside the profile can prevent this, because prefs are only read
+after a profile has been chosen.  The fix is the launchd agent in
+~home-configs/firefox.nix~ that puts ~MOZ_LEGACY_PROFILES=1~ (and
+~MOZ_ALLOW_DOWNGRADE=1~) in the launchd GUI domain: Firefox then opens the
+~Default=1~ profile directly and never writes ~profiles.ini~, the same
+arrangement the nixpkgs Firefox wrapper uses on Linux.
+
+* What to check
+
+All paths are under =~/Library/Application Support/Firefox=.
+
+- ~launchctl getenv MOZ_LEGACY_PROFILES~ must print ~1~.  If it prints
+  nothing the agent did not run; inspect it with
+  ~launchctl print gui/$(id -u)/org.nix-community.home.firefox-launchd-env~.
+- ~installs.ini~ gains a section per failed launch, each pointing at a fresh
+  ~Profiles/*.default-release~ directory containing only ~times.json~.
+- ~Profiles/default/compatibility.ini~ records the store path of the last
+  Firefox that opened the real profile.  Compare it with what the trampoline
+  launches:
+  #+begin_src sh :results none :exports code
+  cd ~/Applications/Home\ Manager\ Trampolines
+  osadecompile Firefox.app/Contents/Resources/Scripts/main.scpt
+  #+end_src
+
+* Emergency workaround
+
+Until the agent is deployed, set the variable in the running session and
+relaunch Firefox from Alfred or the Dock:
+
+#+begin_src sh :results none :exports code
+launchctl setenv MOZ_LEGACY_PROFILES 1
+#+end_src
+
+This does not survive a reboot; the agent does.
+
+* Leftovers
+
+With legacy profiles in effect Firefox ignores ~installs.ini~, so stale
+sections there are harmless.  The empty ~*.default-release~ directories from
+failed launches are safe to delete.

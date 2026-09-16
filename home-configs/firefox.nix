@@ -10,13 +10,17 @@
 # even when the OS and browser are both set to dark mode.
 #
 # profiles.ini is managed by home-manager as a read-only Nix store symlink.
-# Firefox 67+ tries to write an [Install<hash>] section to it on first
-# launch; the hash is derived from the Firefox binary path and changes with
-# every Nix store update, so it cannot be pre-computed statically.  Setting
-# browser.profiles.enabled = false disables the per-installation profile
-# management UI (added in Firefox 129) so Firefox silently falls back to
-# StartWithLastProfile / Default=1 without showing a picker.  The failed
-# background write of the Install section does not cause a crash.
+# Firefox keys its per-installation profile bookkeeping on a hash of the
+# directory holding its binary, which is a Nix store path and so changes on
+# every rebuild.  An installation it has not seen must record itself in
+# profiles.ini before startup continues; when that write fails, Firefox
+# creates an empty throwaway profile and exits with "Firefox couldn't load
+# your profile".  The launchd agent below sets MOZ_LEGACY_PROFILES so Firefox
+# skips per-installation profiles and opens the Default=1 profile without
+# writing anything, which is what the nixpkgs Firefox wrapper does on Linux
+# for the same reason.  No pref in this file can help: prefs are read from
+# the profile, so only after the profile has already been chosen.  See
+# docs/firefox-profile-load-failure.org for the symptoms and what to check.
 #
 # Sideloaded extension auto-disable: home-manager symlinks the extension
 # .xpi files into Profiles/default/extensions/.  Firefox treats anything
@@ -32,7 +36,19 @@
 # state files must be deleted so Firefox rescans the .xpi files and applies
 # the new pref to the fresh discovery.
 ################################################################################
-{ pkgs, ... }:
+{ lib, pkgs, ... }:
+let
+  # Firefox reads these before it opens a profile, so they have to come from
+  # the launchd GUI domain that LaunchServices spawns apps from; variables
+  # exported by a shell never reach an app opened from Alfred or the Dock.
+  firefox-env = {
+    # Skip per-installation profiles; see the banner comment.
+    MOZ_LEGACY_PROFILES = "1";
+    # Rolling back to a generation with an older Firefox otherwise trips the
+    # profile-downgrade refusal.  Same tradeoff the nixpkgs wrapper accepts.
+    MOZ_ALLOW_DOWNGRADE = "1";
+  };
+in
 {
   programs.firefox = {
     enable = true;
@@ -67,9 +83,10 @@
         # 0 = dark, 1 = light, 2 = follow OS (broken on macOS — OS reports
         # light despite being in dark mode).
         "layout.css.prefers-color-scheme.content-override" = 0;
-        # Disable per-installation profile management UI (Firefox 129+) so
-        # Firefox uses StartWithLastProfile / Default=1 without a picker,
-        # even when profiles.ini has no [Install<hash>] section.
+        # Disable the in-browser multi-profile feature (Firefox 138+); it
+        # persists its state through profiles.ini, which is read-only here.
+        # It has no bearing on which profile Firefox opens at startup; see
+        # the banner comment.
         "browser.profiles.enabled" = false;
         # Suppress the first-run wizard.  Firefox compares
         # homepage_override.mstone against the current build milestone; "ignore"
@@ -118,6 +135,27 @@
         # is 15 (all scopes) — set explicitly to make intent clear.
         "extensions.startupScanScopes" = 15;
       };
+    };
+  };
+
+  # nix-darwin's launchd.user.envVariables would be the obvious home for
+  # these, but it only runs launchctl setenv during activation and nothing
+  # restores the variables at boot.  A RunAtLoad agent re-applies them at
+  # every login and immediately on switch.  home-manager only installs
+  # launchd agents on macOS; on other hosts this block is inert.
+  launchd.agents.firefox-launchd-env = {
+    enable = true;
+    config = {
+      ProgramArguments = [
+        "/bin/sh"
+        "-c"
+        (lib.concatStringsSep " && " (
+          lib.mapAttrsToList (
+            name: value: "/bin/launchctl setenv ${name} ${value}"
+          ) firefox-env
+        ))
+      ];
+      RunAtLoad = true;
     };
   };
 }

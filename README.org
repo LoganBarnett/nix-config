@@ -2157,6 +2157,19 @@ spares.  ~claude-dislodge~ reports every Claude-related process and, with
 alone.  Process taxonomy, the macOS ~ps~ gotcha, and the procedure are in
 [[file:docs/claude-code-runaway.org][docs/claude-code-runaway.org]].
 
+** Firefox refusing to start after a deploy
+
+Symptom: Firefox on the Mac exits with "Firefox couldn't load your profile"
+right after a ~proton-deploy switch~ that rebuilt ~firefox-bin~, even at the
+same version.
+
+Cause is Firefox keying per-installation profiles on its store path and then
+failing to record the new installation in the home-manager-owned, read-only
+~profiles.ini~.  The launchd agent in ~home-configs/firefox.nix~ sets
+~MOZ_LEGACY_PROFILES~ so that bookkeeping is skipped.  What to check, the
+emergency workaround, and the leftovers are in
+[[file:docs/firefox-profile-load-failure.org][docs/firefox-profile-load-failure.org]].
+
 ** File syncing
 
 Example invocation to sync over my music files.  Note that this preserves the
