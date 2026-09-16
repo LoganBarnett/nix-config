@@ -53,6 +53,14 @@ in
   programs.firefox = {
     enable = true;
     package = pkgs.firefox-bin;
+    # Firefox's own updater finds newer releases but cannot install them into
+    # the read-only store, so it nags at every launch.  Updates arrive through
+    # scripts/firefox-bin-update instead.  On macOS home-manager delivers
+    # policies with `defaults import org.mozilla.firefox`, which avoids placing
+    # a policies.json inside the signed bundle.
+    policies = {
+      DisableAppUpdate = true;
+    };
     profiles.default = {
       isDefault = true;
       extensions.packages =

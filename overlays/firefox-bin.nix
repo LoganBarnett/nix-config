@@ -57,9 +57,10 @@ in
   # home-manager's programs.firefox module expects a wrapFirefox-produced
   # package, which exposes an `override` function to inject policies and prefs.
   # Our bare stdenvNoCC derivation doesn't get `override` from callPackage, so
-  # we stub it out.  home-manager uses it to pass cfg/extraPolicies, but we
-  # configure those directly via profile settings in home-configs/firefox.nix,
-  # so the no-op is safe.
+  # we stub it out.  home-manager uses it to pass cfg/extraPolicies; on macOS
+  # policies reach Firefox through `defaults` (targets.darwin.defaults) and
+  # prefs through the profile's user.js, both driven from
+  # home-configs/firefox.nix, so the no-op is safe.
   firefox-bin = drv // {
     override = _: drv;
     overrideAttrs = _: drv;
