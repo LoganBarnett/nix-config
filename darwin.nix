@@ -62,6 +62,7 @@ let
 in
 {
   imports = [
+    ./darwin-modules/application-firewall.nix
     ./darwin-modules/dns-c-ares-scopeless-fix.nix
     ./darwin-modules/global-protect-persistent.nix
     ./darwin-modules/steam.nix
@@ -219,9 +220,22 @@ in
     applicationFirewall = {
       # Enable the internal firewall to prevent unauthorised applications,
       # programs and services from accepting incoming connections.
+      # Historical note: with upstream nix-darwin this was force-enabled
+      # on every activation regardless of the declared value — macOS 26's
+      # socketfilterfw implements `--setblockall off` as "set global state
+      # to 1", clobbering the `--setglobalstate off` issued milliseconds
+      # earlier.  Earlier revisions blamed Jamf; the unified log showed it
+      # was our own activation script.  The vendored
+      # darwin-modules/application-firewall.nix fixes the ordering, so
+      # this setting is now honoured either way.
       enable = false;
       blockAllIncoming = false;
-      # Allows any signed Application to accept incoming requests.
+      # Allows any signed Application to accept incoming requests.  This
+      # must stay on: macOS 26 split sshd into /usr/libexec/sshd-session,
+      # which is not in ALF's per-app allow list, and with this off an
+      # enabled firewall holds every inbound SSH flow in limbo — the TCP
+      # handshake completes but the banner is never released, so clients
+      # hang forever with no error.
       allowSigned = false;
       # Allows any downloaded Application that has been signed to accept
       # incoming requests.
