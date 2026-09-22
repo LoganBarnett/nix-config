@@ -16,6 +16,7 @@
   flake-inputs.dns-smart-block.overlays.default
   flake-inputs.nur.overlays.default
   (import ./test-script.nix)
+  (import ./augeas.nix)
   (import ./battlescribe-update-data.nix)
   (import ./blueutil.nix)
   (import ./cacert.nix)
