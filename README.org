@@ -530,6 +530,18 @@ This must be run by a human.  If you're not a human, ask the human to run it.
 If you must regenerate secrets, remove the base secret file, and then ask your
 human to run the above invocation.
 
+*** Issued Tokens
+
+Tokens a third-party service issues (API keys, personal access tokens) can't be
+generated, so they live under ~secrets/issued/~ as
+~<service>-<purpose>-<host-id>.age~, one per consuming host so that revoking a
+token never reaches past that host.  Store a freshly issued one with:
+
+#+begin_src sh :results none :exports code
+agenix edit secrets/issued/gitea-mcp-scandium.age
+agenix rekey generate --rekey --add-to-git
+#+end_src
+
 *** Wiring Secrets to Services
 
 To wire up a secret to a service, you need to populate the service's

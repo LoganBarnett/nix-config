@@ -4,28 +4,41 @@
 # ~/.config/mcp/mcp.json.
 #
 # Secret handling: the generated config lands in the world-readable Nix store,
-# so no token may be inlined here.  Each server's `command` is a wrapper that
-# reads its credential from `pass` at run time — the same pattern claude-code
-# uses for its apiKeyHelper.  Create the referenced pass entries before first
-# use; a missing or empty entry is a hard startup failure naming the entry,
-# not a silently unauthenticated server.
+# so no token may be inlined here.  Each credentialed server's `command` is a
+# wrapper that reads its token at run time from the agenix secret declared in
+# agnostic-configs/mcp-credentials.nix, which is also what imports this file.
+# The paths resolve through `osConfig`, so a host that imports this file
+# without declaring the secrets fails at evaluation instead of shipping a
+# server that dies at spawn.
 #
 # The default posture is read-only.  Write access and session elevation are
 # intentionally out of scope for this file.
 ################################################################################
-{ lib, pkgs, ... }:
+{
+  lib,
+  osConfig,
+  pkgs,
+  ...
+}:
 let
-  # Emits the preamble that loads a credential from pass into `token`, failing
+  secrets = osConfig.age.secrets;
+
+  # Emits the preamble that loads a credential file into `token`, failing
   # loudly rather than proceeding with an empty value.
   #
-  # `set -e` alone does not cover the obvious spelling of this.  Bash takes the
-  # exit status of `export VAR="$(cmd)"` from `export`, so we check the variable
-  # afterwards instead.
-  passToken = entry: ''
-    token="$(${pkgs.pass}/bin/pass show ${lib.escapeShellArg entry})"
+  # The readability test comes before the read on purpose: under `set -e` a
+  # failed command substitution in a plain assignment aborts the script, so a
+  # check placed after the assignment would never run.
+  fileToken = path: ''
+    if [ ! -r ${lib.escapeShellArg path} ]; then
+      printf 'FATAL: credential file %s is missing or unreadable.\n' \
+        ${lib.escapeShellArg path} >&2
+      exit 1
+    fi
+    token="$(${pkgs.coreutils}/bin/cat ${lib.escapeShellArg path})"
     if [ -z "$token" ]; then
-      printf 'FATAL: pass entry %s is missing or empty.\n' \
-        ${lib.escapeShellArg entry} >&2
+      printf 'FATAL: credential file %s is empty.\n' \
+        ${lib.escapeShellArg path} >&2
       exit 1
     fi
   '';
@@ -39,7 +52,7 @@ let
   # migration if one lands in nixpkgs.
   gitea-mcp = pkgs.writeShellScript "gitea-mcp-wrapped" ''
     set -euo pipefail
-    ${passToken "gitea/mcp-token"}
+    ${fileToken secrets.gitea-mcp-token.path}
     export GITEA_ACCESS_TOKEN="$token"
     exec ${pkgs.gitea-mcp-server}/bin/gitea-mcp \
       -t stdio \
@@ -52,7 +65,7 @@ let
   # (context, repos, issues, pull_requests, users) is left in place.
   github-mcp = pkgs.writeShellScript "github-mcp-wrapped" ''
     set -euo pipefail
-    ${passToken "github/mcp-token"}
+    ${fileToken secrets.github-mcp-token.path}
     export GITHUB_PERSONAL_ACCESS_TOKEN="$token"
     exec ${pkgs.github-mcp-server}/bin/github-mcp-server stdio --read-only
   '';
@@ -62,13 +75,13 @@ let
   # and `-disable-admin` keep it read-only; narrow further with `-enabled-tools`
   # if the surface is too broad.  Only single-dash flags exist (Go `flag`
   # package): `-t stdio` selects the stdio transport.  The URL is public; the
-  # service-account token is read from pass and exported under both env names
-  # mcp-grafana has accepted across versions so it works regardless of which
-  # this build honors.  The pass token should belong to a Viewer-role service
-  # account so the credential itself is read-only, not just the tool flags.
+  # service-account token is exported under both env names mcp-grafana has
+  # accepted across versions so it works regardless of which this build
+  # honors.  The token should belong to a Viewer-role service account so the
+  # credential itself is read-only, not just the tool flags.
   grafana-mcp = pkgs.writeShellScript "grafana-mcp-wrapped" ''
     set -euo pipefail
-    ${passToken "grafana/mcp-token"}
+    ${fileToken secrets.grafana-mcp-token.path}
     export GRAFANA_URL=${lib.escapeShellArg "https://grafana.proton"}
     export GRAFANA_API_KEY="$token"
     export GRAFANA_SERVICE_ACCOUNT_TOKEN="$token"
@@ -83,8 +96,8 @@ in
   programs.mcp = {
     enable = true;
     servers = {
-      # The one server that needs no credential, and so no pass wrapper: it
-      # shells out to git against whatever repository a tool call names.
+      # The one server that needs no credential, and so no wrapper: it shells
+      # out to git against whatever repository a tool call names.
       #
       # The mutation tools are permitted by default, but that's okay because we
       # want to allow that mutation.
@@ -114,8 +127,9 @@ in
       #             a local Unix socket only (tunnel / run-on-silicon / TCP).
       #
       #   ntfy      No packaged server; needs a small stdio MCP over the publish
-      #             API at https://ntfy.proton (token in pass at
-      #             ntfy/mcp-token).  This is the one write-capable server.
+      #             API at https://ntfy.proton (token as an issued secret next
+      #             to the others in agnostic-configs/mcp-credentials.nix).
+      #             This is the one write-capable server.
     };
   };
 }

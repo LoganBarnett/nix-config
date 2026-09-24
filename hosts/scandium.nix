@@ -59,6 +59,7 @@ in
   imports = [
     ../agnostic-configs/deploy-identity.nix
     ../agnostic-configs/iot-utils.nix
+    ../agnostic-configs/mcp-credentials.nix
     ../nixos-configs/nix-store-tools.nix
     ../nixos-configs/sd-image-raspberrypi.nix
     ../nixos-configs/secrets.nix
@@ -157,14 +158,6 @@ in
             ../home-configs/dasht.nix
             ../home-configs/tea.nix
           ];
-          # Make machines write the code instead.  What could go wrong? :D
-          programs.claude-code = {
-            # This is a custom setting provided by ../home-modules/claude.nix.
-            # For shared settings between various hosts, see
-            # ../home-configs/claude-code.nix.
-            # Actually we don't need this anymore.
-            # passApiKey = "claude-code-api-key";
-          };
         };
         # Steam via the macOS programs.steam analogue: a login LaunchAgent
         # installs the Steam.app bootstrapper into /Applications and lets

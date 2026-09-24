@@ -39,8 +39,8 @@
 
   # gnupg is needed on PATH for interactive commit signing.  The systemd
   # import service uses full store paths, but git invokes gpg by name.
-  # pass is the password store used by claude-code's apiKeyHelper.  After
-  # deploying, clone the store manually:
+  # pass is the interactive password store.  After deploying, clone the store
+  # manually:
   #   git clone ssh://git@gitea.proton:2222/logan/logan-pass.git ~/.password-store
   environment.systemPackages = [
     pkgs.gnupg

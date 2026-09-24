@@ -4,6 +4,9 @@
 
   # See https://nixos-and-flakes.thiscute.world/other-usage-of-flakes/inputs for
   # various URL notations.
+  #
+  # Even though the pattern has been broken by scoundrels and highwaymen, try to
+  # keep these lexicographically sorted.
   inputs = {
     agenix = {
       # Fork with installSecretFn fix (upstream ryantm/agenix PR #228, rebased).
@@ -239,6 +242,8 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    rust-template.url = "github:LoganBarnett/rust-template";
+
     sonify-health = {
       url = "github:LoganBarnett/sonify-health";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -444,6 +449,9 @@
               sonification-test
               pkgs.just
               pkgs.nixfmt-rfc-style
+              # A review program to help with spotting when the coding agent
+              # didn't heed our original contribution direction.
+              flake-inputs.rust-template.packages.${system}.review-cli
               # Shell linter.  Matches the check writeShellApplication runs at
               # build time, so scripts/ can be linted before a deploy fails.
               pkgs.shellcheck

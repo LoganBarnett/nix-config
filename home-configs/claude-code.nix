@@ -74,6 +74,16 @@ in
       # executed until a plan is approved.
       permissions = {
         defaultMode = "plan";
+        # MCP credentials reach their servers through wrappers that Claude
+        # Code spawns outside the Bash tool, so the agent itself never needs
+        # to read a secret.  Close the obvious routes: pass, whose gpg cache
+        # stays warm for an hour after any interactive use, and the agenix
+        # output tree.  This is a guardrail against casual reads, not a
+        # sandbox; an arbitrary subprocess is not covered.
+        deny = [
+          "Bash(pass *)"
+          "Read(//run/agenix/**)"
+        ];
       };
       # Pin the classic main-screen renderer.  The "fullscreen" renderer
       # enables terminal mouse capture, which intercepts click-and-drag and
