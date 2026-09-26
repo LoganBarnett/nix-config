@@ -92,6 +92,11 @@
       url = "github:LoganBarnett/metalps";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # An orchestrator we can use for coding agents, including Claude.
+    minimal-agent-orchestrator = {
+      url = "github:dkoontz/minimal-agent-orchestrator";
+      flake = false;
+    };
     nextcloud-desktop = {
       # What's on master doesn't build with the current settings.  It looks like
       # they've moved onto qt6 but Nix has many components that don't work on

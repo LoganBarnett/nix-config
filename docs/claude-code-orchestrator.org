@@ -1,0 +1,65 @@
+#+title:     Claude Code Multi-Agent Orchestrator
+#+language:  en
+
+The ~/orchestrate-plan~ and ~/orchestrate-task~ slash commands, and the
+subagents they drive, come verbatim from dkoontz/minimal-agent-orchestrator
+([[https://github.com/dkoontz/minimal-agent-orchestrator][GitHub]]).
+The repository is pinned as a flake input and wired into the global
+=~/.claude= tree by ~home-configs/claude-code-orchestrator.nix~, so the
+workflow is available in every project without per-project setup.  Upstream's
+README is the reference for the workflow itself; this document covers only
+what is specific to this setup.
+
+* Usage
+
+Plan a task.  The planner interviews you, writes ~tasks/<task-name>/plan.md~,
+and a reviewer checks it before you approve:
+
+#+begin_src sh :results none :exports code
+/orchestrate-plan add a logout button
+#+end_src
+
+Then run the approved plan.  The orchestrator creates a branch and worktree,
+and loops developer, review, and QA subagents until QA passes:
+
+#+begin_src sh :results none :exports code
+/orchestrate-task tasks/add-a-logout-button/plan.md
+#+end_src
+
+Either command with no arguments prompts for what it needs.
+
+* Prerequisites the upstream text assumes
+
+- Sessions start in plan mode here (~permissions.defaultMode = "plan"~), and
+  plan mode blocks every write the subagents need.  Leave plan mode before
+  running either command.
+- ~/orchestrate-task~ puts its worktree at ~../<project>.worktrees/<task-name>~
+  and expects that parent directory to already exist.  Create it once per
+  project.
+- The agents read ~CODING_STANDARDS.md~ and ~QA_STANDARDS.md~ from the project
+  root when present.  They also inherit ~CLAUDE.md~ like any other subagent, so
+  these files are optional extras for project-specific test tooling or
+  conventions.
+
+* Caveats
+
+The global ~CLAUDE.md~ forbids committing unless asked, but the upstream
+completion phase offers a fast-forward merge of the task branch, which only
+does something if the branch has commits.  Either commit in the worktree
+before accepting the merge prompt, or decline it and handle the branch by hand.
+
+The commands are installed as skills marked ~disable-model-invocation: true~.
+That flag is the only local change to the upstream text: you still invoke them
+as slash commands, but the model will never start a multi-agent loop on its
+own.
+
+* Upgrading
+
+#+begin_src sh :results none :exports code
+nix flake update minimal-agent-orchestrator
+#+end_src
+
+Then deploy as usual.  If evaluation fails with a message naming a frontmatter
+anchor, upstream changed the head of a command file; fix the anchor in
+~home-configs/claude-code-orchestrator.nix~ and check the injected flag still
+lands inside the frontmatter block.

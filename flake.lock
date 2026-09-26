@@ -1690,6 +1690,22 @@
         "type": "github"
       }
     },
+    "minimal-agent-orchestrator": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1772772533,
+        "narHash": "sha256-rrq8QptXpk8aUq7relXQcsQVksoNHzUKdNOX6WSAb8U=",
+        "owner": "dkoontz",
+        "repo": "minimal-agent-orchestrator",
+        "rev": "a38090ab126404d91ca11fb267ccedad244c462a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "dkoontz",
+        "repo": "minimal-agent-orchestrator",
+        "type": "github"
+      }
+    },
     "napalm": {
       "inputs": {
         "flake-utils": [
@@ -3639,6 +3655,7 @@
         "loku": "loku",
         "mac-app-util": "mac-app-util",
         "metalps": "metalps",
+        "minimal-agent-orchestrator": "minimal-agent-orchestrator",
         "nextcloud-desktop": "nextcloud-desktop",
         "nix-darwin": "nix-darwin",
         "nix-editor": "nix-editor",

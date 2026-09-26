@@ -193,6 +193,15 @@ invocation is almost assured to fail because there will likely be a mismatch
 between architecture and platform.  See [[file:./README.org::*deploy tools][deploy tools]] for how to do a deployment,
 which will also do your build.
 
+*** New Files and Flake Visibility
+
+Use ~--intent-to-add~ to add files for flake visibility, instead of a vanilla
+~git add <file>~.  This means we still have an unstaged version to review.
+
+#+begin_src sh :results none :exports code
+git add --intent-to-add path/to/new-file.nix
+#+end_src
+
 *** Scripts
 
 Scripts that ship as part of a derivation are co-located with their

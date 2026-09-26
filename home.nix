@@ -21,6 +21,7 @@ in
   imports = [
     ./home-configs/btop.nix
     ./home-configs/claude-code.nix
+    ./home-configs/claude-code-orchestrator.nix
     ./home-configs/gh-cli.nix
     ./home-configs/gpg-agent.nix
     ./home-configs/opencode.nix

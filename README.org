@@ -2169,6 +2169,13 @@ spares.  ~claude-dislodge~ reports every Claude-related process and, with
 alone.  Process taxonomy, the macOS ~ps~ gotcha, and the procedure are in
 [[file:docs/claude-code-runaway.org][docs/claude-code-runaway.org]].
 
+** Claude Code multi-agent orchestrator
+
+The ~/orchestrate-plan~ and ~/orchestrate-task~ slash commands run a
+planner, plan reviewer, developer, code reviewer, and QA loop from
+[[https://dkoontz/minimal-agent-orchestrator][dkoontz/minimal-agent-orchestrator]].  See [[file:docs/claude-code-orchestrator.org][docs/claude-code-orchestrator.org]] for
+additional info.
+
 ** Firefox refusing to start after a deploy
 
 Symptom: Firefox on the Mac exits with "Firefox couldn't load your profile"
