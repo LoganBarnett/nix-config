@@ -904,11 +904,11 @@
         "rust-template": "rust-template"
       },
       "locked": {
-        "lastModified": 1790526966,
-        "narHash": "sha256-vXFHgEI9mdjBaQT67zvwPQRaZ5dyz2ssPYsMlcdwcOc=",
+        "lastModified": 1790810228,
+        "narHash": "sha256-fZPsypoRgWZCQ2xs+VaUNDD/O6NSwtZJ5CYqswi0Mb4=",
         "owner": "LoganBarnett",
         "repo": "emacs-config",
-        "rev": "660eb19bffeb85f3c7c43e886adec8eb1f65a2fc",
+        "rev": "c7222c8735f70ca436ed97c733ec2b10814a0604",
         "type": "github"
       },
       "original": {
