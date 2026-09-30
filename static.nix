@@ -26,11 +26,11 @@
   # form; overlays/claude-code.nix hands them to the vendored nixpkgs
   # derivation as its manifest.
   claude-code = {
-    version = "2.1.257";
-    aarch64-darwin.hash = "sha256-za6C3cmdNWga3QdKm//MQtBdapoDST+jaavUOtvzXjQ=";
-    x86_64-darwin.hash = "sha256-IKS0DOKov2uebe9L88Q7PFChRt/f+FvBRY0odRJEl8M=";
-    x86_64-linux.hash = "sha256-8bBbqkh/fhAtjjG2sMBOz992fFURN3ADv0wPmPxNvdU=";
-    aarch64-linux.hash = "sha256-BnQvf5Shc4assnafhFJKPTTFzBLPElU7N/UmzO5Pzz4=";
+    version = "2.1.285";
+    aarch64-darwin.hash = "sha256-N+98pO9khsRLj4i0GvTyabqDIsfdimImHlTjJx9WpqA=";
+    x86_64-darwin.hash = "sha256-zTG0uoNousco/fdd5mVN+PR9ICPNPNFtpJtCmuTSRkg=";
+    x86_64-linux.hash = "sha256-6IqLQO1afpITv1BH9bEsNgwzOHsbw2z3ndv/CjpAEhw=";
+    aarch64-linux.hash = "sha256-34uyhq2HDY2zFvxsizSTJZjBEn0U9znR/JlWECBOtNI=";
   };
 
   # opencode is built from source via the vendored derivation
