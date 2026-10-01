@@ -1,15 +1,14 @@
 {
   bash,
   coreutils,
+  dns-resolver-helper,
+  gawk,
+  gnugrep,
   jq,
   writeShellApplication,
-  callPackage,
   ...
 }:
 
-let
-  dnsResolverHelper = callPackage ./dns-resolver-helper.nix { };
-in
 # Script to fix GlobalProtect VPN DNS scoping on macOS.
 # Creates /etc/resolver entries for VPN domains using privileged helper.
 writeShellApplication {
@@ -17,7 +16,9 @@ writeShellApplication {
   runtimeInputs = [
     bash
     coreutils
-    dnsResolverHelper
+    dns-resolver-helper
+    gawk
+    gnugrep
     jq
   ];
   text = builtins.readFile ../scripts/dns-vpn-scoping-fix;

@@ -31,28 +31,41 @@ answers to this name on ~PATH~".  A future, unrelated package that
 happens to install a same-named binary into ~/run/current-system/sw/bin~
 cannot inherit the passwordless grant.
 
-** You lose nothing in ergonomics, because sudo canonicalizes
+** The caller must reach the tool through ~runtimeInputs~
 
-~sudo~ resolves the invoked command to its real path (via ~realpath~)
-before matching it against the sudoers ~Cmnd~.  So a hand-run
-~sudo tool~ — found on ~PATH~ at a symlink such as
-~/run/current-system/sw/bin/tool~ — still matches a rule that lists the
-store path, because both sides resolve to the same realized binary.
+Since ~sudo~ 1.9.14 the sudoers plugin canonicalizes the /parent
+directory/ of the command it resolved through ~PATH~ and compares that
+string against the canonical parent directory of the rule's ~Cmnd~.  macOS Tahoe
+ships 1.9.17p2; Sequoia shipped 1.9.13p2, which matched on inode alone.
 
-Verified on ~sudo~ 1.9.13p2 (the version shipped with macOS at time of
-writing): a rule listing only the ~/run/current-system/sw/bin~ symlink
-path matched an invocation given the fully-resolved store path.  To
-re-check on a future version:
+The consequence for a store-path rule: the invoked command's directory
+must canonicalize to ~${pkg}/bin~ itself.  A bare ~sudo tool~ inside a
+~writeShellApplication~ that lists the tool in ~runtimeInputs~ satisfies
+that, because ~PATH~ starts with ~${pkg}/bin~.  A bare ~sudo tool~ that
+falls through to ~/run/current-system/sw/bin~ does not.
+
+Never ~callPackage~ the same file from two places and rely on the hashes
+agreeing.  A variant that needs different arguments is an explicit
+~.override~, held in one binding and threaded to every consumer, which is
+how ~services.globalprotect-monitor~ handles ~gp-connect-auto~'s
+~configFile~.
+
+Hand-running ~sudo tool~ from an interactive shell still prompts for a
+password, since the shell's ~PATH~ reaches the tool through the symlink
+farm.  Use the store path or accept the prompt.
+
+** Verifying a rule
+
+~sudo -l <cmd>~ is not a valid check on a host that also carries an
+~(ALL) ALL~ rule for the user: it reports every command as permitted,
+including ones that would demand a password.  The only faithful test is
+to run the command non-interactively and read the result:
 
 #+begin_src sh
-  link=/run/current-system/sw/bin/darwin-rebuild   # has a symlink-path rule
-  sudo -n -l "$link"                  # permitted (lists the path)
-  sudo -n -l "$(readlink -f "$link")" # also permitted ⇒ sudo canonicalizes
+sudo -n dns-resolver-helper flush-cache   # from the calling script's PATH
 #+end_src
 
-If a future ~sudo~ ever stops canonicalizing, hand-running by bare name
-would start prompting for a password, but the sytt/daemon invocation
-(which already uses the store path directly) would be unaffected.
+"a password is required" means the rule did not match.
 
 * The one trade-off
 

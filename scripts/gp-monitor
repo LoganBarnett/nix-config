@@ -167,7 +167,7 @@ system_resolver_path_ok() {
   local result
   # dscacheutil exits 0 even when the lookup finds nothing, so check the
   # output for an address line rather than trusting the exit status.
-  result=$(dscacheutil -q host -a name "$test_domain" 2>/dev/null || echo "")
+  result=$(/usr/bin/dscacheutil -q host -a name "$test_domain" 2>/dev/null || echo "")
   case "$result" in
     # Matches both ip_address: and ipv6_address:.
     *_address:*) return 0 ;;
@@ -472,11 +472,7 @@ while true; do
       if upstream_nameserver_ok "$TEST_HOST"; then
         log "VPN nameserver answers directly but the dnsmasq forwarder does" \
           "not — reloading dnsmasq..."
-        # Absolute path and exact arguments so this matches the NOPASSWD rule
-        # in global-protect-persistent.nix; --non-interactive so a rule that
-        # ever stops matching fails fast instead of hanging the daemon on a
-        # password prompt.
-        if sudo --non-interactive /usr/bin/killall -HUP dnsmasq 2>/dev/null; then
+        if sudo --non-interactive killall -HUP dnsmasq 2>/dev/null; then
           sleep 2
           if forwarder_path_ok "$TEST_HOST"; then
             log "Forwarder resolution restored by dnsmasq reload"

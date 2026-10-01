@@ -1,6 +1,7 @@
 {
   bash,
   coreutils,
+  procps,
   writeShellApplication,
   ...
 }:
@@ -10,6 +11,7 @@ writeShellApplication {
   runtimeInputs = [
     bash
     coreutils
+    procps
   ];
   text = builtins.readFile ../scripts/cleanup-vpn;
 }

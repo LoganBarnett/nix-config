@@ -1,5 +1,6 @@
 {
   bash,
+  coreutils,
   gpclient,
   writeShellApplication,
   ...
@@ -12,6 +13,7 @@ writeShellApplication {
   inherit name;
   runtimeInputs = [
     bash
+    coreutils
     gpclient
   ];
   text = builtins.readFile ../scripts/${script};

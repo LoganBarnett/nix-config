@@ -57,12 +57,20 @@ doesn't exist.
 
 * Nix conventions
 
-- *Passwordless sudo grants* — when a helper needs a scoped ~NOPASSWD~
-  sudo rule, bless the tool's exact store path, not the
-  ~/run/current-system/sw/bin~ symlink.  See
-  [[file:docs/nix-sudo-store-paths.org][docs/nix-sudo-store-paths.org]].
-- *Rapid package updaters* — how to author a version-pinned updater, and
-  the policy that from-source builds are preferred over direct binary
-  downloads (a binary download is an exception needing human sign-off and
-  in-file justification).  See
-  [[file:README.org::*Rapid Package Updates][README.org → Rapid Package Updates]].
+1. Every program a script invokes comes from ~runtimeInputs~.  This prevents
+   collisions with whatever is on the ~PATH~ currently, such as the current system
+   profile.  The only exception is a macOS builtin with no Nix counterpart
+   (~scutil~, ~networksetup~, ~ipconfig~, ~dscacheutil~, ~pgrep~), which is
+   called by absolute path to communicate where it is coming from.
+2. Scripts that source a shared bash library should use
+   ~writeShellApplicationWithLibs~. ~bash-logging~ is a primary example.
+   Its ~libs~ attribute maps an environment
+   variable to the library file  The script sources
+   ~"${BASH_LOGGING:-$HOME/.bash-logging}"~ with ~shellcheck~ directives to
+   appease it.
+3. Passwordless sudo grants should use the package path.  When a helper needs a
+   scoped ~NOPASSWD~ sudo rule, bless the tool's exact store path, not the
+   ~/run/current-system/sw/bin~ symlink.  See [[file:docs/nix-sudo-store-paths.org][docs/nix-sudo-store-paths.org]].
+4. Rapid package updaters are used to provide packages whose versions are
+   updating far more rapidly than ~nixpkgs~ (et. al.) releases.  See [[file:README.org::*Rapid Package Updates][README.org
+   → Rapid Package Updates]].

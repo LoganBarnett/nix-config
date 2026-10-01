@@ -136,7 +136,7 @@ run_baseline_assertions() {
   # --- 0: dnsmasq health check ---
   # Confirm dnsmasq is running before testing DNS.  Catches dnsmasq crashes
   # before they manifest as mysterious resolution failures.
-  if pgrep -x dnsmasq >/dev/null 2>&1; then
+  if /usr/bin/pgrep -x dnsmasq >/dev/null 2>&1; then
     echo "  [DNSM] dnsmasq running  ✓"
   else
     echo "  [DNSM] dnsmasq NOT running  ✗"
@@ -252,7 +252,7 @@ _PHYS_IF=$(route -n get default 2>/dev/null | awk '/interface:/ {print $2; exit}
 _PHYS_IP=$("$IFCONFIG" "${_PHYS_IF:-en10}" 2>/dev/null | awk '/inet [0-9]/ {print $2}' | head -1) || true
 if [ -z "$_PHYS_IP" ]; then
   echo "  ${_PHYS_IF:-en10} has no IPv4 — requesting DHCP and waiting up to 30s..."
-  ipconfig set "${_PHYS_IF:-en10}" DHCP 2>/dev/null || true
+  /usr/sbin/ipconfig set "${_PHYS_IF:-en10}" DHCP 2>/dev/null || true
   for _dhcp_wait in $(seq 1 30); do
     _PHYS_IP=$("$IFCONFIG" "${_PHYS_IF:-en10}" 2>/dev/null | awk '/inet [0-9]/ {print $2}' | head -1) || true
     if [ -n "$_PHYS_IP" ]; then
@@ -396,9 +396,9 @@ if [ "$VPN_READY" = "true" ]; then
   # killing mDNSResponder — a full restart via launchctl kickstart -k takes
   # 15+ seconds to rebind port 53 on this macOS version.
   echo "Flushing DNS cache and notifying configd..."
-  dscacheutil -flushcache 2>/dev/null || true
+  /usr/bin/dscacheutil -flushcache 2>/dev/null || true
   killall -HUP mDNSResponder 2>/dev/null || true
-  scutil << SCEOF
+  /usr/sbin/scutil << SCEOF
 notify State:/Network/Global/DNS
 quit
 SCEOF

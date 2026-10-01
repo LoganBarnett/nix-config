@@ -9,6 +9,7 @@
 # and nothing is duplicated here.
 ################################################################################
 {
+  coreutils,
   facts,
   lib,
   wireguard-tools,
@@ -37,6 +38,7 @@ in
 writeShellApplication {
   name = "vpn-reconcile";
   runtimeInputs = [
+    coreutils
     wireguard-tools # wg, wg-quick
     wireguard-go # wg-quick's userspace backend on darwin
     gawk # `awk` with strtonum for MAC normalization

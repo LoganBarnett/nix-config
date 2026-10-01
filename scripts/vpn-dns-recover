@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
-source ~/.bash-logging
+# The Nix wrapper exports BASH_LOGGING as the store copy of the library it was
+# checked against; run directly, fall back to the Home Manager copy.
+# shellcheck source=bash-logging
+source "${BASH_LOGGING:-$HOME/.bash-logging}"
 
 set -e
 
@@ -16,10 +19,13 @@ set -e
 # that this fix should instead "unset" whatever has been set before by VPN.
 ##
 
+# Only consumed by the per-state reset experiment below, which is currently
+# commented out while its four scenarios are still being tested.
+# shellcheck disable=SC2034
 states=$(
-  scutil <<< list \
+  /usr/sbin/scutil <<< list \
     | awk '{ print $4 }' \
-    | egrep '^State:.+/DNS$' \
+    | grep --extended-regexp '^State:.+/DNS$' \
 )
 # I've read these commands expect "services" and not hardware ports - it's just
 # that sometimes the hardware port names match the service names, so I've seen
@@ -29,7 +35,7 @@ states=$(
 #   | sed -E 's/Hardware Port: (.+)$/\1/' \
 #   | grep -v -E 'Thunderbolt [0-9]+'
 #   )
-services="$(networksetup -listallnetworkservices | tail -n +2)"
+services="$(/usr/sbin/networksetup -listallnetworkservices | tail -n +2)"
 IFS=$'\n'
 # What we used to do:
 # d.add ServerAddresses * ${dnsIps}
@@ -77,11 +83,11 @@ function dnsReset() {
 
 slog "Forcing DHCP on active hardware interfaces..."
 while IFS= read -r iface; do
-  if ifconfig "$iface" 2>/dev/null | grep -q 'status: active'; then
+  if /sbin/ifconfig "$iface" 2>/dev/null | grep -q 'status: active'; then
     slog "  ipconfig set $iface DHCP"
     sudo /usr/sbin/ipconfig set "$iface" DHCP
   fi
-done < <(networksetup -listallhardwareports | awk '/^Device:/{print $2}')
+done < <(/usr/sbin/networksetup -listallhardwareports | awk '/^Device:/{print $2}')
 
 slog "Waiting for default route to be restored..."
 for i in $(seq 1 30); do

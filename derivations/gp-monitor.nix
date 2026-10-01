@@ -1,25 +1,40 @@
 {
   bash,
-  gpclient,
+  bind,
   coreutils,
+  dns-resolver-helper,
+  dns-vpn-scoping-fix,
+  gawk,
+  gnugrep,
+  gp-connect-auto,
+  gpclient,
   jq,
+  killall,
+  nettools,
+  procps,
   writeShellApplication,
-  callPackage,
   ...
 }:
 let
   name = "gp-monitor";
   script = name;
-  dnsVpnScopingFix = callPackage ./dns-vpn-scoping-fix.nix { };
 in
 writeShellApplication {
   inherit name;
   runtimeInputs = [
     bash
-    gpclient
+    bind.dnsutils
     coreutils
-    dnsVpnScopingFix
+    dns-resolver-helper
+    dns-vpn-scoping-fix
+    gawk
+    gnugrep
+    gp-connect-auto
+    gpclient
     jq
+    killall
+    nettools
+    procps
   ];
   text = builtins.readFile ../scripts/${script};
 }

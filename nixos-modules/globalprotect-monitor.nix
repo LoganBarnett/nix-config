@@ -4,7 +4,12 @@
 # Runs as a system daemon (root) to allow VPN tunnel creation while accessing
 # the primary user's gpg keys and pass password store for authentication.
 ################################################################################
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 with lib;
 
@@ -24,13 +29,14 @@ let
     export GP_LOG_DIR="${cfg.logDir}"
 
     # Create log directory
-    mkdir -p "$GP_LOG_DIR"
+    ${pkgs.coreutils}/bin/mkdir --parents "$GP_LOG_DIR"
 
     # Run the monitor script
     exec ${cfg.package}/bin/gp-monitor
   '';
 
-in {
+in
+{
   options = {
     services.globalprotect-monitor = {
       enable = mkOption {
@@ -109,7 +115,7 @@ in {
 
       package = mkOption {
         type = types.package;
-        default = pkgs.callPackage ../derivations/gp-monitor.nix {};
+        default = pkgs.gp-monitor;
         description = "The gp-monitor package to use.";
       };
     };
@@ -120,7 +126,7 @@ in {
     # Ensure required packages are available
     environment.systemPackages = [
       pkgs.gpclient
-      (pkgs.callPackage ../derivations/gp-connect-auto.nix {})
+      pkgs.gp-connect-auto
     ];
 
     # Create the launchd system daemon (runs as root for VPN tunnel creation)
@@ -130,7 +136,10 @@ in {
       serviceConfig = {
         KeepAlive = true;
         RunAtLoad = true;
-        ProgramArguments = [ "${pkgs.bash}/bin/bash" "${monitorScript}" ];
+        ProgramArguments = [
+          "${pkgs.bash}/bin/bash"
+          "${monitorScript}"
+        ];
 
         # Run as root to allow VPN tunnel creation
         UserName = "root";
@@ -148,7 +157,8 @@ in {
           GP_LOG_DIR = cfg.logDir;
           # Use primary user's HOME for gpg/pass access (service runs as root)
           HOME = "/Users/${cfg.primaryUser}";
-        } // (optionalAttrs (cfg.gateway != null) {
+        }
+        // (optionalAttrs (cfg.gateway != null) {
           GP_GATEWAY = cfg.gateway;
         });
 

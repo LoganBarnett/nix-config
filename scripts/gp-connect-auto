@@ -203,7 +203,7 @@ if [ -n "$_PV_IF" ] && [ -n "$_PV_IP" ] && [ -n "$_PV_MASK" ]; then
   # Save DHCP DNS nameservers.  The || true guards against pipefail: grep
   # returns 1 when no lines match, which would kill the script under set -e.
   _PV_DNS=$(printf 'show State:/Network/Service/DHCP-%s/DNS\nquit\n' \
-    "$_PV_IF" | scutil 2>/dev/null | \
+    "$_PV_IF" | /usr/sbin/scutil 2>/dev/null | \
     awk '$1 ~ /^[0-9]+$/ {print $3}' | \
     grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | tr '\n' ' ' | \
     sed 's/[[:space:]]*$//') || true
@@ -214,7 +214,7 @@ if [ -n "$_PV_IF" ] && [ -n "$_PV_IP" ] && [ -n "$_PV_MASK" ]; then
 
   # Save network service name for networksetup.  The || true guards against
   # pipefail if networksetup or awk returns non-zero.
-  _PV_SVC=$(networksetup -listnetworkserviceorder 2>/dev/null | \
+  _PV_SVC=$(/usr/sbin/networksetup -listnetworkserviceorder 2>/dev/null | \
     awk -v dev="$_PV_IF" '
       /^\(Hardware Port:/ {
         if (index($0, "Device: " dev) > 0) {

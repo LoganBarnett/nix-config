@@ -135,19 +135,19 @@ echo "Clearing VPN DNS/IPv4 state from scutil..."
 # Enumerate State:/Network/Service/utun*/{DNS,IPv4} entries and remove them.
 while IFS= read -r key; do
   [ -z "$key" ] && continue
-  printf 'remove %s\nquit\n' "$key" | scutil 2>/dev/null || true
+  printf 'remove %s\nquit\n' "$key" | /usr/sbin/scutil 2>/dev/null || true
   echo "  Removed scutil key: $key"
-done < <(printf 'list\n' | scutil 2>/dev/null | \
+done < <(printf 'list\n' | /usr/sbin/scutil 2>/dev/null | \
   awk '/utun.*(DNS|IPv4)/ {print $4}' || true)
 # Remove the synthetic VPN corporate DNS service (vpn-corp-dns).
 printf 'remove State:/Network/Service/vpn-corp-dns/DNS\nremove State:/Network/Service/vpn-corp-dns/IPv4\nquit\n' \
-  | scutil 2>/dev/null || true
+  | /usr/sbin/scutil 2>/dev/null || true
 echo "  Removed vpn-corp-dns service"
 # Remove the synthetic public DNS service created during connect.
 if [ -f /var/run/vpnc-public-dns-service ]; then
   _PUB_SVC=$(cat /var/run/vpnc-public-dns-service)
   printf 'remove State:/Network/Service/%s/DNS\nremove State:/Network/Service/%s/IPv4\nquit\n' \
-    "$_PUB_SVC" "$_PUB_SVC" | scutil 2>/dev/null || true
+    "$_PUB_SVC" "$_PUB_SVC" | /usr/sbin/scutil 2>/dev/null || true
   rm -f /var/run/vpnc-public-dns-service
   echo "  Removed synthetic public DNS service"
 fi
@@ -178,9 +178,9 @@ echo "Performing targeted network recovery..."
 while IFS= read -r _iface; do
   if "$IFCONFIG" "$_iface" 2>/dev/null | grep -q 'status: active'; then
     echo "  ipconfig set $_iface DHCP"
-    ipconfig set "$_iface" DHCP 2>/dev/null || true
+    /usr/sbin/ipconfig set "$_iface" DHCP 2>/dev/null || true
   fi
-done < <(networksetup -listallhardwareports | awk '/^Device:/{print $2}')
+done < <(/usr/sbin/networksetup -listallhardwareports | awk '/^Device:/{print $2}')
 
 # Wait for default route to come back.
 echo "  Waiting for default route..."
@@ -195,20 +195,20 @@ done
 # Clear any explicit DNS overrides left by the vpnc-script.
 # When dnsmasq is running, restore DNS to 127.0.0.1 so all tools
 # continue resolving through dnsmasq.
-if pgrep -x dnsmasq >/dev/null 2>&1; then
+if /usr/bin/pgrep -x dnsmasq >/dev/null 2>&1; then
   _DNS_TARGET="127.0.0.1"
   echo "  dnsmasq running — restoring DNS to $_DNS_TARGET"
 else
   _DNS_TARGET="Empty"
 fi
 while IFS= read -r _svc; do
-  networksetup -setdnsservers "$_svc" "$_DNS_TARGET" 2>/dev/null || true
-  networksetup -setsearchdomains "$_svc" Empty 2>/dev/null || true
-done < <(networksetup -listallnetworkservices | tail -n +2)
+  /usr/sbin/networksetup -setdnsservers "$_svc" "$_DNS_TARGET" 2>/dev/null || true
+  /usr/sbin/networksetup -setsearchdomains "$_svc" Empty 2>/dev/null || true
+done < <(/usr/sbin/networksetup -listallnetworkservices | tail -n +2)
 
 # Clear dnsmasq VPN servers so corporate domains stop resolving after
 # recovery.
-if pgrep -x dnsmasq >/dev/null 2>&1; then
+if /usr/bin/pgrep -x dnsmasq >/dev/null 2>&1; then
   : > /var/run/dnsmasq-vpn-servers.conf 2>/dev/null || true
   killall -HUP dnsmasq 2>/dev/null || true
   echo "  Cleared dnsmasq VPN servers"
@@ -223,7 +223,7 @@ if [ -f /var/run/vpnc-dns-domains ]; then
 fi
 
 # Flush DNS cache.
-dscacheutil -flushcache 2>/dev/null || true
+/usr/bin/dscacheutil -flushcache 2>/dev/null || true
 killall -HUP mDNSResponder 2>/dev/null || true
 echo "  DNS cache flushed"
 echo "  Targeted recovery complete"

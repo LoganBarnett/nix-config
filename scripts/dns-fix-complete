@@ -32,7 +32,7 @@ echo "Creating /etc/resolver directory if needed..."
 sudo mkdir -p /etc/resolver
 
 echo "Extracting VPN DNS servers from current configuration..."
-DNS_CONFIG=$(scutil --dns)
+DNS_CONFIG=$(/usr/sbin/scutil --dns)
 
 # Extract VPN DNS servers (internal IPs in 10.x range, excluding VPN tunnel IPs).
 mapfile -t VPN_DNS_SERVERS < <(echo "$DNS_CONFIG" | \
@@ -80,7 +80,7 @@ EOF
 
 # Flush DNS cache.
 echo "Flushing DNS cache..."
-sudo dscacheutil -flushcache
+sudo /usr/bin/dscacheutil -flushcache
 sudo killall -HUP mDNSResponder 2>/dev/null || true
 
 echo ""

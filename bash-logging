@@ -11,5 +11,3 @@ function slog {
 if [[ ! $SHELL =~ "zsh" ]]; then
   export -f slog
 fi
-
-slog "Loaded bash-logging."

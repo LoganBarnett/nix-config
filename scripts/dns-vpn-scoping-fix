@@ -28,8 +28,8 @@ done
 # Fallback: any UP utun with a 10.x IP.
 if [ -z "$VPN_IF" ]; then
   for _iface_line in $("$IFCONFIG" | awk '/^utun/{print $1}' | tr -d ':'); do
-    ifconfig "$_iface_line" 2>/dev/null | head -1 | grep -q "UP" || continue
-    _ip=$(ifconfig "$_iface_line" 2>/dev/null | awk '/inet 10\./ {print $2}' | head -1)
+    "$IFCONFIG" "$_iface_line" 2>/dev/null | head -1 | grep -q "UP" || continue
+    _ip=$("$IFCONFIG" "$_iface_line" 2>/dev/null | awk '/inet 10\./ {print $2}' | head -1)
     if [ -n "$_ip" ]; then
       VPN_IF="$_iface_line"
       break
@@ -59,7 +59,7 @@ mapfile -t CONFIGURED_FALLBACK_DOMAINS < <(jq -r \
   '.fallbackSearchDomains[]' "$CONFIG_FILE")
 
 # Extract DNS configuration from scutil.
-DNS_CONFIG=$(scutil --dns)
+DNS_CONFIG=$(/usr/sbin/scutil --dns)
 
 # Extract VPN DNS servers (internal IPs in 10.x range, excluding the VPN tunnel
 # IP range itself).

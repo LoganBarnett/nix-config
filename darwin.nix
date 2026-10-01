@@ -48,7 +48,7 @@
 }:
 let
   app = pkgs.callPackage ./packages/app.nix { };
-  dnsflush = pkgs.callPackage ./derivations/dnsflush.nix { };
+  dnsflush = pkgs.dnsflush;
   get-ip = pkgs.callPackage ./derivations/get-ip.nix { };
   heic2png = pkgs.callPackage ./derivations/heic2png.nix { };
   macos-keyboard-remap = pkgs.callPackage ./packages/macos-keyboard-remap.nix { };
@@ -58,7 +58,7 @@ let
   terminal-color-query =
     pkgs.callPackage ./derivations/terminal-color-query.nix
       { };
-  vpn-dns-recover = pkgs.callPackage ./derivations/vpn-dns-recover.nix { };
+  vpn-dns-recover = pkgs.vpn-dns-recover;
 in
 {
   imports = [

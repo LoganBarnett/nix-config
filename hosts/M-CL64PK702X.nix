@@ -124,10 +124,10 @@ in
           pkgs.gpclient
           # Separate authentication tool for GlobalProtect SSO.
           pkgs.gpauth
-          # Wrapper script for easy GlobalProtect connection.
-          (pkgs.callPackage ../derivations/gp-connect.nix { })
-          # Automatic headless authentication for GlobalProtect.
-          (pkgs.callPackage ../derivations/gp-connect-auto.nix { })
+          # Wrapper script for easy GlobalProtect connection.  gp-connect-auto
+          # is not listed here: services.globalprotect-monitor installs its
+          # configFile-aware instance, and a second copy would collide.
+          pkgs.gp-connect
           # Used for encrypting sensitive information in Hiera.
           pkgs.hiera-eyaml
           pkgs.mktemp

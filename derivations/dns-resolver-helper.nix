@@ -1,7 +1,7 @@
 {
   bash,
   coreutils,
-  darwin,
+  killall,
   writeShellApplication,
   ...
 }:
@@ -13,8 +13,7 @@ writeShellApplication {
   runtimeInputs = [
     bash
     coreutils
-    darwin.adv_cmds
-    darwin.shell_cmds
+    killall
   ];
   text = builtins.readFile ../scripts/dns-resolver-helper;
 }

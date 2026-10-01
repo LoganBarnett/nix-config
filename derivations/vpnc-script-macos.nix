@@ -10,18 +10,30 @@
 # services.globalprotect-monitor in darwin-modules/global-protect-
 # persistent.nix.
 {
-  callPackage,
+  bind,
+  coreutils,
+  dns-resolver-helper,
+  gawk,
+  gnugrep,
+  gnused,
   jq,
+  killall,
+  nettools,
   writeShellApplication,
 }:
-let
-  dnsResolverHelper = callPackage ./dns-resolver-helper.nix { };
-in
 writeShellApplication {
   name = "vpnc-script-macos";
   runtimeInputs = [
-    dnsResolverHelper
+    # dig lives in the dnsutils output, not the default one.
+    bind.dnsutils
+    coreutils
+    dns-resolver-helper
+    gawk
+    gnugrep
+    gnused
     jq
+    killall
+    nettools
   ];
   bashOptions = [ ];
   text = builtins.readFile ../scripts/vpnc-script-macos;

@@ -1,7 +1,11 @@
 {
   bash,
   coreutils,
+  gawk,
+  gnugrep,
   inetutils,
+  killall,
+  nettools,
   writeShellApplication,
   ...
 }:
@@ -11,7 +15,11 @@ writeShellApplication {
   runtimeInputs = [
     bash
     coreutils
+    gawk
+    gnugrep
     inetutils
+    killall
+    nettools
   ];
   text = builtins.readFile ../scripts/vpn-test-harness-recover;
 }

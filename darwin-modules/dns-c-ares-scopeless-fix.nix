@@ -29,9 +29,7 @@
 let
   cfg = config.services.dns-c-ares-scopeless-fix;
 
-  dnsmasqUpstreamSync =
-    pkgs.callPackage ../derivations/dnsmasq-upstream-sync/default.nix
-      { };
+  dnsmasqUpstreamSync = pkgs.dnsmasq-upstream-sync;
 
   dnsmasqConf = pkgs.writeText "dns-c-ares-scopeless-fix-dnsmasq.conf" ''
     # Listen only on localhost so dnsmasq does not conflict with
@@ -67,7 +65,7 @@ let
   # `/bin/sh -c "/bin/wait4path /nix/store && exec …"`, whose `exec` would
   # swallow a compound command.
   dnsmasqStart = pkgs.writeShellScript "dns-c-ares-scopeless-fix-dnsmasq-start" ''
-    /bin/mkdir -p ${cfg.confDir}
+    ${pkgs.coreutils}/bin/mkdir --parents ${cfg.confDir}
     exec ${pkgs.dnsmasq}/bin/dnsmasq \
       --keep-in-foreground \
       --conf-file=${dnsmasqConf}
@@ -178,7 +176,7 @@ in
     # mkdir covers enabling without a reboot; the daemon start wrapper owns
     # the every-boot case.
     system.activationScripts.postActivation.text = ''
-      /bin/mkdir -p ${cfg.confDir}
+      ${pkgs.coreutils}/bin/mkdir --parents ${cfg.confDir}
       /usr/sbin/networksetup -listallnetworkservices | tail -n +2 | while IFS= read -r svc; do
         case "$svc" in
           # A leading asterisk marks a disabled service; networksetup

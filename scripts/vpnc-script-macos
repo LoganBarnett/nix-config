@@ -151,7 +151,7 @@ case "$reason" in
       # Fallback: try ipconfig set MANUAL (goes through configd).
       if [ -z "$ACTUAL_TUNDEV" ]; then
         echo "  ifconfig failed after 5 attempts — trying ipconfig set MANUAL..."
-        ipconfig set "$INITIAL_TUNDEV" MANUAL \
+        /usr/sbin/ipconfig set "$INITIAL_TUNDEV" MANUAL \
           "$INTERNAL_IP4_ADDRESS" "255.255.255.255" 2>&1 || true
         sleep 1
         ACTUAL_IP=$("$IFCONFIG" "$INITIAL_TUNDEV" 2>/dev/null | \
@@ -226,7 +226,7 @@ case "$reason" in
           "0x${PRE_VPN_h:0:2}" "0x${PRE_VPN_h:2:2}" \
           "0x${PRE_VPN_h:4:2}" "0x${PRE_VPN_h:6:2}")
         echo "  Restoring $PRE_VPN_IF IP early (for DNS): $PRE_VPN_IP/$_EARLY_MASK"
-        ipconfig set "$PRE_VPN_IF" MANUAL "$PRE_VPN_IP" "$_EARLY_MASK" 2>&1 || true
+        /usr/sbin/ipconfig set "$PRE_VPN_IF" MANUAL "$PRE_VPN_IP" "$_EARLY_MASK" 2>&1 || true
         # Brief wait for configd to process the MANUAL assignment.
         sleep 0.5
       fi
@@ -254,7 +254,7 @@ case "$reason" in
         # mDNSResponder considers them reachable.  The kernel routing table
         # correctly sends packets to 10.x VPN DNS servers through utun5
         # regardless of what configd thinks the interface is.
-        scutil << EOF
+        /usr/sbin/scutil << EOF
 d.init
 d.add ServerAddresses * ${DNS_SERVERS[@]}
 d.add SearchDomains * ${SEARCH_DOMAINS[@]}
@@ -263,7 +263,7 @@ d.add SupplementalMatchDomains * ${SEARCH_DOMAINS[@]}
 set State:/Network/Service/vpn-corp-dns/DNS
 quit
 EOF
-        scutil << EOF
+        /usr/sbin/scutil << EOF
 d.init
 d.add Addresses * ${PRE_VPN_IP:-192.168.254.103}
 d.add SubnetMasks * 255.255.255.0
@@ -310,14 +310,14 @@ EOF
         # Associate VPN DNS with the physical interface (en10) so
         # mDNSResponder considers the servers "Reachable."  See the comment
         # in the SEARCH_DOMAINS branch above for the full explanation.
-        scutil << EOF
+        /usr/sbin/scutil << EOF
 d.init
 d.add ServerAddresses * ${DNS_SERVERS[@]}
 d.add SupplementalMatchDomains * ${FALLBACK_DOMAINS[@]}
 set State:/Network/Service/vpn-corp-dns/DNS
 quit
 EOF
-        scutil << EOF
+        /usr/sbin/scutil << EOF
 d.init
 d.add Addresses * ${PRE_VPN_IP:-192.168.254.103}
 d.add SubnetMasks * 255.255.255.0
@@ -349,7 +349,7 @@ EOF
       # dig) can resolve VPN domains through /etc/resolv.conf -> 127.0.0.1
       # -> dnsmasq.  Guard with pgrep so the script still works without
       # dnsmasq installed.
-      if pgrep -x dnsmasq >/dev/null 2>&1; then
+      if /usr/bin/pgrep -x dnsmasq >/dev/null 2>&1; then
         DNSMASQ_VPN_FILE="/var/run/dnsmasq-vpn-servers.conf"
         echo "  Writing dnsmasq VPN servers to $DNSMASQ_VPN_FILE..."
         # Use SEARCH_DOMAINS if available, otherwise FALLBACK_DOMAINS.
@@ -388,9 +388,9 @@ EOF
           echo "  Restoring public DNS ($RESTORE_DNS) on service '$RESTORE_SERVICE'..."
           # SC2086: word-split intentional — RESTORE_DNS may contain multiple IPs
           # shellcheck disable=SC2086
-          networksetup -setdnsservers "$RESTORE_SERVICE" $RESTORE_DNS
+          /usr/sbin/networksetup -setdnsservers "$RESTORE_SERVICE" $RESTORE_DNS
           echo "  Public DNS restored via networksetup"
-          echo "  Verification: $(networksetup -getdnsservers "$RESTORE_SERVICE")"
+          echo "  Verification: $(/usr/sbin/networksetup -getdnsservers "$RESTORE_SERVICE")"
         fi
       fi
 
@@ -407,7 +407,7 @@ EOF
       if [ -n "${RESTORE_DNS:-}" ]; then
         echo "  Creating synthetic public DNS service in configd..."
         # Create an IPv4 entry so configd considers the service active.
-        scutil << SCEOF
+        /usr/sbin/scutil << SCEOF
 d.init
 d.add Addresses * ${PRE_VPN_IP:-192.168.254.103}
 d.add SubnetMasks * 255.255.255.0
@@ -419,7 +419,7 @@ SCEOF
         # Create DNS entry with NO SupplementalMatchDomains — makes it global.
         # SC2086: word-split intentional — RESTORE_DNS may contain multiple IPs.
         # shellcheck disable=SC2086
-        scutil << SCEOF
+        /usr/sbin/scutil << SCEOF
 d.init
 d.add ServerAddresses * $RESTORE_DNS
 set State:/Network/Service/vpn-public-dns/DNS
@@ -427,7 +427,7 @@ quit
 SCEOF
         echo "  Synthetic public DNS service created (servers: $RESTORE_DNS)"
         # Notify mDNSResponder of the change.
-        scutil << SCEOF
+        /usr/sbin/scutil << SCEOF
 notify State:/Network/Global/DNS
 quit
 SCEOF
@@ -505,12 +505,12 @@ SCEOF
               VPN_SERVER_IP="$VPNGATEWAY"
               echo "  VPN server IP from VPNGATEWAY: $VPN_SERVER_IP"
             elif [ -n "${GP_GATEWAY:-}" ]; then
-              VPN_SERVER_IP=$(host -t A "$GP_GATEWAY" 2>/dev/null | \
-                awk '/has address/{print $NF; exit}' || true)
+              VPN_SERVER_IP=$(dig +short +time=3 +tries=1 "$GP_GATEWAY" A 2>/dev/null | \
+                grep --extended-regexp --max-count=1 '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' || true)
               echo "  Resolved GP_GATEWAY=$GP_GATEWAY to: ${VPN_SERVER_IP:-unresolved}"
             elif [ -n "${GP_SERVER:-}" ]; then
-              VPN_SERVER_IP=$(host -t A "$GP_SERVER" 2>/dev/null | \
-                awk '/has address/{print $NF; exit}' || true)
+              VPN_SERVER_IP=$(dig +short +time=3 +tries=1 "$GP_SERVER" A 2>/dev/null | \
+                grep --extended-regexp --max-count=1 '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' || true)
               echo "  Resolved GP_SERVER=$GP_SERVER to: ${VPN_SERVER_IP:-unresolved}"
             fi
             if [ -n "$VPN_SERVER_IP" ]; then
@@ -733,7 +733,7 @@ SCEOF
     # the ESP socket.
     if [ -n "${VPN_SERVER_IP:-}" ]; then
       echo "  TCP probe to $VPN_SERVER_IP:443 via bypass route..."
-      if nc -z -w 3 "$VPN_SERVER_IP" 443 2>/dev/null; then
+      if /usr/bin/nc -z -w 3 "$VPN_SERVER_IP" 443 2>/dev/null; then
         echo "    ✓ TCP reachable"
       else
         echo "    ✗ TCP unreachable"
@@ -746,7 +746,7 @@ SCEOF
       echo "  ARP for $PRE_VPN_GW: $ARP_ENTRY"
     fi
     # Show any PF anchor/rules that might be blocking UDP 4501 (ESP).
-    PF_RULES=$(pfctl -sr 2>/dev/null | head -20 || true)
+    PF_RULES=$(/sbin/pfctl -sr 2>/dev/null | head -20 || true)
     if [ -n "$PF_RULES" ]; then
       echo "  PF rules (first 20):"
       # Multi-line prefix; bash builtin substitution doesn't compose
@@ -825,7 +825,7 @@ SCEOF
             if [ -f "$PRE_VPN_IF_FILE" ]; then
               SAVED_PRE_VPN_IF=$(cat "$PRE_VPN_IF_FILE")
               echo "  Restoring DHCP management on $SAVED_PRE_VPN_IF"
-              ipconfig set "$SAVED_PRE_VPN_IF" DHCP 2>&1 || \
+              /usr/sbin/ipconfig set "$SAVED_PRE_VPN_IF" DHCP 2>&1 || \
                 echo "    Warning: ipconfig set DHCP failed for $SAVED_PRE_VPN_IF"
               rm -f "$PRE_VPN_IF_FILE"
             fi
@@ -847,13 +847,13 @@ SCEOF
     # uncontested.
     if [ -f "$PRE_VPN_SERVICE_FILE" ]; then
       SAVED_SERVICE=$(cat "$PRE_VPN_SERVICE_FILE")
-      if pgrep -x dnsmasq >/dev/null 2>&1; then
+      if /usr/bin/pgrep -x dnsmasq >/dev/null 2>&1; then
         echo "  Restoring DNS to 127.0.0.1 (dnsmasq) on service '$SAVED_SERVICE'..."
-        networksetup -setdnsservers "$SAVED_SERVICE" "127.0.0.1" 2>/dev/null || true
+        /usr/sbin/networksetup -setdnsservers "$SAVED_SERVICE" "127.0.0.1" 2>/dev/null || true
         echo "  DNS pointed to dnsmasq"
       else
         echo "  Clearing explicit DNS on service '$SAVED_SERVICE'..."
-        networksetup -setdnsservers "$SAVED_SERVICE" "Empty" 2>/dev/null || true
+        /usr/sbin/networksetup -setdnsservers "$SAVED_SERVICE" "Empty" 2>/dev/null || true
         echo "  DNS management returned to DHCP"
       fi
       rm -f "$PRE_VPN_SERVICE_FILE"
@@ -862,7 +862,7 @@ SCEOF
     # Remove the synthetic VPN corporate DNS service and public DNS service.
     # Both were created during connect with en10 as the interface so
     # mDNSResponder considered the servers "Reachable."
-    scutil << EOF
+    /usr/sbin/scutil << EOF
 remove State:/Network/Service/vpn-corp-dns/DNS
 remove State:/Network/Service/vpn-corp-dns/IPv4
 remove State:/Network/Service/$DNS_TUNDEV/DNS
@@ -873,7 +873,7 @@ EOF
 
     if [ -f /var/run/vpnc-public-dns-service ]; then
       _PUB_SVC=$(cat /var/run/vpnc-public-dns-service)
-      scutil << EOF
+      /usr/sbin/scutil << EOF
 remove State:/Network/Service/$_PUB_SVC/DNS
 remove State:/Network/Service/$_PUB_SVC/IPv4
 quit
@@ -893,7 +893,7 @@ EOF
     fi
 
     # Clear dnsmasq VPN servers so corporate domains stop resolving.
-    if pgrep -x dnsmasq >/dev/null 2>&1; then
+    if /usr/bin/pgrep -x dnsmasq >/dev/null 2>&1; then
       : > /var/run/dnsmasq-vpn-servers.conf
       killall -HUP dnsmasq 2>/dev/null || true
       echo "  Cleared dnsmasq VPN servers"
@@ -927,7 +927,7 @@ EOF
       # Save the DHCP DNS nameservers so connect can restore them after
       # gpclient strips the interface configuration via 'ipconfig set NONE'.
       PREINIT_DNS=$(printf 'show State:/Network/Service/DHCP-%s/DNS\nquit\n' \
-        "$PREINIT_IF" | scutil 2>/dev/null | \
+        "$PREINIT_IF" | /usr/sbin/scutil 2>/dev/null | \
         awk '$1 ~ /^[0-9]+$/ {print $3}' | \
         grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | tr '\n' ' ' | \
         sed 's/[[:space:]]*$//')
@@ -939,7 +939,7 @@ EOF
       # networksetup -setdnsservers, which writes to the Setup: namespace.
       # mDNSResponder only consults DNS from active services (Setup: keys for
       # real interfaces); the State: approach used in vpn-public-dns is ignored.
-      PREINIT_SERVICE=$(networksetup -listnetworkserviceorder 2>/dev/null | \
+      PREINIT_SERVICE=$(/usr/sbin/networksetup -listnetworkserviceorder 2>/dev/null | \
         awk -v dev="$PREINIT_IF" '
           /^\(Hardware Port:/ {
             if (index($0, "Device: " dev) > 0) {
@@ -983,7 +983,7 @@ EOF
             # Use ipconfig set MANUAL so the change goes through configd,
             # giving it enough authority to survive gpclient's 'ipconfig
             # set NONE' call.  Fall back to ifconfig if MANUAL fails.
-            ipconfig set "$PI_IF" MANUAL "$PI_IP" "$PI_MASK" 2>/dev/null || \
+            /usr/sbin/ipconfig set "$PI_IF" MANUAL "$PI_IP" "$PI_MASK" 2>/dev/null || \
               "$IFCONFIG" "$PI_IF" inet "$PI_IP" netmask "$PI_MASK" 2>/dev/null || true
           fi
         done

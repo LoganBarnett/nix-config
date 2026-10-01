@@ -1,7 +1,11 @@
 {
   bash,
   coreutils,
+  findutils,
+  gawk,
+  gnugrep,
   jq,
+  killall,
   writeShellApplication,
   ...
 }:
@@ -16,7 +20,11 @@ writeShellApplication {
   runtimeInputs = [
     bash
     coreutils
+    findutils
+    gawk
+    gnugrep
     jq
+    killall
   ];
   text = builtins.readFile ../scripts/dns-fix-complete;
 }

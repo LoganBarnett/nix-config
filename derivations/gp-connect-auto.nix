@@ -1,12 +1,16 @@
 {
   bash,
-  callPackage,
   coreutils,
   expect,
+  gawk,
+  gnugrep,
+  gnused,
   gpclient,
+  nettools,
   openconnect,
   pass,
   python3,
+  vpnc-script-macos,
   writeShellApplication,
   configFile ? "/etc/globalprotect-auto/config.json",
   ...
@@ -31,11 +35,6 @@ let
   # yuezk/GlobalProtect-openconnect#572 for why this path exists.
   cookieScript = builtins.readFile ../scripts/gp-auth-cookie;
 
-  # vpnc-script as a derivation so gpclient references a stable Nix store
-  # path.  darwin-rebuild switch updates it immediately without needing a
-  # daemon restart or VPN reconnect.
-  vpncScriptPkg = callPackage ./vpnc-script-macos.nix { };
-
   name = "gp-connect-auto";
 in
 writeShellApplication {
@@ -45,7 +44,11 @@ writeShellApplication {
     bash
     coreutils
     expect
+    gawk
+    gnugrep
+    gnused
     gpclient
+    nettools
     passWithOtp
     pythonWithPlaywright
   ];
@@ -87,7 +90,7 @@ writeShellApplication {
     ${cookieScript}
     COOKIE_EOF
     chmod +x "$AUTH_SCRIPT" "$PTY_SCRIPT" "$COOKIE_SCRIPT"
-    export GP_VPNC_SCRIPT="${vpncScriptPkg}/bin/vpnc-script-macos"
+    export GP_VPNC_SCRIPT="${vpnc-script-macos}/bin/vpnc-script-macos"
 
     # Create wrappers for the Python scripts
     # shellcheck disable=SC2329  # Function invoked indirectly from gp-connect-pty.py

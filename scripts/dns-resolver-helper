@@ -59,7 +59,7 @@ case "$COMMAND" in
 
   flush-cache)
     # Flush DNS cache
-    dscacheutil -flushcache
+    /usr/bin/dscacheutil -flushcache
     killall -HUP mDNSResponder 2>/dev/null || true
     echo "DNS cache flushed"
     ;;

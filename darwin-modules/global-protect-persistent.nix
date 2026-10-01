@@ -40,7 +40,7 @@ let
     export GP_AUTO_CONFIG
 
     # Create log directory (running as user, ownership is automatic)
-    mkdir -p "$GP_LOG_DIR"
+    ${pkgs.coreutils}/bin/mkdir --parents "$GP_LOG_DIR"
 
     # Run the monitor script
     exec ${cfg.package}/bin/gp-monitor
@@ -71,9 +71,17 @@ let
     bogus-priv
   '';
 
-  dnsmasqUpstreamSync =
-    pkgs.callPackage ../derivations/dnsmasq-upstream-sync/default.nix
-      { };
+  dnsmasqUpstreamSync = pkgs.dnsmasq-upstream-sync;
+
+  # gp-connect-auto bakes cfg.configFile into the default it exports on the
+  # sudo side, so this module carries one overridden instance and threads it
+  # into every tool that invokes it.  The sudoers rule, the PATH, and those
+  # tools' runtimeInputs then all name the same store path.
+  gpConnectAuto = pkgs.gp-connect-auto.override { inherit (cfg) configFile; };
+  gpMonitor = pkgs.gp-monitor.override { gp-connect-auto = gpConnectAuto; };
+  vpnTestHarness = pkgs.vpn-test-harness.override {
+    gp-connect-auto = gpConnectAuto;
+  };
 
 in
 {
@@ -165,7 +173,7 @@ in
 
       package = mkOption {
         type = types.package;
-        default = pkgs.callPackage ../derivations/gp-monitor.nix { };
+        default = gpMonitor;
         description = "The gp-monitor package to use.";
       };
 
@@ -324,24 +332,18 @@ in
     ];
 
     environment.systemPackages = [
-      (pkgs.callPackage ../derivations/cleanup-vpn.nix { })
-      (pkgs.callPackage ../derivations/dns-resolver-helper.nix { })
-      (pkgs.callPackage ../derivations/dns-vpn-scoping-fix.nix { })
-      (pkgs.callPackage ../derivations/dns-fix-complete.nix { })
+      pkgs.cleanup-vpn
+      pkgs.dns-resolver-helper
+      pkgs.dns-vpn-scoping-fix
+      pkgs.dns-fix-complete
       pkgs.dnsmasq
       dnsmasqUpstreamSync
       pkgs.gpclient
-      # gp-connect-auto is the one wrapper that still needs configFile —
-      # it inlines the default into its sudo-side `${"$"}{GP_AUTO_CONFIG:=
-      # ...}` export so that gpclient and the vpnc-script-macos it
-      # spawns see the path after sudo strips the inbound env.
-      (pkgs.callPackage ../derivations/gp-connect-auto.nix {
-        inherit (cfg) configFile;
-      })
+      gpConnectAuto
       pkgs.jq
-      (pkgs.callPackage ../derivations/test-vpn-connectivity.nix { })
-      (pkgs.callPackage ../derivations/vpn-test-harness-recover.nix { })
-      (pkgs.callPackage ../derivations/vpn-test-harness.nix { })
+      pkgs.test-vpn-connectivity
+      pkgs.vpn-test-harness-recover
+      vpnTestHarness
     ];
 
     # Shared, world-readable configuration consumed by all the GP/VPN
@@ -373,18 +375,10 @@ in
     # 3. cleanup-vpn: TEMPORARY for development - TODO: REMOVE BEFORE MERGE
     # 4. vpn-test-harness-recover: restores default gateway after VPN tunnel collapse
     security.sudo.extraConfig = ''
-      ${cfg.primaryUser} ALL=(root) NOPASSWD: ${
-        pkgs.callPackage ../derivations/dns-resolver-helper.nix { }
-      }/bin/dns-resolver-helper *
-      ${cfg.primaryUser} ALL=(root) NOPASSWD: SETENV: ${
-        pkgs.callPackage ../derivations/gp-connect-auto.nix { }
-      }/bin/gp-connect-auto
-      ${cfg.primaryUser} ALL=(root) NOPASSWD: ${
-        pkgs.callPackage ../derivations/cleanup-vpn.nix { }
-      }/bin/cleanup-vpn
-      ${cfg.primaryUser} ALL=(root) NOPASSWD: SETENV: ${
-        pkgs.callPackage ../derivations/vpn-test-harness-recover.nix { }
-      }/bin/vpn-test-harness-recover
+      ${cfg.primaryUser} ALL=(root) NOPASSWD: ${pkgs.dns-resolver-helper}/bin/dns-resolver-helper *
+      ${cfg.primaryUser} ALL=(root) NOPASSWD: SETENV: ${gpConnectAuto}/bin/gp-connect-auto
+      ${cfg.primaryUser} ALL=(root) NOPASSWD: ${pkgs.cleanup-vpn}/bin/cleanup-vpn
+      ${cfg.primaryUser} ALL=(root) NOPASSWD: SETENV: ${pkgs.vpn-test-harness-recover}/bin/vpn-test-harness-recover
       # Allow manual DHCP renewal and network reset for post-VPN-disconnect recovery.
       ${cfg.primaryUser} ALL=(root) NOPASSWD: /usr/sbin/ipconfig set * DHCP
       ${cfg.primaryUser} ALL=(root) NOPASSWD: /usr/sbin/networksetup -setdhcp *
@@ -398,11 +392,9 @@ in
       ${cfg.primaryUser} ALL=(root) NOPASSWD: /usr/sbin/networksetup -setnetworkserviceenabled * Off
       ${cfg.primaryUser} ALL=(root) NOPASSWD: /usr/sbin/networksetup -setnetworkserviceenabled * On
       ${cfg.primaryUser} ALL=(root) NOPASSWD: /usr/bin/dscacheutil -flushcache
-      ${cfg.primaryUser} ALL=(root) NOPASSWD: /usr/bin/killall -HUP mDNSResponder
-      ${cfg.primaryUser} ALL=(root) NOPASSWD: /usr/bin/killall -HUP dnsmasq
-      ${cfg.primaryUser} ALL=(root) NOPASSWD: SETENV: ${
-        pkgs.callPackage ../derivations/vpn-test-harness.nix { }
-      }/bin/vpn-test-harness *
+      ${cfg.primaryUser} ALL=(root) NOPASSWD: ${pkgs.killall}/bin/killall -HUP mDNSResponder
+      ${cfg.primaryUser} ALL=(root) NOPASSWD: ${pkgs.killall}/bin/killall -HUP dnsmasq
+      ${cfg.primaryUser} ALL=(root) NOPASSWD: SETENV: ${vpnTestHarness}/bin/vpn-test-harness *
     '';
 
     # Ensure dnsmasq data files exist before dnsmasq starts, and point
