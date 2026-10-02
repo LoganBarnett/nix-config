@@ -90,7 +90,7 @@ else
     else
       echo "Deploy identity not accepted by $host.proton; using remote sudo..." >&2
       target="$host.proton"
-      sudo_flags=(--use-remote-sudo)
+      sudo_flags=(--sudo)
     fi
     nixos-rebuild \
       "$verb" \

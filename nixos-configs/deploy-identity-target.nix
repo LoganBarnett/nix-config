@@ -2,10 +2,10 @@
 # Accept unattended deployments as root over SSH using the deploy identity.
 #
 # A host whose wheel group needs a sudo password cannot be deployed through
-# --use-remote-sudo without a human typing that password for every remote step.
-# Instead, proton-deploy logs in as root with a dedicated key.  Interactive sudo
-# keeps its password, and deploys stay unattended.  Root login is key-only and
-# the only key is the deploy identity held by hosts importing
+# --sudo without a human typing that password for every remote step.  Instead,
+# proton-deploy logs in as root with a dedicated key.  Interactive sudo keeps
+# its password, and deploys stay unattended.  Root login is key-only and the
+# only key is the deploy identity held by hosts importing
 # ../agnostic-configs/deploy-identity.nix.  See docs/deploy-identity.org.
 ################################################################################
 { lib, ... }:

@@ -14,7 +14,7 @@ date -Iseconds >> "$STATUS_FILE"
 if nixos-rebuild switch \
      --flake "$FLAKE_PATH#$HOST" \
      --target-host "$HOST" \
-     --use-remote-sudo \
+     --sudo \
      2>&1 | tee -a "$STATUS_FILE.log"; then
   echo "SUCCESS" > "$STATUS_FILE"
   date -Iseconds >> "$STATUS_FILE"
