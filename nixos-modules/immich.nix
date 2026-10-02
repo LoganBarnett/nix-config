@@ -81,13 +81,6 @@ in
       port = cfg.port;
       mediaLocation = cfg.mediaLocation;
       machine-learning.enable = cfg.machineLearning;
-      # This host's stateVersion predates 25.11, so the NixOS module would
-      # otherwise default to enabling pgvecto.rs (vectors extension).  Immich
-      # 2.x has migrated to VectorChord, so disable the legacy extension
-      # explicitly.  The NixOS module sets up VectorChord as superuser via
-      # postgresql-setup before Immich starts, so Immich never needs to alter
-      # extensions itself.
-      database.enableVectors = false;
     };
 
     # The NixOS immich module only manages the default /var/lib/immich path via
