@@ -194,7 +194,7 @@
     nixpkgs.url = "github:nixos/nixpkgs/nixos-26.05";
     nixpkgs-openscad-bin.url = "github:LoganBarnett/nixpkgs/openscad-darwin-preserve-cli";
     lix-module = {
-      url = "https://git.lix.systems/lix-project/nixos-module/archive/2.93.3-2.tar.gz";
+      url = "https://git.lix.systems/lix-project/nixos-module/archive/release-2.93.tar.gz";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     hyuqueue = {
