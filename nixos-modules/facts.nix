@@ -256,6 +256,15 @@
         ];
         monitors = [ ];
       };
+      larry-laptop = {
+        blockProfiles = [ "adult" ];
+        controlledHost = false;
+        # Both are "Fixed" MACs.
+        macAddresses = [
+          "a2:55:ac:06:bc:9c"
+          "5e:52:c7:54:38:76"
+        ];
+      };
       lithium = {
         blockProfiles = [ "kid-gaming-rig" ];
         controlledHost = true;
