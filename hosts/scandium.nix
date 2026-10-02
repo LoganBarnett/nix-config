@@ -91,6 +91,7 @@ in
       networking.hostName = host-id;
     }
     ../darwin-configs/hyuqueue.nix
+    ../darwin-configs/stats.nix
     ../darwin-configs/sytter.nix
     ../nixos-configs/tls-trust.nix
     ../nixos-configs/user-can-admin.nix
@@ -285,9 +286,6 @@ in
             #     hash = "sha256-tmxaupVwN8k9ZYtFZjDJuhN9bbkIpcWEJ2JDfrDlBgg=";
             #   };
             # }))
-            # Menu bar system monitor.  Pinned to the latest release via
-            # overlays/stats.nix.
-            pkgs.stats
             # A cloud VPN provider.  It breaks my self hosted proclivities, but
             # others can give me links to go into their VPNs.
             pkgs.tailscale

@@ -283,6 +283,15 @@
         ];
         ipv4 = 149;
       };
+      lovelle-laptop = {
+        blockProfiles = [ "adult" ];
+        controlledHost = false;
+        macAddresses = [
+          # "Fixed" - not true hardware.  Might need a different one for the
+          # 5GHz.
+          "8a:48:df:77:ea:b9"
+        ];
+      };
       # HMH/NWEA work workstation.  The host entry stays here so the rest of
       # the network can resolve and reach it, but the host module is split:
       # the generic stub is at ../hosts/M-CL64PK702X.nix and the HMH-specific
