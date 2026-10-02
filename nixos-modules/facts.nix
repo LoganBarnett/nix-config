@@ -173,7 +173,6 @@
       # argon = {
       #   controlledHost = true;
       #   flake-input-overrides = {
-      #     nixpkgs = "nixpkgs-nixos-raspberrypi";
       #   };
       #   ipv4 = 2;
       #   monitors = [
@@ -192,7 +191,6 @@
       bromine = {
         controlledHost = true;
         flake-input-overrides = {
-          nixpkgs = "nixpkgs-nixos-raspberrypi";
         };
         ipv4 = 3;
         system = "aarch64-linux";
@@ -216,7 +214,6 @@
       cobalt = {
         controlledHost = true;
         flake-input-overrides = {
-          nixpkgs = "nixpkgs-nixos-raspberrypi";
         };
         ipv4 = 11;
         system = "aarch64-linux";
@@ -230,7 +227,6 @@
       gallium = {
         controlledHost = true;
         flake-input-overrides = {
-          nixpkgs = "nixpkgs-nixos-raspberrypi";
         };
         ipv4 = 4;
         system = "aarch64-linux";
@@ -332,7 +328,6 @@
       nickel = {
         controlledHost = true;
         flake-input-overrides = {
-          nixpkgs = "nixpkgs-nixos-raspberrypi";
         };
         ipv4 = 1;
         system = "aarch64-linux";
@@ -352,7 +347,6 @@
       # rpi-installer = {
       #   controlledHost = false;
       #   flake-input-overrides = {
-      #     nixpkgs = "nixpkgs-nixos-raspberrypi";
       #   };
       #   ipv4 = 253;
       #   monitors = [];
@@ -392,7 +386,6 @@
       selenium = {
         controlledHost = true;
         flake-input-overrides = {
-          nixpkgs = "nixpkgs-nixos-raspberrypi";
         };
         ipv4 = 5;
         system = "aarch64-linux";
