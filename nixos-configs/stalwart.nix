@@ -120,6 +120,7 @@ in
     mode = "0440";
   };
 
+  services.stalwart.stateVersion = config.system.nixos.release;
   services.stalwart-mail = {
     enable = true;
     settings = {
