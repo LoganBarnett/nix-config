@@ -105,7 +105,7 @@
       # inputs.nixpkgs.follows = "nixpkgs";
     };
     nix-darwin = {
-      url = "github:LnL7/nix-darwin/nix-darwin-25.11";
+      url = "github:LnL7/nix-darwin/nix-darwin-26.05";
       # rev = "72dd60bfc98c128149d84213b17d1b8a68863055";
       # Leaving this present breaks things and nix-darwin will not load or
       # otherwise will not be present.  It is not understood why, even though
@@ -186,30 +186,13 @@
     # declaratively.
     nixos-raspberrypi = {
       url = "github:nvmd/nixos-raspberrypi/develop";
-      inputs.nixpkgs.follows = "nixpkgs-nixos-raspberrypi";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
-    nixpkgs-nixos-raspberrypi = {
-      url = "github:nvmd/nixpkgs/modules-with-keys-25.11";
-    };
-    # This is forced at the moment, because we have some heavy deltas coming
-    # into flake.lock and I want that to stabilize before I pin it here.
-    # nixpkgs.url = "github:nixos/nixpkgs?ref=f9f59197478b3ec9c954b67ae0d1d5429de23124";
-    # The bare `25.11` ref is the frozen release tag, which never receives
-    # backports; `nixos-25.11` is the maintained release branch.  The branch is
-    # required because `importCargoLock`'s fix to fetch crates from
-    # static.crates.io (crates.io now 403s curl User-Agents, which is what
-    # fetchurl sends) exists on 25.11 only as a backport.
+    # nixpkgs-nixos-raspberrypi = {
+    #   url = "github:nvmd/nixpkgs/modules-with-keys-26.05";
+    # };
     nixpkgs.url = "github:nixos/nixpkgs/nixos-26.05";
     nixpkgs-openscad-bin.url = "github:LoganBarnett/nixpkgs/openscad-darwin-preserve-cli";
-    # So we can pull in mcp-server-git.
-    nixpkgs-mcp-server-git.url = "github:nixos/nixpkgs/26.05";
-    # The newest version of Octoprint on nixpkgs 25.11 enters some kind of
-    # refresh loop on the UI, and my attempts to debug it have come up empty.
-    # It doesn't print any apparent error - I believe it is misidentifying
-    # authentication issues.  This issue exists even when all of the
-    # authentication settings are removed.
-    # nixpkgs-octoprint.url = "github:nixos/nixpkgs/24.11";
-    nixos-option-pr-369151.url = "github:nixos/nixpkgs?ref=pull/369151/head";
     lix-module = {
       url = "https://git.lix.systems/lix-project/nixos-module/archive/2.93.3-2.tar.gz";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -219,11 +202,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     home-manager = {
-      # Pinned to master at PR #8770 merge commit, which fixes skills
-      # generating flat <name>.md files instead of <name>/SKILL.md
-      # directories.  release-25.11 does not have this fix.
-      # https://github.com/nix-community/home-manager/pull/8770
-      url = "github:nix-community/home-manager/91be7cce763fa4022c7cf025a71b0c366d1b6e77";
+      url = "github:nix-community/home-manager/release-26.05";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     openhab-flake = {
@@ -371,8 +350,8 @@
             {
               nixpkgs.overlays = [
                 (final: prev: {
-                  nixos-option =
-                    flake-inputs.nixos-option-pr-369151.outputs.legacyPackages.${system}.nixos-option;
+                  # nixos-option =
+                  #   flake-inputs.nixos-option-pr-369151.outputs.legacyPackages.${system}.nixos-option;
                   nix-remote-builder-doctor =
                     flake-inputs.nix-remote-builder-doctor.packages.${system}.default;
                 })
