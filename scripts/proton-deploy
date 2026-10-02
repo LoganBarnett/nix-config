@@ -69,9 +69,9 @@ else
     echo "Building and activating $host locally..." >&2
     sudo nixos-rebuild "$verb" --flake ".#${host}" "$@"
   else
-    # --fast is the same as --no-build-nix which is "useful you call nixos-rebuild
-    # frequently" but it also makes the difference between working and not working.
-    # In this case if `--fast` is omitted, we see:
+    # --no-reexec is the same as --no-build-nix which is "useful you call
+    # nixos-rebuild frequently" but it also makes the difference between working
+    # and not working.  In this case if `--no-reexec` is omitted, we see:
     # /nix/store/f12m00gy5s976qm6p4xmcv8mkvc24an3-nixos-rebuild/bin/nixos-rebuild: line 432: /nix/store/ssqdazslv2wjpybnk0pjwnpq0dfpa6q2-coreutils-9.5/bin/mktemp: cannot execute binary file: Exec format error
     # See
     # https://discourse.nixos.org/t/deploy-nixos-configurations-on-other-machines/22940/23
@@ -100,7 +100,7 @@ else
       "${sudo_flags[@]}" \
       --use-substitutes \
       --accept-flake-config \
-      --fast \
+      --no-reexec \
       "$@"
   fi
 fi
