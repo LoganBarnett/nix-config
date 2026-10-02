@@ -7,8 +7,8 @@
 # handles:
 #
 #   - The stalwart LDAP service account.
-#   - services.stalwart-mail enablement and base settings (storage,
-#     directory, listeners, server hostname, internal cert, relay rule).
+#   - services.stalwart enablement and base settings (storage, directory,
+#     listeners, server hostname, internal cert, relay rule).
 #   - systemd unit extensions (credential strip, LoadCredential basics).
 #   - Tank-volume + firewall ports.
 #
@@ -47,16 +47,15 @@ in
 {
   imports = [ ./stalwart-facts.nix ];
 
-  # Hard-fail at eval time if stalwart-mail crosses the 0.16 boundary.
-  # 0.16 moved spam-filter rules, domain config, session config, and
-  # most operational settings out of the local TOML and into a runtime
-  # database.  Declarative provisioning of that DB requires a
-  # nix-hapi-provider-stalwart reconciler that does not yet exist
-  # (gated on the nix-hapi core refactor).  Bumping past 0.14 without
-  # that reconciler would silently break the catch-all rewrite, any
-  # custom spam-filter logic, and the LDAP wiring we currently emit
-  # via local TOML — most of which would not surface as obvious
-  # service failures, just as quiet degradation.
+  # Hard-fail at eval time if stalwart crosses the 0.16 boundary.  0.16 moved
+  # spam-filter rules, domain config, session config, and most operational
+  # settings out of the local TOML and into a runtime database.  Declarative
+  # provisioning of that DB requires a nix-hapi-provider-stalwart reconciler
+  # that does not yet exist (gated on the nix-hapi core refactor).  Bumping past
+  # 0.14 without that reconciler would silently break the catch-all rewrite, any
+  # custom spam-filter logic, and the LDAP wiring we currently emit via local
+  # TOML — most of which would not surface as obvious service failures, just as
+  # quiet degradation.
   #
   # Lift this assertion when:
   #   1. nix-hapi-provider-stalwart exists and is wired into this host, AND
@@ -120,9 +119,9 @@ in
     mode = "0440";
   };
 
-  services.stalwart.stateVersion = config.system.nixos.release;
-  services.stalwart-mail = {
+  services.stalwart = {
     enable = true;
+    stateVersion = config.system.nixos.release;
     settings = {
       # All data backed by a single embedded RocksDB instance.  Migrate to
       # PostgreSQL later if needed.
