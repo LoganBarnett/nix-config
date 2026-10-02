@@ -68,7 +68,7 @@ in
     ./darwin-modules/steam.nix
     ./darwin-modules/microsoft-teams.nix
     ./darwin-modules/blackhole.nix
-    ./darwin-modules/stats.nix
+    # ./darwin-modules/stats.nix
     ./darwin-configs/goss.nix
     ./darwin-modules/goss.nix
     ./darwin-modules/goss-exporter.nix

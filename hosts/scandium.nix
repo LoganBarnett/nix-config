@@ -91,7 +91,7 @@ in
       networking.hostName = host-id;
     }
     ../darwin-configs/hyuqueue.nix
-    ../darwin-configs/stats.nix
+    # ../darwin-configs/stats.nix
     ../darwin-configs/sytter.nix
     ../nixos-configs/tls-trust.nix
     ../nixos-configs/user-can-admin.nix
