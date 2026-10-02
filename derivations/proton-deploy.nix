@@ -17,21 +17,22 @@ let
   # needs root, so the build-host branch is patched to skip sudo.  The
   # target-host commands that do need root keep theirs, and nixos-rebuild
   # already gives those a tty so the password prompt reaches the user.
-  patched-nixos-rebuild = nixos-rebuild.overrideAttrs (old: {
-    postInstall = (old.postInstall or "") + ''
-      substituteInPlace $out/bin/nixos-rebuild \
-        --replace-fail '"ssh://$buildHost"' '"ssh-ng://$buildHost"' \
-        --replace-fail 'if [[ "''${useSudo:-x}" = 1 ]]; then' \
-          'if false; then # proton-deploy: building never needs root.'
-    '';
-  });
+  # patched-nixos-rebuild = nixos-rebuild.overrideAttrs (old: {
+  #   postInstall = (old.postInstall or "") + ''
+  #     substituteInPlace $out/bin/nixos-rebuild \
+  #       --replace-fail '"ssh://$buildHost"' '"ssh-ng://$buildHost"' \
+  #       --replace-fail 'if [[ "''${useSudo:-x}" = 1 ]]; then' \
+  #         'if false; then # proton-deploy: building never needs root.'
+  #   '';
+  # });
 in
 writeShellApplication {
   name = "proton-deploy";
   runtimeInputs = [
     jq
     openssh
-    patched-nixos-rebuild
+    nixos-rebuild
+    # patched-nixos-rebuild
   ];
   text = builtins.readFile ../scripts/proton-deploy;
 }
