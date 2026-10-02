@@ -199,7 +199,7 @@
     # required because `importCargoLock`'s fix to fetch crates from
     # static.crates.io (crates.io now 403s curl User-Agents, which is what
     # fetchurl sends) exists on 25.11 only as a backport.
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-25.11";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-26.05";
     nixpkgs-openscad-bin.url = "github:LoganBarnett/nixpkgs/openscad-darwin-preserve-cli";
     # So we can pull in mcp-server-git.
     nixpkgs-mcp-server-git.url = "github:nixos/nixpkgs/26.05";
