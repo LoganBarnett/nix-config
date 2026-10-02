@@ -434,7 +434,7 @@
               proton-deploy
               sonification-test
               pkgs.just
-              pkgs.nixfmt-rfc-style
+              pkgs.nixfmt
               # A review program to help with spotting when the coding agent
               # didn't heed our original contribution direction.
               flake-inputs.rust-template.packages.${system}.review-cli
