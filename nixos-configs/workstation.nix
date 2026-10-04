@@ -62,16 +62,6 @@ let
     src = flake-inputs.nix-editor;
     cargoHash = "sha256-t9QkcRY3viyuDuzxVxT/jWUJ4YPN1riLK9pRK4CRkpo=";
   };
-  signal-desktop-update = pkgs.writeShellApplication {
-    name = "signal-desktop-update";
-    text = builtins.readFile ../scripts/signal-desktop-update;
-    runtimeInputs = [
-      nix-editor
-      pkgs.curl
-      pkgs.jq
-      pkgs.nix
-    ];
-  };
   firefox-bin-update = pkgs.writeShellApplication {
     name = "firefox-bin-update";
     text = builtins.readFile ../scripts/firefox-bin-update;
@@ -177,7 +167,6 @@ in
     # like bumping a version and hash automatically.
     nix-editor
     npm-generate-package-lock-json
-    signal-desktop-update
     firefox-bin-update
     yt-dlp-update
     zoom-us-update

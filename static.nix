@@ -2,11 +2,10 @@
 # This file contains static definitions for things I expect to be essentially
 # hardcoded but easy to update programmatically.
 #
-# For example, Signal Desktop frequently gets expired.  I don't want to
-# constantly update my nixpkgs references and thus have to do lots of major,
-# risky rebuilds.  So I need something that defines the specifics I need for
-# `signal-desktop` (the URL and hash), and then a script can go in and update
-# those on demand.
+# For example, a vendor may ship releases far faster than nixpkgs tracks them.
+# Bumping all of nixpkgs for one package is risky, so the specifics that package
+# needs (typically a version and a hash) live here, and a script can go in and
+# update them on demand.
 ################################################################################
 {
 
@@ -79,11 +78,6 @@
     bin = {
       hash = "sha256-jFvIMbyVKx+HPMhFDGTjktsLJHm2JtGA8P/JZWaJUdA=";
     };
-  };
-
-  signal-desktop-bin = {
-    version = "8.26.0";
-    hash = "sha256-iirCRrNcbY9Yb4IpkrUVB0V+zDBNORMKp+ncKla4Dk8=";
   };
 
   # Stats (exelban/stats), the MIT menu bar system monitor.  Pinned

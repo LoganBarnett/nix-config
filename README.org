@@ -270,7 +270,7 @@ proton-deploy switch "$(hostname -s)"
 #+end_src
 
 Current packages using this pattern: ~claude-code~, ~firefox-bin~,
-~makemkv~, ~opencode~, ~opencode-bun~, ~signal-desktop-bin~, ~stats~,
+~makemkv~, ~opencode~, ~opencode-bun~, ~stats~,
 ~yt-dlp~, ~zoom-us~.
 
 ~blackhole~ (the BlackHole 2ch macOS audio driver) pins version + hash in

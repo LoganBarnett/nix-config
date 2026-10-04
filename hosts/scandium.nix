@@ -142,7 +142,6 @@ in
               "firefox"
               "firefox-bin-unwrapped"
               "ngrok"
-              "signal-desktop"
               "unrar"
               "zoom"
             ]
@@ -233,9 +232,8 @@ in
             # Yet another chat app.  I guess it is supposed to be secure, but I
             # assume anything going to the Internet is fundamentally insecure to
             # whomever receives it, and everyone in between.
-            # Comes from overlays/signal-desktop.nix, which pins the macOS DMG
-            # rather than taking the nixpkgs from-source build, because Signal
-            # disables itself as soon as a newer release ships.
+            # Built from source by nixpkgs; overlays/signal-desktop.nix stops it
+            # from expiring itself.
             pkgs.signal-desktop
             # A cloud VPN provider.  It breaks my self hosted proclivities, but
             # others can give me links to go into their VPNs.

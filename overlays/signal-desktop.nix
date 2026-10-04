@@ -1,45 +1,27 @@
 ################################################################################
-# Signal gets its own section just because it's special.  I don't mean that
-# kindly.
+# Stop Signal Desktop from expiring itself.
 #
-# I can't use the normal nixpkgs for this, becuase Signal insists on
-# frequently updating itself.  This update will never work due to
-# immutability (thank goodness), but it still means we need to have a
-# means of getting latest.  This is because Signal Desktop disables
-# itself after an update becomes available.  Meanies.
+# Signal refuses to send messages once a build is older than its expiry window,
+# which is 30 days for a build it cannot auto-update -- and a Nix-installed app
+# can never auto-update itself.  nixpkgs already patches that window to a flat
+# 90 days; this goes the rest of the way and neutralises the check, so a working
+# install keeps working until we choose to bump it.
+#
+# `hasBuildExpired` is the single predicate behind the lockout.  It also refuses
+# to trust an expiry set too far in the future, so pushing the timestamp out
+# instead would report the build as expired rather than extend it.
+#
+# This appends to `postPatch` rather than `patches` because `pnpmDeps` inherits
+# `patches` into its fixed-output derivation, and leaving that alone avoids
+# disturbing its pinned hash.
 ################################################################################
-{ flake-inputs, system, ... }:
 final: prev: {
-  signal-desktop-bin =
-    prev.signal-desktop-bin
-    # Ugh this is rather hopeless.  Nixpkgs drifts behind so some hero needs to
-    # keep it updated, and I'm not that hero.
-    .overrideAttrs
-      (
-        old:
-        let
-          statics = (import ../static.nix).signal-desktop-bin;
-          inherit (statics) version hash;
-        in
-        {
-          inherit version;
-          src = final.fetchurl {
-            url = "https://updates.signal.org/desktop/signal-desktop-mac-universal-${version}.dmg";
-            inherit hash;
-          };
-          # As of 8.18.0 Signal renamed the DMG volume from "Signal" to
-          # "Signal Installer", so 7z unpacks Signal.app one level down under a
-          # "Signal Installer/" wrapper directory.  The stock nixpkgs derivation
-          # assumes sourceRoot="." with Signal.app at the root and fails with
-          # `cp: cannot stat 'Signal.app'`.  Locate Signal.app wherever it lands
-          # so a future volume rename doesn't break us again.
-          installPhase = ''
-            runHook preInstall
-            mkdir -p "$out/Applications"
-            cp -r "$(find . -maxdepth 2 -name Signal.app -print -quit)" \
-              "$out/Applications/"
-            runHook postInstall
-          '';
-        }
-      );
+  signal-desktop = prev.signal-desktop.overrideAttrs (old: {
+    postPatch = (old.postPatch or "") + ''
+      substituteInPlace ts/util/buildExpiration.std.ts \
+        --replace-fail \
+          '}: HasBuildExpiredOptionsType): boolean {' \
+          '}: HasBuildExpiredOptionsType): boolean { return false;'
+    '';
+  });
 }
