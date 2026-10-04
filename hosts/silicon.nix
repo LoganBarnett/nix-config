@@ -28,6 +28,7 @@ in
     ../nixos-configs/chronicle-proxy.nix
     ../nixos-configs/gitea.nix
     ../nixos-configs/gitea-deployment-webhooks.nix
+    ../nixos-configs/gitea-github-sync.nix
     ../nixos-configs/garage-queue-server.nix
     ../nixos-modules/nextcloud.nix
     ../nixos-configs/notes-sync.nix

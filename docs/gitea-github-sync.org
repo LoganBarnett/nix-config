@@ -1,0 +1,65 @@
+#+title:     Gitea GitHub Sync
+#+language:  en
+
+The flake inputs in ~nix-config-private~ point at ~gitea.proton~ copies of the
+~LoganBarnett~ GitHub repositories, so unpublished work can be deployed before
+it is public.  gitea is therefore allowed to run ahead of GitHub.  The
+~gitea-github-sync~ timer on silicon moves gitea forward whenever GitHub moves,
+and never touches GitHub.
+
+* What a run does
+
+For every repository and branch in ~nixos-configs/gitea-github-sync.nix~:
+
+- gitea equal to GitHub: nothing.
+- gitea ahead: nothing.  Publishing stays a human decision.
+- gitea behind: fast-forward.
+- both moved: rebase the gitea-only commits onto GitHub's head and push with a
+  lease.  The committer on the rewritten commits is ~gitea-github-sync~.
+- rebase conflicts: gitea is left as it was, the unit exits non-zero, and the
+  ~systemd_unit_down~ alert pages once it has been failed for five minutes.
+
+Branches are whatever the flakes pin: forks such as ~agenix~ list only the
+branch in use.  A branch missing on gitea is created from GitHub.  A repository
+missing on gitea fails the run.
+
+* After a rebase
+
+The gitea-only commits have new hashes.  Any clone tracking gitea needs
+~git pull --rebase~, and ~nix-config-private~ needs ~nix flake update <input>~
+to pick up the new revision.  The previously locked revision stays fetchable
+from the local Nix git cache until then.
+
+* One-time setup
+
+The unit pushes over SSH with ~age.secrets.gitea-github-sync-ssh-key~.  After
+~agenix rekey generate --rekey --add-to-git~, register
+~secrets/generated/gitea-github-sync-ssh-key.pub~ as an SSH key on the gitea
+account that owns the repositories (Settings, SSH / GPG Keys).  Until then
+every push fails and the unit stays red.
+
+* Operations
+
+** Run it now
+
+#+begin_src sh :results none :exports code
+sudo systemctl start gitea-github-sync.service
+journalctl --unit gitea-github-sync.service --since -10min
+#+end_src
+
+** Resolving a conflict
+
+The run names the branch.  Rebase it by hand from a clone that has both
+remotes, push the result to gitea, and start the unit again.  If the GitHub
+side is the one that should lose, push gitea's branch to GitHub instead; the
+next run then sees gitea as merely ahead.
+
+#+begin_src sh :results none :exports code
+git fetch github && git rebase github/main
+git push --force-with-lease origin main
+#+end_src
+
+** Adding a repository
+
+Add an entry under ~services.gitea-github-sync.repos~.  The name is shared by
+both sides; set ~branches~ when the flake pins something other than ~main~.

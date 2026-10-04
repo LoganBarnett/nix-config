@@ -2144,6 +2144,14 @@ ssh titanium.proton curl -s http://localhost:11434/api/tags | jq '.models[].name
 - There is no transparent proxy fallback for non-queued routes.
 
 * Operations
+
+** Gitea repos drifting from GitHub
+
+The private flake deploys from gitea.proton copies of the GitHub repos, so a
+timer on silicon pulls GitHub into gitea (fast-forward or rebase) and pages when
+a rebase conflicts.  Mechanics, the one-time SSH key registration, and conflict
+resolution are in [[file:docs/gitea-github-sync.org][docs/gitea-github-sync.org]].
+
 ** Cellular tether breaking VPN-routed traffic on the Mac
 
 Symptom: an app on a tethered Mac times out connecting to a ~.proton~ LAN

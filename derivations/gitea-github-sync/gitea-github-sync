@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+################################################################################
+# Pull GitHub into the gitea copies of the same repositories.
+#
+# gitea is where unpublished work lands first, so it may be ahead of GitHub,
+# and GitHub may move on its own (merged pull requests, pushes from elsewhere).
+# For each configured branch: when gitea is behind, fast-forward it; when both
+# sides moved, rebase the gitea-only commits onto GitHub and push with a lease;
+# when the rebase conflicts, leave gitea untouched and fail.  Nothing is ever
+# pushed to GitHub.
+#
+# Environment (set by the systemd unit):
+#   GITEA_GITHUB_SYNC_REPOS  JSON list of {name, github, gitea, branches}.
+#   STATE_DIRECTORY          Holds one bare repository per entry.
+#   GIT_SSH_COMMAND          Carries the gitea push identity.
+################################################################################
+set -euo pipefail
+# shellcheck source=bash-logging
+source "${BASH_LOGGING:-$HOME/.bash-logging}"
+
+: "${GITEA_GITHUB_SYNC_REPOS:?}" "${STATE_DIRECTORY:?}"
+
+failures=()
+
+count_between() {
+  git -C "$1" rev-list --count "$2..$3"
+}
+
+# Rebases gitea's commits for one branch onto GitHub's head in a throwaway
+# worktree.  Prints the rebased head on success.
+rebase_branch() {
+  local repo_dir="$1" gitea_rev="$2" github_rev="$3"
+  local worktree
+  worktree="$(mktemp --directory)"
+  git -C "$repo_dir" worktree add --quiet --detach "$worktree" "$gitea_rev"
+  if git -C "$worktree" rebase --quiet "$github_rev" > /dev/null 2>&1; then
+    git -C "$worktree" rev-parse HEAD
+  else
+    git -C "$worktree" rebase --abort > /dev/null 2>&1 || true
+    git -C "$repo_dir" worktree remove --force "$worktree"
+    return 1
+  fi
+  git -C "$repo_dir" worktree remove --force "$worktree"
+}
+
+sync_branch() {
+  local name="$1" repo_dir="$2" branch="$3"
+  local github_rev gitea_rev label="$name/$branch"
+
+  git -C "$repo_dir" fetch --quiet --prune github \
+    "+refs/heads/$branch:refs/remotes/github/$branch"
+  git -C "$repo_dir" fetch --quiet --prune gitea \
+    "+refs/heads/$branch:refs/remotes/gitea/$branch" 2> /dev/null || true
+
+  github_rev="$(git -C "$repo_dir" rev-parse --verify --quiet "refs/remotes/github/$branch")"
+  if ! gitea_rev="$(git -C "$repo_dir" rev-parse --verify --quiet "refs/remotes/gitea/$branch")"; then
+    git -C "$repo_dir" push --quiet gitea "$github_rev:refs/heads/$branch"
+    slog "$label: created on gitea from GitHub ($github_rev)."
+    return 0
+  fi
+
+  if [[ "$github_rev" == "$gitea_rev" ]]; then
+    slog "$label: in sync."
+  elif git -C "$repo_dir" merge-base --is-ancestor "$github_rev" "$gitea_rev"; then
+    slog "$label: gitea is ahead by $(count_between "$repo_dir" "$github_rev" "$gitea_rev") commit(s); nothing to do."
+  elif git -C "$repo_dir" merge-base --is-ancestor "$gitea_rev" "$github_rev"; then
+    git -C "$repo_dir" push --quiet gitea "$github_rev:refs/heads/$branch"
+    slog "$label: fast-forwarded gitea by $(count_between "$repo_dir" "$gitea_rev" "$github_rev") commit(s)."
+  else
+    local ours theirs new_rev
+    ours="$(count_between "$repo_dir" "$github_rev" "$gitea_rev")"
+    theirs="$(count_between "$repo_dir" "$gitea_rev" "$github_rev")"
+    if new_rev="$(rebase_branch "$repo_dir" "$gitea_rev" "$github_rev")"; then
+      git -C "$repo_dir" push --quiet \
+        --force-with-lease="refs/heads/$branch:$gitea_rev" \
+        gitea "$new_rev:refs/heads/$branch"
+      slog "$label: rebased $ours gitea commit(s) onto $theirs new GitHub commit(s); gitea now at $new_rev."
+    else
+      slog "$label: FAILED; $ours gitea commit(s) do not rebase cleanly onto $theirs GitHub commit(s).  Resolve by hand."
+      return 1
+    fi
+  fi
+}
+
+ensure_remote() {
+  local repo_dir="$1" remote="$2" url="$3"
+  if git -C "$repo_dir" remote get-url "$remote" > /dev/null 2>&1; then
+    git -C "$repo_dir" remote set-url "$remote" "$url"
+  else
+    git -C "$repo_dir" remote add "$remote" "$url"
+  fi
+}
+
+while IFS= read -r entry; do
+  name="$(jq --raw-output '.name' <<< "$entry")"
+  github_url="$(jq --raw-output '.github' <<< "$entry")"
+  gitea_url="$(jq --raw-output '.gitea' <<< "$entry")"
+  repo_dir="$STATE_DIRECTORY/$name.git"
+
+  if [[ ! -d "$repo_dir" ]]; then
+    git init --quiet --bare "$repo_dir"
+  fi
+  ensure_remote "$repo_dir" github "$github_url"
+  ensure_remote "$repo_dir" gitea "$gitea_url"
+
+  while IFS= read -r branch; do
+    if ! sync_branch "$name" "$repo_dir" "$branch"; then
+      failures+=("$name/$branch")
+    fi
+  done < <(jq --raw-output '.branches[]' <<< "$entry")
+done < <(jq --compact-output '.[]' "$GITEA_GITHUB_SYNC_REPOS")
+
+if ((${#failures[@]} > 0)); then
+  slog "${#failures[@]} branch(es) need a human: ${failures[*]}"
+  exit 1
+fi
+slog "All branches reconciled."

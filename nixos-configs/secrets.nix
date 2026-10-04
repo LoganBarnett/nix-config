@@ -85,6 +85,7 @@ in
   age.generators.ssh-ed25519-with-pub =
     {
       file,
+      gitAdd,
       lib,
       name,
       pkgs,
@@ -101,6 +102,7 @@ in
         -f ${name} \
         <<<y >/dev/null 2>&1;
         cp "${name}.pub" "$(dirname "${file}")"
+        ${gitAdd} "$(dirname "${file}")/${name}.pub"
         echo copied public key ${name}.pub to "$(dirname "${file}")" 1>&2
         cat "${name}"
         rm "${name}"{,.pub}
