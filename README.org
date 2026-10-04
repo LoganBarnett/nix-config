@@ -2149,8 +2149,9 @@ ssh titanium.proton curl -s http://localhost:11434/api/tags | jq '.models[].name
 
 The private flake deploys from gitea.proton copies of the GitHub repos, so a
 timer on silicon pulls GitHub into gitea (fast-forward or rebase) and pages when
-a rebase conflicts.  Mechanics, the one-time SSH key registration, and conflict
-resolution are in [[file:docs/gitea-github-sync.org][docs/gitea-github-sync.org]].
+a rebase conflicts.  Mechanics, how its SSH key is registered, and conflict
+resolution are in
+[[file:docs/gitea-github-sync.org][docs/gitea-github-sync.org]].
 
 ** Cellular tether breaking VPN-routed traffic on the Mac
 

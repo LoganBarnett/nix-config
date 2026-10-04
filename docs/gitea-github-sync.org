@@ -30,13 +30,12 @@ The gitea-only commits have new hashes.  Any clone tracking gitea needs
 to pick up the new revision.  The previously locked revision stays fetchable
 from the local Nix git cache until then.
 
-* One-time setup
+* Credentials
 
-The unit pushes over SSH with ~age.secrets.gitea-github-sync-ssh-key~.  After
-~agenix rekey generate --rekey --add-to-git~, register
-~secrets/generated/gitea-github-sync-ssh-key.pub~ as an SSH key on the gitea
-account that owns the repositories (Settings, SSH / GPG Keys).  Until then
-every push fails and the unit stays red.
+The unit pushes over SSH with ~age.secrets.gitea-github-sync-ssh-key~.  The
+~gitea-ssh-keys~ unit registers that public key on the owning gitea account
+after every deploy.  This mints an API token for the account with the gitea CLI
+and keeping it under ~/var/lib/gitea-ssh-keys~.
 
 * Operations
 

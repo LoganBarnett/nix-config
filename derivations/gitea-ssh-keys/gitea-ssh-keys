@@ -1,0 +1,130 @@
+#!/usr/bin/env bash
+################################################################################
+# Register SSH public keys on gitea accounts.
+#
+# gitea has no CLI for SSH keys, so each key goes in through the REST API with a
+# token the gitea CLI mints for the owning account.  Tokens live in the state
+# directory; a token the server no longer accepts is replaced on the spot.  A
+# key already present on the account is left alone.
+#
+# Environment (set by the systemd unit):
+#   GITEA_SSH_KEYS_SPEC  JSON list of {title, user, publicKeyFile, readOnly}.
+#   GITEA_BIN            The gitea executable.
+#   GITEA_APP_INI        gitea's app.ini, for the CLI.
+#   GITEA_API            API base, e.g. http://127.0.0.1:3001/api/v1.
+#   STATE_DIRECTORY      Holds one token file per account.
+################################################################################
+set -euo pipefail
+# shellcheck source=bash-logging
+source "${BASH_LOGGING:-$HOME/.bash-logging}"
+
+: "${GITEA_SSH_KEYS_SPEC:?}" "${GITEA_BIN:?}" "${GITEA_APP_INI:?}" \
+  "${GITEA_API:?}" "${STATE_DIRECTORY:?}"
+
+work_dir="$(mktemp --directory)"
+trap 'rm --recursive --force "$work_dir"' EXIT
+response_file="$work_dir/response.json"
+
+# gitea is Type=simple, so After= does not mean the API answers yet.
+deadline=$((SECONDS + 120))
+until curl --silent --fail --max-time 5 --output /dev/null "$GITEA_API/version"; do
+  if ((SECONDS >= deadline)); then
+    slog "gitea API at $GITEA_API did not answer within 120s."
+    exit 1
+  fi
+  sleep 2
+done
+
+mint_token() {
+  local user="$1" token_file="$2"
+  # Names must be unique per account and there is no CLI to delete one, so
+  # each mint gets a fresh suffix.
+  local name
+  name="gitea-ssh-keys-$(date +%s)"
+  (
+    umask 077
+    "$GITEA_BIN" --config "$GITEA_APP_INI" admin user generate-access-token \
+      --username "$user" \
+      --token-name "$name" \
+      --scopes write:user \
+      --raw > "$token_file"
+  )
+  slog "Minted API token '$name' for '$user'."
+}
+
+# Prints the HTTP status; the body lands in $response_file.
+api() {
+  local token="$1" method="$2" path="$3" body="${4:-}"
+  local -a args=(
+    --silent --show-error --max-time 30
+    --request "$method"
+    --header "Authorization: token $token"
+    --header 'Content-Type: application/json'
+    --output "$response_file"
+    --write-out '%{http_code}'
+  )
+  if [[ -n "$body" ]]; then
+    args+=(--data "$body")
+  fi
+  curl "${args[@]}" "$GITEA_API$path"
+}
+
+# Lists the account's keys, replacing the token once if gitea rejects it.
+list_keys() {
+  local user="$1" token_file="$2" status
+  if [[ ! -f "$token_file" ]]; then
+    mint_token "$user" "$token_file"
+  fi
+  status="$(api "$(cat "$token_file")" GET "/user/keys?limit=100")"
+  if [[ "$status" == 401 ]]; then
+    slog "Stored token for '$user' is no longer accepted; replacing it."
+    rm --force "$token_file"
+    mint_token "$user" "$token_file"
+    status="$(api "$(cat "$token_file")" GET "/user/keys?limit=100")"
+  fi
+  if [[ "$status" != 200 ]]; then
+    slog "Listing keys for '$user' failed (HTTP $status): $(cat "$response_file")"
+    return 1
+  fi
+}
+
+failures=0
+while IFS= read -r entry; do
+  title="$(jq --raw-output '.title' <<< "$entry")"
+  user="$(jq --raw-output '.user' <<< "$entry")"
+  public_key_file="$(jq --raw-output '.publicKeyFile' <<< "$entry")"
+  read_only="$(jq --raw-output '.readOnly' <<< "$entry")"
+  token_file="$STATE_DIRECTORY/token-$user"
+
+  public_key="$(tr --delete '\n' < "$public_key_file")"
+  # gitea stores "<type> <base64>" without the comment.
+  key_body="$(cut --delimiter ' ' --fields 1,2 <<< "$public_key")"
+
+  if ! list_keys "$user" "$token_file"; then
+    failures=$((failures + 1))
+    continue
+  fi
+  if jq --exit-status --arg key "$key_body" 'map(.key) | index($key) != null' "$response_file" > /dev/null; then
+    slog "$user: key '$title' already registered."
+    continue
+  fi
+
+  # shellcheck disable=SC2016
+  body="$(
+    jq --null-input --compact-output \
+      --arg title "$title" --arg key "$public_key" --argjson read_only "$read_only" \
+      '{ title: $title, key: $key, read_only: $read_only }'
+  )"
+  status="$(api "$(cat "$token_file")" POST /user/keys "$body")"
+  if [[ "$status" == 201 ]]; then
+    slog "$user: registered key '$title'."
+  else
+    slog "$user: registering key '$title' failed (HTTP $status): $(cat "$response_file")"
+    failures=$((failures + 1))
+  fi
+done < <(jq --compact-output '.[]' "$GITEA_SSH_KEYS_SPEC")
+
+if ((failures > 0)); then
+  slog "$failures key(s) could not be registered."
+  exit 1
+fi
