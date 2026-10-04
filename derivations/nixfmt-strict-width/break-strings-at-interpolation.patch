@@ -1,0 +1,58 @@
+Every interpolation in a string is a possible line break.  The expression then
+sits on a line of its own.  Stock nixfmt forces short and simple interpolations
+onto one line whatever the width.  Paths and attribute selectors keep that
+rule.
+
+diff --git a/src/Nixfmt/Pretty.hs b/src/Nixfmt/Pretty.hs
+index f8ebd96..354e577 100644
+--- a/src/Nixfmt/Pretty.hs
++++ b/src/Nixfmt/Pretty.hs
+@@ -972,13 +972,30 @@ instance Pretty [StringPart] where
+       indentation = textWidth $ Text.takeWhile isSpace t
+   pretty parts = hcat parts
+ 
++-- | Render a line of a string.  Every interpolation is a possible line break,
++-- with the expression on a line of its own.  Paths and selectors keep the
++-- instances above.
++prettyStringLine :: [StringPart] -> Doc
++prettyStringLine parts = case parts of
++  [Interpolation _] -> pretty parts
++  [TextPart pre, Interpolation (Whole _ [])] | isSpaces pre -> pretty parts
++  TextPart t : rest ->
++    text t <> offset (textWidth $ Text.takeWhile isSpace t) (hcat $ map breakable rest)
++  _ -> hcat $ map breakable parts
++  where
++    breakable (Interpolation whole@(Whole (Term t) []))
++      | isAbsorbable t = pretty (Interpolation whole)
++    breakable (Interpolation whole) =
++      group $ text "${" <> surroundWith line' (nest whole) <> text "}"
++    breakable part = pretty part
++
+ prettySimpleString :: [[StringPart]] -> Doc
+ prettySimpleString parts =
+   group $
+     text "\""
+       -- Use literal \n here instead of `newline`, as the latter
+       -- would cause multiline-string-style indentation which we do not want
+-      <> sepBy (text "\n") (map pretty parts)
++      <> sepBy (text "\n") (map prettyStringLine parts)
+       <> text "\""
+ 
+ -- | Render an indented string. If a disabled region cuts through it (@cut@
+@@ -998,7 +1015,7 @@ prettyIndentedString cut parts =
+     -- The nest above does not indent the raw lines (RawText renders as-is), but
+     -- keeps the indentation state consistent for interpolations and what follows.
+     prettyLine :: [StringPart] -> Doc
+-    prettyLine = maybe pretty rawLine cut
++    prettyLine = maybe prettyStringLine rawLine cut
+ 
+     -- Reproduce a line at its original columns: emit the leading whitespace
+     -- (stripped indentation included) as raw text and delegate the rest to the
+@@ -1007,5 +1024,5 @@ prettyIndentedString cut parts =
+     rawLine _ [] = mempty
+     rawLine ind (TextPart t : rest) =
+       let (ws, content) = Text.span isSpace t
+-      in rawText (ind <> ws) <> offset (textWidth ws) (pretty (TextPart content : rest))
+-    rawLine ind lineParts = rawText ind <> pretty lineParts
++      in rawText (ind <> ws) <> offset (textWidth ws) (prettyStringLine (TextPart content : rest))
++    rawLine ind lineParts = rawText ind <> prettyStringLine lineParts

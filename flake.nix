@@ -96,7 +96,8 @@
       # What's on master doesn't build with the current settings.  It looks like
       # they've moved onto qt6 but Nix has many components that don't work on
       # qt6 on darwin.  So pin it to the last known working state.
-      url = "github:nextcloud/desktop?dir=admin/nix&rev=19a2f8cc7da52f62b6e7f4ca3b68ba7056b46f4e";
+      url =
+        "github:nextcloud/desktop?dir=admin/nix&rev=19a2f8cc7da52f62b6e7f4ca3b68ba7056b46f4e";
       # inputs.nixpkgs.follows = "nixpkgs";
     };
     nix-darwin = {
@@ -113,7 +114,8 @@
     # cargoLock.lockFile derivation produces a dangling Cargo.lock symlink
     # under Nix >= 2.33; workstation.nix rebuilds from source with cargoHash.
     nix-editor = {
-      url = "github:snowfallorg/nix-editor/b5017f8d61753ce6a3a1a2aa7e474d59146a8ae3";
+      url =
+        "github:snowfallorg/nix-editor/b5017f8d61753ce6a3a1a2aa7e474d59146a8ae3";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     nix-hapi = {
@@ -187,7 +189,8 @@
     #   url = "github:nvmd/nixpkgs/modules-with-keys-26.05";
     # };
     nixpkgs.url = "github:nixos/nixpkgs/nixos-26.05";
-    nixpkgs-openscad-bin.url = "github:LoganBarnett/nixpkgs/openscad-darwin-preserve-cli";
+    nixpkgs-openscad-bin.url =
+      "github:LoganBarnett/nixpkgs/openscad-darwin-preserve-cli";
     hyuqueue = {
       url = "github:LoganBarnett/hyuqueue";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -287,9 +290,12 @@
           }
           # nixos-raspberrypi modules now expect the flake ref via specialArgs
           # (since cdda49f).  Pass it through when available so RPi hosts work.
-          // flake-inputs.nixpkgs.lib.optionalAttrs (flake-inputs ? nixos-raspberrypi) {
-            inherit (flake-inputs) nixos-raspberrypi;
-          };
+          //
+            flake-inputs.nixpkgs.lib.optionalAttrs
+              (flake-inputs ? nixos-raspberrypi)
+              {
+                inherit (flake-inputs) nixos-raspberrypi;
+              };
           modules = [
             flake-inputs.home-manager.nixosModules.home-manager
             flake-inputs.nix-option-search.nixosModules.default
@@ -367,9 +373,9 @@
       host-config = name: hostFacts: {
         flake-inputs =
           flake-inputs
-          // (lib.attrsets.mapAttrs (name: input-name: flake-inputs."${input-name}") (
-            hostFacts.flake-input-overrides or { }
-          ));
+          // (lib.attrsets.mapAttrs (
+            name: input-name: flake-inputs."${input-name}"
+          ) (hostFacts.flake-input-overrides or { }));
         host-id = name;
         system = hostFacts.system;
       };
@@ -385,7 +391,9 @@
             # they are known to be inconsistent, and sometimes we're dealing with a
             # double while other times it might be a triple.
             hostFacts ? system
-            && (builtins.elemAt (lib.strings.splitString "-" hostFacts.system) 1) == os
+            &&
+              (builtins.elemAt (lib.strings.splitString "-" hostFacts.system) 1)
+              == os
           ))
           (lib.attrsets.mapAttrs host-config)
           (lib.attrsets.mapAttrs (n: f))
@@ -396,14 +404,21 @@
         system:
         let
           pkgs = import nixpkgs { inherit system; };
-          fmt-staged = pkgs.callPackage ./derivations/fmt-staged.nix { };
+          fmt-staged = pkgs.callPackage ./derivations/fmt-staged.nix {
+            nixfmt = nixfmt-strict-width;
+          };
           nix-direnv-add-envrc =
             pkgs.callPackage ./derivations/nix-direnv-add-envrc.nix
               { };
           nix-host-key-install =
             pkgs.callPackage ./derivations/nix-host-key-install.nix
               { };
-          gnused-wrapper = pkgs.callPackage ./derivations/gnused-wrapper.nix { };
+          nixfmt-strict-width =
+            pkgs.callPackage ./derivations/nixfmt-strict-width/default.nix
+              { };
+          gnused-wrapper =
+            pkgs.callPackage ./derivations/gnused-wrapper.nix
+              { };
           proton-deploy = pkgs.callPackage ./derivations/proton-deploy.nix { };
           sonification-test =
             pkgs.callPackage ./derivations/sonification-test/default.nix
@@ -415,6 +430,7 @@
               fmt-staged
               nix-direnv-add-envrc
               nix-host-key-install
+              nixfmt-strict-width
               # On Darwin the stdenv injects raw gnused into PATH, which
               # bypasses our system-wide wrapper.  Including it here ensures the
               # wrapper wins because mkShell prepends packages before stdenv
@@ -423,7 +439,6 @@
               proton-deploy
               sonification-test
               pkgs.just
-              pkgs.nixfmt
               # A review program to help with spotting when the coding agent
               # didn't heed our original contribution direction.
               flake-inputs.rust-template.packages.${system}.review-cli
@@ -444,7 +459,9 @@
       darwinConfigurations =
         host-configs-for-os darwin-host "darwin"
           facts.network.hosts;
-      nixosConfigurations = host-configs-for-os nix-host "linux" facts.network.hosts;
+      nixosConfigurations =
+        host-configs-for-os nix-host "linux"
+          facts.network.hosts;
       # Helper for private wrapper flakes.  See lib/private-wrapper.nix and
       # docs/private-wrapper.org for the call site and contract.
       lib = {

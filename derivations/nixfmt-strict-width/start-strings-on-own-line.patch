@@ -1,0 +1,26 @@
+A string or path on the right of `=` moves to its own line when that makes it
+fit.  It also moves when not even its first part fits behind the `=`.  Stock
+nixfmt always keeps it attached.
+
+diff --git a/src/Nixfmt/Pretty.hs b/src/Nixfmt/Pretty.hs
+index 354e577..ab5a2a5 100644
+--- a/src/Nixfmt/Pretty.hs
++++ b/src/Nixfmt/Pretty.hs
+@@ -740,12 +740,12 @@ absorbRHS expr = case expr of
+   _ | isAbsorbableExpr expr -> nest $ hardspace <> group (absorbExpr True expr)
+   -- Parenthesized expression. Same thing as the special case for parenthesized last argument in function calls.
+   (Term (Parenthesized open expr' close)) -> nest $ hardspace <> absorbParen open expr' close
+-  -- Not all strings are absorbable, but in this case we always want to keep them attached.
+-  -- Because there's nothing to gain from having them start on a new line.
+-  (Term (SimpleString _)) -> nest $ hardspace <> group expr
+-  (Term (IndentedString _ _)) -> nest $ hardspace <> group expr
++  -- Not all strings are absorbable.  They start on a new line when that makes
++  -- them fit, or when not even their first part fits behind the `=`.
++  (Term (SimpleString _)) -> nest $ group' RegularG (group' Priority line <> group expr)
++  (Term (IndentedString _ _)) -> nest $ group' RegularG (group' Priority line <> group expr)
+   -- Same for path
+-  (Term (Path _)) -> nest $ hardspace <> group expr
++  (Term (Path _)) -> nest $ group' RegularG (group' Priority line <> group expr)
+   -- Non-absorbable term
+   -- If it is multi-line, force it to start on a new line with indentation
+   (Term _) -> nest $ group' RegularG (line <> pretty expr)

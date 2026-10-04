@@ -1,0 +1,52 @@
+A function application of simple terms wraps like any other application.
+Stock nixfmt forces it onto one line whatever the width.
+
+diff --git a/src/Nixfmt/Pretty.hs b/src/Nixfmt/Pretty.hs
+index ab5a2a5..b6d4343 100644
+--- a/src/Nixfmt/Pretty.hs
++++ b/src/Nixfmt/Pretty.hs
+@@ -4,7 +4,7 @@
+ module Nixfmt.Pretty where
+ 
+ import Data.Char (isSpace)
+-import Data.Maybe (fromJust, fromMaybe, isJust, isNothing)
++import Data.Maybe (fromMaybe, isNothing)
+ import Data.Sequence qualified as Seq
+ import Data.Text (Text)
+ import Data.Text qualified as Text (null, span, takeWhile)
+@@ -543,22 +543,10 @@ prettyApp indentFunction pre hasPost f a =
+             let (annots, hoisted) = Seq.partition isLangAnnotation preTrivia
+             in (a'{preTrivia = annots}, hoisted)
+ 
+-      -- renderSimple will take a document to render, and call one of two callbacks depending on whether
+-      -- it can take a simplified layout (with removed line breaks) or not.
+-      renderSimple :: Doc -> (Doc -> Doc) -> (Doc -> Doc) -> Doc
+-      renderSimple toRender renderIfSimple renderOtherwise =
+-        let renderedF = pre <> group' Transparent toRender
+-            renderedFUnexpanded = unexpandSpacing' Nothing renderedF
+-        in if isSimple (Application f a) && isJust renderedFUnexpanded
+-             then renderIfSimple (fromJust renderedFUnexpanded)
+-             else renderOtherwise renderedF
+-
+       post = if hasPost then line' else mempty
+   in pretty comment'
+        <> case (fWithoutComment, a) of
+          -- When the two last arguments are lists, render these specially (same as above)
+-         -- Also no need to wrap in renderSimple here, because we know that these kinds of arguments
+-         -- are never "simple" by definition.
+          (Application fWithoutCommandAndWithoutArg l1@(Term List{}), l2@(Term List{})) ->
+            group' RegularG $
+              (pre <> group' Transparent (absorbApp fWithoutCommandAndWithoutArg))
+@@ -568,10 +556,8 @@ prettyApp indentFunction pre hasPost f a =
+                <> nest (group (absorbInner l2))
+                <> post
+          _ ->
+-           renderSimple
+-             (absorbApp fWithoutComment)
+-             (\fRendered -> group' RegularG $ fRendered <> hardspace <> absorbLast a)
+-             (\fRendered -> group' RegularG $ fRendered <> line <> absorbLast a <> post)
++           group' RegularG $
++             pre <> group' Transparent (absorbApp fWithoutComment) <> line <> absorbLast a <> post
+        <> (if hasPost && not (null comment') then hardline else mempty)
+ 
+ prettyOp :: Bool -> Expression -> Leaf -> Doc

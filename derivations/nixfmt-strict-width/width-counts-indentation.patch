@@ -1,0 +1,169 @@
+The width counts a line's indentation.  Stock nixfmt measures only the text
+after the indentation, so a line indented by N columns may reach column
+width + N.
+
+diff --git a/src/Nixfmt/Predoc.hs b/src/Nixfmt/Predoc.hs
+index b6754dc..053cfe5 100644
+--- a/src/Nixfmt/Predoc.hs
++++ b/src/Nixfmt/Predoc.hs
+@@ -569,28 +569,40 @@ newlines n = Text.replicate n "\n"
+ indent :: Int -> Text
+ indent n = Text.replicate n " "
+ 
+--- All state is (cc, indents, suppress)
++-- All state is (cc, li, indents, suppress)
+ -- cc: current column (within the current line, *not including indentation*)
++-- li: indentation of the current line.  It is meaningless while cc is 0.
+ -- indents:
+ --   A stack of tuples (currentIndent, nestingLevel)
+ --   This is guaranteed to never be empty, as we start with [(0, 0)] and never go below that.
+ -- suppress: whether we are inside a format-disabled region: content is still
+ --   rendered (cc and indents evolve as usual) but nothing is emitted, until
+ --   the region's Verbatim node emits the raw text and clears the flag.
+-type St = (Int, NonEmpty (Int, Int), Bool)
++type St = (Int, Int, NonEmpty (Int, Int), Bool)
+ 
+ -- tw   Target Width
+ layoutGreedy :: Int -> Int -> Doc -> Text
+-layoutGreedy tw iw doc = Text.concat $ evalState (go [Group RegularG doc] []) (0, singleton (0, 0), False)
++layoutGreedy tw iw doc = Text.concat $ evalState (go [Group RegularG doc] []) (0, 0, singleton (0, 0), False)
+   where
+     -- Simple helpers around `put` with a tuple state
+-    -- NOTE: making putL strict removes the allocation for the Int
+-    putL v = modify' (\(_, indents, suppress) -> (v, indents, suppress))
+-    putR v = modify' (\(cc, _, suppress) -> (cc, v, suppress))
++    putR v = modify' (\(cc, li, _, suppress) -> (cc, li, v, suppress))
++
++    -- The indentation a text receives when it starts a line.  This mirrors
++    -- how putTextWith walks the indentation stack.
++    startIndent :: Int -> Int -> NonEmpty (Int, Int) -> Int
++    startIndent textNL textOffset ((ci, nl) :| indents') = case textNL `compare` nl of
++      GT -> ci + iw + textOffset
++      LT | x : xs <- indents' -> startIndent textNL textOffset (x :| xs)
++      _ -> ci + textOffset
++
++    -- The indentation of the line that a break in front of the given
++    -- chunks would start.
++    nextLineIndent :: Doc -> NonEmpty (Int, Int) -> Int
++    nextLineIndent = uncurry startIndent . nextIndent
+ 
+     -- Emit the given texts, unless we are inside a format-disabled region
+     emit :: [Text] -> State St [Text]
+-    emit ts = get <&> \(_, _, suppress) -> if suppress then [] else ts
++    emit ts = get <&> \(_, _, _, suppress) -> if suppress then [] else ts
+ 
+     -- Print a given text. If this is the first token on a line, it will
+     -- do the appropriate calculations for indentation and print that in addition to the text.
+@@ -606,7 +618,7 @@ layoutGreedy tw iw doc = Text.concat $ evalState (go [Group RegularG doc] []) (0
+     putTextWith :: Bool -> Int -> Int -> Text -> State St [Text]
+     putTextWith withIndent textNL textOffset t =
+       get
+-        >>= \(cc, indents@((ci, nl) :| indents'), _) ->
++        >>= \(cc, _, indents@((ci, nl) :| indents'), _) ->
+           case textNL `compare` nl of
+             -- Push the textNL onto the stack, but only increase the actual indentation (`ci`)
+             -- if this is the first one of a line. All subsequent nestings within the line effectively get "swallowed"
+@@ -619,17 +631,22 @@ layoutGreedy tw iw doc = Text.concat $ evalState (go [Group RegularG doc] []) (0
+         -- Put the text and advance the `cc` cursor. Add the appropriate amount of indentation if this is
+         -- the first token on a line
+         go' = do
+-          (cc, (ci, _) :| _, _) <- get
+-          putL (if withIndent then cc + textWidth t else max 1 (cc + textWidth t))
++          (cc, li, indents@((ci, _) :| _), suppress) <- get
++          let !cc' = if withIndent then cc + textWidth t else max 1 (cc + textWidth t)
++              !li'
++                | cc /= 0 = li
++                | withIndent = ci + textOffset
++                | otherwise = 0
++          put (cc', li', indents, suppress)
+           let !i'd = indent (ci + textOffset)
+           emit $! if cc == 0 && withIndent then [i'd, t] else [t]
+ 
+     -- Simply put text without caring about line-start indentation
+     putText' :: [Text] -> State St [Text]
+     putText' ts = do
+-      (cc, indents, suppress) <- get
++      (cc, li, indents, suppress) <- get
+       let !cc' = cc + sum (map textWidth ts)
+-      put (cc', indents, suppress)
++      put (cc', li, indents, suppress)
+       emit ts
+ 
+     -- First argument: chunks to render
+@@ -642,12 +659,17 @@ layoutGreedy tw iw doc = Text.concat $ evalState (go [Group RegularG doc] []) (0
+     -- Second argument: lookahead of following chunks
+     goOne :: DocE -> Doc -> State St [Text]
+     goOne x xs =
+-      get >>= \(cc, indents, suppress) ->
++      get >>= \(cc, li, indents, suppress) ->
+         let -- The last printed character was a line break
+             needsIndent = (cc == 0)
+ 
+             putNL :: Int -> State St [Text]
+-            putNL n = put (0, indents, suppress) *> emit [newlines n]
++            putNL n = put (0, 0, indents, suppress) *> emit [newlines n]
++
++            -- The room left on this line, and the room a fresh line would
++            -- offer the chunks that follow.
++            remaining = tw - li - cc
++            fresh = max remaining (tw - nextLineIndent xs indents)
+         in case x of
+              -- Special case trailing comments. Because in cases like
+              -- [ # comment
+@@ -667,7 +689,7 @@ layoutGreedy tw iw doc = Text.concat $ evalState (go [Group RegularG doc] []) (0
+                  lineNL = snd $ NonEmpty.head indents
+              -- Start of a format-disabled region: suppress output from here on.
+              -- The region's content is still rendered to keep the state exact.
+-             Text _ _ DisableMarker _ -> put (cc, indents, True) $> []
++             Text _ _ DisableMarker _ -> put (cc, li, indents, True) $> []
+              -- Raw line prefix of a cut string: emit as-is, without any indentation
+              Text nl off RawText t -> putRawText nl off t
+              -- Raw text of a disabled region: emit as-is and stop suppressing.
+@@ -676,7 +698,7 @@ layoutGreedy tw iw doc = Text.concat $ evalState (go [Group RegularG doc] []) (0
+              -- simulated cursor. The cursor is set to the raw text's last-line
+              -- width so the following hardline behaves.
+              Text _ _ (Verbatim _) t ->
+-               put (textWidth (Text.takeWhileEnd (/= '\n') t), indents, False)
++               put (textWidth (Text.takeWhileEnd (/= '\n') t), 0, indents, False)
+                  $> (if needsIndent || suppress then [t] else ["\n", t])
+              Text nl off _ t -> putText nl off t
+              -- This code treats whitespace as "expanded"
+@@ -693,11 +715,11 @@ layoutGreedy tw iw doc = Text.concat $ evalState (go [Group RegularG doc] []) (0
+                    Emptyline -> putNL 2
+                    (Newlines n) -> putNL n
+                    Softbreak
+-                     | firstLineFits (tw - cc) tw xs ->
++                     | firstLineFits remaining fresh xs ->
+                          pure []
+                      | otherwise -> putNL 1
+                    Softspace
+-                     | firstLineFits (tw - cc - 1) tw xs ->
++                     | firstLineFits (remaining - 1) fresh xs ->
+                          putText' [" "]
+                      | otherwise -> putNL 1
+              Group ann ys ->
+@@ -741,7 +763,7 @@ layoutGreedy tw iw doc = Text.concat $ evalState (go [Group RegularG doc] []) (0
+     -- In general groups are never empty as empty groups are removed in `fixup`, however this also
+     -- gets called for pre and post of priority groups, which may be empty.
+     goGroup [] _ = pure []
+-    goGroup grp rest = StateT $ \(cc, ci, suppress) ->
++    goGroup grp rest = StateT $ \(cc, li, ci, suppress) ->
+       if cc == 0
+         then
+           let -- We know that the last printed character was a line break (cc == 0),
+@@ -756,11 +778,11 @@ layoutGreedy tw iw doc = Text.concat $ evalState (go [Group RegularG doc] []) (0
+                 where
+                   lastLineNL = snd $ NonEmpty.head ci
+                   lineNL = lastLineNL + (if nl > lastLineNL then iw else 0)
+-          in fits indentWillIncrease (tw - firstLineWidth rest) grp'
+-               <&> \t -> runState (putText nl off t) (cc, ci, suppress)
++          in fits indentWillIncrease (tw - startIndent nl off ci - firstLineWidth rest) grp'
++               <&> \t -> runState (putText nl off t) (cc, li, ci, suppress)
+         else
+           let indentWillIncrease = if fst (nextIndent rest) > lineNL then iw else 0
+                 where
+                   lineNL = snd $ NonEmpty.head ci
+-          in fits (indentWillIncrease - cc) (tw - cc - firstLineWidth rest) grp
+-               <&> \t -> ([t | not suppress], (cc + textWidth t, ci, suppress))
++          in fits (indentWillIncrease - cc) (tw - li - cc - firstLineWidth rest) grp
++               <&> \t -> ([t | not suppress], (cc + textWidth t, li, ci, suppress))
