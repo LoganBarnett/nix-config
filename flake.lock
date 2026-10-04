@@ -864,11 +864,11 @@
         "rust-template": "rust-template"
       },
       "locked": {
-        "lastModified": 1791084957,
-        "narHash": "sha256-9vYl8XiTZSNSqXlL4OsaUxk2KFAa29yVHUDaZ9RnX6Y=",
+        "lastModified": 1791139810,
+        "narHash": "sha256-J+vWSLCcm0EpBNctbWIAbTUkmMMtCl0fu+Hr3gM/73Y=",
         "owner": "LoganBarnett",
         "repo": "emacs-config",
-        "rev": "b3762dd8f12e3bf67984a59bd376f7e10784e47e",
+        "rev": "23fa337b143471aa288d031a69b1f257dc3fcd87",
         "type": "github"
       },
       "original": {
@@ -3229,16 +3229,16 @@
     "org-mode-fork": {
       "flake": false,
       "locked": {
-        "lastModified": 1779668985,
-        "narHash": "sha256-V7PDDBYCqusuobfEX0PylFAEhGFxVw9xA/uq4xAhHVw=",
+        "lastModified": 1779676561,
+        "narHash": "sha256-ZyN3MtDw1VJO0jIWl8AexUPG4YuTsSKe/tKNe8OPOEI=",
         "owner": "LoganBarnett",
         "repo": "org-mode",
-        "rev": "a1b4ca765eedee4b5b236cebd56b2f79c81b4702",
+        "rev": "f73b5098e182402520062d24f3cd4cb1a334d3f7",
         "type": "github"
       },
       "original": {
         "owner": "LoganBarnett",
-        "ref": "fix/org-lint-include-no-side-effects",
+        "ref": "org-lint-include-no-side-effects",
         "repo": "org-mode",
         "type": "github"
       }

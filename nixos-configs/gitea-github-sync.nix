@@ -41,7 +41,7 @@
       nix-remote-builder-doctor = { };
       openhab-flake.branches = [ "add-darwin-devshell-support" ];
       org-dnd = { };
-      org-mode.branches = [ "fix/org-lint-include-no-side-effects" ];
+      org-mode.branches = [ "org-lint-include-no-side-effects" ];
       org-wiki = { };
       proc-siding = { };
       rust-template = { };
