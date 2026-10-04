@@ -3,12 +3,14 @@
   stdenv,
   deno,
   fetchFromGitHub,
+  fetchPnpmDeps,
   fetchurl,
   ffmpeg,
   file,
   makeWrapper,
   nodejs,
   pnpm,
+  pnpmConfigHook,
   python3,
 }:
 let
@@ -62,20 +64,23 @@ let
     inherit version src;
     sourceRoot = "${finalAttrs.src.name}/ui";
 
-    pnpmDeps = pnpm.fetchDeps {
+    pnpmDeps = fetchPnpmDeps {
       inherit (finalAttrs)
         pname
         version
         src
         sourceRoot
         ;
-      fetcherVersion = 2;
-      hash = "sha256-4IJQVaC9mBWbKlygyqcqbnefpYyQWz0wb9y0xU++/9k=";
+      fetcherVersion = 4;
+      hash = "sha256-oAPNUtUCa1HK7FB3ISZDfTNOHDosxazSy4TzSGBMKds=";
     };
 
     nativeBuildInputs = [
       nodejs
-      pnpm.configHook
+      # pnpmConfigHook needs pnpm on PATH and does not bring it itself, unlike
+      # the deprecated pnpm.configHook it replaces.
+      pnpm
+      pnpmConfigHook
     ];
 
     buildPhase = ''
