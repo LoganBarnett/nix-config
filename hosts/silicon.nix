@@ -237,24 +237,13 @@ in
 
   # Add secondary IPs from facts.network.hosts.silicon.extraAddresses to the
   # physical NIC.  dhcp-server.nix contributes the primary /24 address (.9) on
-  # all possible interface name variants; mirror that approach here so the
-  # secondary /32 addresses land on whichever name the kernel actually assigns.
-  # NixOS merges list attributes across modules, so all addresses coexist.
-  networking.interfaces =
-    lib.genAttrs
-      [
-        "enp3s0"
-        "eno1"
-        "end0"
-        "ens0"
-        "eth0"
-      ]
-      (_: {
-        ipv4.addresses = builtins.map (ipv4: {
-          address = "${facts.network.subnets.barnett-main}.${toString ipv4}";
-          prefixLength = 32;
-        }) (builtins.attrValues facts.network.hosts.silicon.extraAddresses);
-      });
+  # the same interface.  NixOS merges list attributes across modules, so all
+  # addresses coexist.
+  networking.interfaces.${facts.network.hosts.silicon.networkInterface}.ipv4.addresses =
+    builtins.map (ipv4: {
+      address = "${facts.network.subnets.barnett-main}.${toString ipv4}";
+      prefixLength = 32;
+    }) (builtins.attrValues facts.network.hosts.silicon.extraAddresses);
 
   # Rename the Intel quad NIC port cabled to the provisioning switch.
   #

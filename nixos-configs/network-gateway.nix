@@ -79,12 +79,6 @@ in
       wan.useDHCP = true;
       ${networkInterface}.ipv4.addresses = lib.mkForce [ ];
     }
-    # Remove multi-interface static IP config (VLANs replace it).
-    # dhcp-server.nix sets IPs on enp3s0/eno1/eth0/etc — not needed when
-    # the gateway module puts IPs on VLAN interfaces instead.
-    (lib.genAttrs [ "enp3s0" "eno1" "end0" "ens0" "eth0" ] (_: {
-      ipv4.addresses = lib.mkForce [ ];
-    }))
   ];
 
   # 4. This host IS the gateway — default route from WAN DHCP.

@@ -30,16 +30,7 @@ let
   subnet = facts.network.subnets.barnett-main;
   host-ip = hostname: host: "${subnet}.${toString host.ipv4}";
   my-ip = host-ip host-id facts.network.hosts.${host-id};
-  # This is because the names vary.  Instead of trying to guess, just set them
-  # all.
-  forced-ip-interface-config = {
-    ipv4.addresses = [
-      {
-        address = my-ip;
-        prefixLength = 24;
-      }
-    ];
-  };
+  networkInterface = facts.network.hosts.${host-id}.networkInterface;
 in
 {
   networking.monitors = [ "dnsmasq" ];
@@ -48,16 +39,17 @@ in
   # networking.useDHCP globally (needed by other hosts), but dhcpcd racing
   # with the static address setup can drop secondary IPs on reboot.
   networking.useDHCP = lib.mkForce false;
-  networking.interfaces = {
-    # systemd "predictable".
-    enp3s0 = forced-ip-interface-config;
-    eno1 = forced-ip-interface-config;
-    # Firmware set.
-    end0 = forced-ip-interface-config;
-    ens0 = forced-ip-interface-config;
-    # Sometimes user forced.
-    eth0 = forced-ip-interface-config;
-  };
+  # One would typically hedge against interface naming by declaring every
+  # candidate name, but network-online.target waits on the address unit of
+  # each declared interface.  A name that never appears holds everything
+  # ordered after that target until its device times out, so only the
+  # interface that exists may be declared.
+  networking.interfaces.${networkInterface}.ipv4.addresses = [
+    {
+      address = my-ip;
+      prefixLength = 24;
+    }
+  ];
   # TODO: Make dynamic some day.  Make it follow "gateway".
   networking.defaultGateway = "${subnet}.254";
   # Allow actual DNS and DHCP connections.
