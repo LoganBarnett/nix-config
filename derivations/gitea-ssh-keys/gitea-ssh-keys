@@ -97,14 +97,17 @@ while IFS= read -r entry; do
   token_file="$STATE_DIRECTORY/token-$user"
 
   public_key="$(tr --delete '\n' < "$public_key_file")"
-  # gitea stores "<type> <base64>" without the comment.
+  # gitea stores a key along with whatever comment it was registered under, so
+  # both sides are reduced to "<type> <base64>" before comparing.
   key_body="$(cut --delimiter ' ' --fields 1,2 <<< "$public_key")"
 
   if ! list_keys "$user" "$token_file"; then
     failures=$((failures + 1))
     continue
   fi
-  if jq --exit-status --arg key "$key_body" 'map(.key) | index($key) != null' "$response_file" > /dev/null; then
+  if jq --exit-status --arg key "$key_body" \
+    'map(.key | split(" ")[0:2] | join(" ")) | index($key) != null' \
+    "$response_file" > /dev/null; then
     slog "$user: key '$title' already registered."
     continue
   fi
