@@ -207,6 +207,10 @@ in
     keyFile = config.age.secrets.openhab-oauth2-proxy-env.path;
     redirectURL = "https://openhab.${domain}/oauth2/callback";
     reverseProxy = true;
+    # Only the local nginx reaches oauth2-proxy, so only it may supply
+    # X-Forwarded-* headers.  Left unset, oauth2-proxy trusts every source IP
+    # for backwards compatibility and a direct client could spoof them.
+    trustedProxyIP = [ "${proxyHost}/32" ];
     setXauthrequest = true;
     scope = "openid profile email groups";
     email.domains = [ "*" ];
