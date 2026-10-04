@@ -36,7 +36,8 @@ let
   signingPublicKey =
     assert lib.assertMsg (builtins.pathExists pubFile) ''
       ${toString pubFile} is missing or not tracked by git.  Run
-      `agenix rekey generate --rekey -a` and commit the .pub sidecar first.
+      `agenix rekey generate --rekey --add-to-git` and commit the .pub sidecar
+      first.
     '';
     lib.trim (builtins.readFile pubFile);
   jwtSecret = config.age.secrets.attic-server-jwt-environment-file;

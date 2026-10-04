@@ -19,8 +19,8 @@ in
       assertion = generated;
       message = ''
         The deploy identity has not been generated yet.  Run
-        `agenix rekey generate --rekey -a` from nix-config-private and commit
-        secrets/generated/deploy-key.age and deploy-key.pub.
+        `agenix rekey generate --rekey --add-to-git` from nix-config-private and
+        commit secrets/generated/deploy-key.age and deploy-key.pub.
       '';
     }
   ];

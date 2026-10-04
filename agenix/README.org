@@ -15,7 +15,7 @@ Secrets that need to be created at first deploy are declared with a
 missing secrets and rekeys them for all hosts in one step:
 
 #+begin_src sh
-agenix rekey generate --rekey -a
+agenix rekey generate --rekey --add-to-git
 #+end_src
 
 Generated secrets land in ~secrets/generated/~ automatically (unless

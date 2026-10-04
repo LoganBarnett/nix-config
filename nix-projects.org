@@ -895,7 +895,7 @@ secret types — TLS leaf certificates, WireGuard keys, hashed passwords, and
 others — are produced by generator scripts that run via:
 
 #+begin_src sh :exports code
-agenix rekey generate --rekey -a
+agenix rekey generate --rekey --add-to-git
 #+end_src
 
 This repository uses a custom fork of =agenix-rekey= that combines generation
@@ -913,8 +913,8 @@ The expected post-generation workflow for a new FQDN (e.g. adding a new
 service to a host) is:
 
 1. Author the NixOS module and config normally.
-2. Halt and ask the user to run =agenix rekey generate --rekey -a= (generates
-   =.crt=, =.key.age=, and the per-host rekeyed file in
+2. Halt and ask the user to run =agenix rekey generate --rekey --add-to-git=
+   (generates =.crt=, =.key.age=, and the per-host rekeyed file in
    =secrets/rekeyed/<host>/=, and =git add=s them automatically).
 3. The user commits the generated files.
 4. Resume with the build/deploy once the secrets are in git.

@@ -349,8 +349,10 @@ in
       # 3. Uncomment the identity_providers block below.
       # 4. Add `"claims_policy": "immich-role-policy"` to the Immich entry
       #    in mkClientYaml (or the clientYaml settingsFile template).
-      # 5. Add `"roleClaim": "immich_role"` to immichOauthConfigTemplate in nixos-configs/immich.nix.
-      # 6. Run `agenix rekey generate --rekey -a` to regenerate secrets.
+      # 5. Add `"roleClaim": "immich_role"` to immichOauthConfigTemplate in
+      #    nixos-configs/immich.nix.
+      # 6. Run `agenix rekey generate --rekey --add-to-git` to regenerate
+      #    secrets.
       # 7. Grant admin manually in the Immich UI for the bootstrap user
       #    (one-time, before step 3 is deployed).
       #

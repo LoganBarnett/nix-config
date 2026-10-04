@@ -530,7 +530,7 @@ Secrets are managed via ~agenix~ and ~agenix-rekey~.
 To generate secrets, and rekey them, use:
 
 #+begin_src sh :results none :exports code
-agenix rekey generate --rekey -a
+agenix rekey generate --rekey --add-to-git
 #+end_src
 
 This must be run by a human.  If you're not a human, ask the human to run it.
