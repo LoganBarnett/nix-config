@@ -10,10 +10,10 @@
 { facts, ... }:
 {
   programs.ssh = {
-    matchBlocks = {
+    settings = {
       "gitea.${facts.network.domain}" = {
-        port = 2222;
-        user = "git";
+        Port = 2222;
+        User = "git";
       };
     };
   };

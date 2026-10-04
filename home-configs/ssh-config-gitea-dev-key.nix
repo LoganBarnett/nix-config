@@ -7,12 +7,12 @@
 { facts, ... }:
 {
   programs.ssh = {
-    matchBlocks = {
+    settings = {
       "gitea.${facts.network.domain}" = {
-        port = 2222;
-        user = "git";
-        identityFile = "/run/agenix/logan-dev-ssh";
-        identitiesOnly = true;
+        Port = 2222;
+        User = "git";
+        IdentityFile = "/run/agenix/logan-dev-ssh";
+        IdentitiesOnly = true;
       };
     };
   };
