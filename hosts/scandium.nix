@@ -87,7 +87,6 @@ in
     }
     {
       nixpkgs.hostPlatform = system;
-      nixpkgs.config.allowUnsupportedSystem = true;
       networking.hostName = host-id;
     }
     ../darwin-configs/hyuqueue.nix
