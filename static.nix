@@ -9,17 +9,6 @@
 ################################################################################
 {
 
-  discord = {
-    darwin = {
-      version = "0.0.384";
-      hash = "sha256-vAp991ilLVviievPZHGFuyi/zMMpDoApjnNTGkXYbwo=";
-    };
-    linux = {
-      version = "0.0.132";
-      hash = "sha256-DDt/zr+9sfvyPYUMKCXqEsRvk7wZaxbw2eCWlwxcVec=";
-    };
-  };
-
   # Claude Code ships as a native binary per platform.  These are the checksums
   # of the zstd-compressed binaries from Anthropic's release manifest, in SRI
   # form; overlays/claude-code.nix hands them to the vendored nixpkgs

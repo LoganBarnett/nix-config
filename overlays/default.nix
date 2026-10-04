@@ -20,7 +20,6 @@
   (import ./vpn-tools.nix)
   (import ./battlescribe-update-data.nix)
   (import ./blueutil.nix)
-  (import ./discord.nix)
   (import ./element-desktop.nix)
   # (import ./crystal.nix)
   (import ./hiera-eyaml.nix)
