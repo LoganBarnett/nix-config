@@ -106,9 +106,6 @@ in
       # Write certificates out - these aren't present on macOS in a freely
       # available way.
       pkgs.cacert
-      # Give us the caffeinate command to run long running processes while
-      # ensuring the machine stays awake.
-      pkgs.darwin.PowerManagement
       # Wrap GNU sed to catch the BSD idiom `sed -i '' ...` and exit with a
       # helpful error, since GNU sed does not take a suffix argument after -i.
       (pkgs.callPackage ./derivations/gnused-wrapper.nix { })
@@ -263,7 +260,7 @@ in
             # This is a custom tool found in this repo's /bin directory.
             ${macos-keyboard-remap}/bin/macos-keyboard-remap
             echo "Do not sleep when on AC power."
-            pmset -c sleep 0 # Needs testing - UI not immediately updated.
+            /usr/bin/pmset -c sleep 0 # Needs testing - UI not immediately updated.
             # As of Sequoia (15.5), the option "Allow apps from anywhere" no longer
             # exists, which makes me wonder how you run anything at all...
             echo "Allow applications from 'App Store & Known Developers'..."

@@ -60,8 +60,9 @@ doesn't exist.
 1. Every program a script invokes comes from ~runtimeInputs~.  This prevents
    collisions with whatever is on the ~PATH~ currently, such as the current system
    profile.  The only exception is a macOS builtin with no Nix counterpart
-   (~scutil~, ~networksetup~, ~ipconfig~, ~dscacheutil~, ~pgrep~), which is
-   called by absolute path to communicate where it is coming from.
+   (~scutil~, ~networksetup~, ~ipconfig~, ~dscacheutil~, ~pgrep~, et. al.),
+   which is called by absolute path to communicate where it is coming from.
+   Prose and example commands may still use the bare name.
 2. Scripts that source a shared bash library should use
    ~writeShellApplicationWithLibs~. ~bash-logging~ is a primary example.
    Its ~libs~ attribute maps an environment

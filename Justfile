@@ -1,6 +1,6 @@
 # Prefix for long-running commands.  macOS idle-sleeps mid-operation without
 # it; Linux has no equivalent and no need for one.
-keep-awake := if os() == "macos" { "caffeinate" } else { "" }
+keep-awake := if os() == "macos" { "/usr/bin/caffeinate" } else { "" }
 
 test:
     nix flake check
