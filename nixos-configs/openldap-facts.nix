@@ -159,11 +159,9 @@ in
   # Extend the generated service with LDAP ordering, credentials,
   # hardening, and restart triggers.
   systemd.services.nix-hapi-ldap = {
-    # A serving slapd is not enough on its own.  The reconciler reaches it by
-    # name over TLS, so the lookup fails until this host's resolver answers
-    # and the certificate check fails until the clock is corrected.
-    # time-sync.target is passive (chronyd pulls it in), so it is ordered
-    # after but not wanted.
+    # Wait for name resolution and a corrected clock.  Starting before either
+    # fails the reconciler.  This is because it connects to the LDAP server by
+    # name and verifies the server's TLS certificate.
     after = [
       "openldap.service"
       "run-agenix.d.mount"
@@ -171,6 +169,8 @@ in
       "nss-lookup.target"
       "time-sync.target"
     ];
+    # Leave time-sync.target out.  A passive target is pulled in by its
+    # provider.  The provider here is chronyd.
     wants = [
       "openldap.service"
       "run-agenix.d.mount"

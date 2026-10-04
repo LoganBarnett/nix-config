@@ -39,11 +39,10 @@ in
   # networking.useDHCP globally (needed by other hosts), but dhcpcd racing
   # with the static address setup can drop secondary IPs on reboot.
   networking.useDHCP = lib.mkForce false;
-  # One would typically hedge against interface naming by declaring every
-  # candidate name, but network-online.target waits on the address unit of
-  # each declared interface.  A name that never appears holds everything
-  # ordered after that target until its device times out, so only the
-  # interface that exists may be declared.
+  # Declare only the interface that exists.  Declaring a missing interface
+  # stalls every unit ordered after network-online.target.  This is because
+  # that target waits for the device of each declared interface until the
+  # device times out.
   networking.interfaces.${networkInterface}.ipv4.addresses = [
     {
       address = my-ip;

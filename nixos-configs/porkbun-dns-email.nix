@@ -134,16 +134,16 @@ in
   # Extend the generated nix-hapi-porkbun service with credential binding,
   # dependency ordering, and restart triggers.
   systemd.services.nix-hapi-porkbun = {
-    # The generated unit waits only for network-online.target, which is
-    # reached before this host can resolve names.  The reconciler speaks HTTPS
-    # to a named host, so it also needs the resolver answering and a corrected
-    # clock for the certificate check.  time-sync.target is passive (chronyd
-    # pulls it in), so it is ordered after but not wanted.
+    # Wait for name resolution and a corrected clock.  Starting before either
+    # fails the reconciler.  This is because it connects to Porkbun by name
+    # and verifies Porkbun's TLS certificate.
     after = [
       "nss-lookup.target"
       "run-agenix.d.mount"
       "time-sync.target"
     ];
+    # Leave time-sync.target out.  A passive target is pulled in by its
+    # provider.  The provider here is chronyd.
     wants = [
       "nss-lookup.target"
       "run-agenix.d.mount"

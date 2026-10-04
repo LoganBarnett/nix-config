@@ -21,6 +21,7 @@ let
     ;
   cfg = config.services.metube-host;
   bgutilDep = optional cfg.bgutil.enable "bgutil-pot.service";
+  mountUnits = lib.filter (lib.hasSuffix ".mount") cfg.mountDependencies;
   # Per-file post-download script.  Used both by the YTDL_OPTIONS exec hook
   # (invoked immediately after each new download) and by the directory-scan
   # service below (for backfill on existing files).  Reads the original URL
@@ -286,8 +287,11 @@ in
     systemd.paths.metube-compat-download = mkIf cfg.includeHighCompatibilityCopy {
       description = "Watch for new metube downloads to fetch compat copies for";
       wantedBy = [ "multi-user.target" ];
-      after = cfg.mountDependencies;
-      requires = cfg.mountDependencies;
+      # Require only the mounts in mountDependencies.  Waiting on a service
+      # causes cyclical ordering.  This is because systemd starts path units
+      # before basic.target and services after it.
+      after = mountUnits;
+      requires = mountUnits;
       pathConfig = {
         PathModified = cfg.downloadDir;
         Unit = "metube-compat-download.service";

@@ -97,8 +97,9 @@ while IFS= read -r entry; do
   token_file="$STATE_DIRECTORY/token-$user"
 
   public_key="$(tr --delete '\n' < "$public_key_file")"
-  # gitea stores a key along with whatever comment it was registered under, so
-  # both sides are reduced to "<type> <base64>" before comparing.
+  # Compare keys by type and body alone.  Comparing whole keys can miss a
+  # registered key.  This is because gitea stores each key with the comment it
+  # was registered under.
   key_body="$(cut --delimiter ' ' --fields 1,2 <<< "$public_key")"
 
   if ! list_keys "$user" "$token_file"; then
