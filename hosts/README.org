@@ -161,7 +161,7 @@ Kai's gaming computer.
 
 ** calcium
 
-A Nix cache using Attic.
+A hypothetical host.  No physical hardware is assigned to calcium yet.
 
 ** gallium
 

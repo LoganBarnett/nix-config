@@ -240,6 +240,14 @@ EOF
 
 * Nix
 
+** Binary cache
+
+Silicon serves two LAN caches: Attic at ~https://attic.proton/proton~ for
+locally built paths, and ncps at ~https://ncps.proton~ as a pull-through for
+cache.nixos.org.  Every host substitutes from both.  Layout, token minting,
+hit/miss checks, and signing-key rotation are in
+[[file:docs/nix-cache.org][docs/nix-cache.org]].
+
 ** Rapid Package Updates
 
 Some packages need to be updated independently of nixpkgs — for example, to

@@ -1,0 +1,117 @@
+#+title:     Nix Binary Cache
+#+language:  en
+
+Silicon serves two independent binary caches to the LAN.  Every host lists
+both as substituters through ~agnostic-configs/nix-cache-consume.nix~, with
+cache.nixos.org itself left in place as the fallback for a host that is off
+the LAN.
+
+* The two stores
+
+| Store | Endpoint                      | Holds                                                        | Priority |
+|-------+-------------------------------+--------------------------------------------------------------+----------|
+| Attic | ~https://attic.proton/proton~ | Paths built on silicon, including remote builds              |        5 |
+| ncps  | ~https://ncps.proton~         | Whatever a host has asked cache.nixos.org for, on first miss |       10 |
+
+Nix sorts substituters by the priority each advertises in ~nix-cache-info~,
+lowest first.  A locally built path is therefore found in Attic before ncps is
+asked, and ncps is asked before cache.nixos.org (40).  Attic's priority is set
+at cache creation from ~facts.network.binaryCache~; ncps hardcodes 10.
+
+Attic signs with the ~proton-1~ key.  ncps passes upstream signatures through
+unchanged, so consumers trust only ~proton-1~ and ~cache.nixos.org-1~.
+
+* How it stands up
+
+Both services are declared in ~nixos-configs/attic.nix~ and
+~nixos-configs/ncps.nix~; nothing is set up by hand.
+
+- Two generated secrets: ~attic-server-jwt-environment-file~ (atticd's RS256
+  token secret) and ~attic-signing-key~ (the Nix signing keypair).  The
+  generator writes the public half to
+  ~secrets/generated/attic-signing-key.pub~, which consumers read at
+  evaluation time.  Until that file exists and is tracked by git, every host
+  fails to evaluate with a message saying so.
+- ~attic-cache-ensure~ runs after atticd on every boot and deploy.  It mints a
+  15-minute admin token locally, creates the ~proton~ cache with the agenix
+  keypair when it is missing, and otherwise verifies that the cache signs with
+  the expected key.  A mismatch fails the unit on purpose: clients would reject
+  every path, so a red unit beats silence.
+- ~attic-watch-store~ mints a 30-day push token, restarts itself weekly to
+  re-mint, and pushes every path the Nix daemon registers.  Paths signed by
+  cache.nixos.org are skipped.
+- ncps keeps its store under ~/tank/data/ncps/data/local~, capped at 500G with
+  a nightly LRU pass.  Prometheus scrapes its ~/metrics~ as the ~ncps~ job.
+
+Data under ~/tank/data/attic~ and ~/tank/data/ncps~ is excluded from Restic:
+all of it is derived and can be rebuilt or fetched again.
+
+* Operations
+
+** Checking that a host uses the caches
+
+#+begin_src sh :results none :exports code
+nix config show substituters
+nix store info --store https://attic.proton/proton
+nix store info --store https://ncps.proton
+#+end_src
+
+A build that hits a cache logs ~copying path ... from
+'https://attic.proton/proton'~ or the ncps equivalent.
+
+** Is a path in a cache?
+
+#+begin_src sh :results none :exports code
+hash=$(basename /run/current-system/sw | cut --delimiter=- --fields=1)
+curl --head "https://attic.proton/proton/$hash.narinfo"
+curl --head "https://ncps.proton/$hash.narinfo"
+#+end_src
+
+** Minting a token by hand
+
+On silicon, as root.  The ~atticd-atticadm~ wrapper that nixpkgs installs runs
+~atticadm~ with the server's environment:
+
+#+begin_src sh :results none :exports code
+atticd-atticadm make-token --sub logan --validity 1y --pull proton --push proton
+#+end_src
+
+Then on the client:
+
+#+begin_src sh :results none :exports code
+attic login proton https://attic.proton/ <token>
+attic push proton ./result
+#+end_src
+
+Tokens for other hosts are not managed declaratively yet; see [[*What nix-hapi
+takes over]].
+
+** Rotating the signing key
+
+~attic-cache-ensure~ never rotates on its own.  Between steps 2 and 3,
+consumers that still trust the old key fall through to ncps or upstream for
+Attic's paths.
+
+1. Delete ~secrets/generated/attic-signing-key.age~ and its ~.pub~, then run
+   ~agenix rekey generate --rekey -a~ and commit both.
+2. On silicon, as root, hand the new keypair to the running server:
+   #+begin_src sh :results none :exports code
+   token=$(atticd-atticadm make-token --sub rotate --validity 15m \
+     --pull proton --configure-cache proton)
+   curl --fail --request PATCH \
+     --header "Authorization: Bearer $token" \
+     --header 'Content-Type: application/json' \
+     --data "{\"keypair\":{\"Keypair\":\"$(cat /run/agenix/attic-signing-key)\"}}" \
+     http://127.0.0.1:8095/_api/v1/cache-config/proton
+   #+end_src
+3. Deploy silicon (the ensure unit now verifies the new key) and then every
+   consumer.
+
+** What nix-hapi takes over
+
+The ensure unit covers creation only.  Renames, removal, retention and
+priority drift, and tokens for other hosts (cobalt, the Macs) wait for a
+~nix-hapi-provider-attic~ reconciler, gated on the nix-hapi core refactor.
+When it lands, the create-and-verify logic in
+~derivations/attic-cache-ensure~ and the manual token procedure above are
+what it replaces.

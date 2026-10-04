@@ -90,6 +90,7 @@ in
     # "${flake-inputs.nixpkgs}/nixos/modules/programs/pay-respects.nix"
     ./nixos-modules/unfree-predicates.nix
     ./agnostic-configs/nix-builder-consume.nix
+    ./agnostic-configs/nix-cache-consume.nix
   ];
   # Global packages that can't be bound to a specific user, such as shells.
   environment = {

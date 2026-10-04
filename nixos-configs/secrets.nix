@@ -188,12 +188,14 @@ in
     # Re-enable if the fork is dropped and MAX_ARG_STRLEN problems return.
     # ../nixos-modules/agenix-compact-activation.nix
     ../agenix/agenix-rekey-generator-mosquitto-password-file.nix
+    ../agenix/attic-server-jwt-environment-file.nix
     ../agenix/slapd-hashed.nix
     ../agenix/stalwart-dkim-key.nix
     ../agenix/base64-configurable-secret.nix
     ../agenix/environment-file-secret.nix
     ../agenix/htpasswd.nix
     ../agenix/hex-configurable-secret.nix
+    ../agenix/nix-cache-signing-key.nix
     ../agenix/openhab-pbkdf2.nix
     ../agenix/secret-template-file.nix
     ../agenix/tls-secret.nix

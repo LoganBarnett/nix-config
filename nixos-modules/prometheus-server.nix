@@ -78,6 +78,7 @@ in
         # Ports for monitors that aren't standard Prometheus exporters.
         hardcoded-ports = {
           goss = 8080;
+          ncps = 8501;
           garage-queue-server = 443;
           garage-queue-worker = 443;
         };

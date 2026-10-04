@@ -2,12 +2,8 @@
 # The calcium host.  It's all theoretical config and doesn't run on any hardware
 # currently.
 #
-# Its primary use is a Nix cache.  Currently this is achieved via Attic
-# (https://github.com/zhaofengli/attic).
-#
-# Attic doesn't allow for declarative configuration yet, but at least this
-# machine can host a lot of disks.  For now, I can use it to back up silicon so
-# I can rebuild silicon as a NixOS machine.
+# It can host a lot of disks, so it could back up silicon while silicon gets
+# rebuilt as a NixOS machine.
 #
 # History: The machine is a donation from Tom Sears.
 #
@@ -16,18 +12,14 @@
 # one, but they are also part of neurotransmitters).  Calcium is found in many
 # things, including limestone.
 ################################################################################
-{ facts, flake-inputs, ... }:
+{ ... }:
 let
   system = "x86_64-linux";
-  atticd-port = 8080;
 in
 {
   imports = [
-    (import ../nixos-modules/cache-attic.nix {
-      inherit atticd-port;
-    })
     (
-      { lib, pkgs, ... }:
+      { lib, ... }:
       {
         # networking.hostId is needed by the filesystem stuffs.
         # An arbitrary ID needed for zfs so a pool isn't accidentally imported on
@@ -46,7 +38,4 @@ in
     )
     ../nixos-modules/linux-host.nix
   ];
-  services.https.fqdns."calcium.${facts.network.domain}" = {
-    internalPort = atticd-port;
-  };
 }

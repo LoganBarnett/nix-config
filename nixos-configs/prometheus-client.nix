@@ -55,6 +55,7 @@ let
     m:
     !builtins.elem m [
       "goss"
+      "ncps"
       "garage-queue-server"
       "garage-queue-worker"
     ]

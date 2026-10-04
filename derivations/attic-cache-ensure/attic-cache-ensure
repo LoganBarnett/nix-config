@@ -1,0 +1,157 @@
+#!/usr/bin/env bash
+################################################################################
+# Ensure the Attic cache $ATTIC_CACHE_NAME exists on the local atticd, signed
+# with the agenix-managed keypair.  An existing cache is only verified: its
+# public key must match what consumers trust, and nothing else is modified.
+#
+# Environment (set by the systemd unit):
+#   ATTIC_CACHE_NAME                Cache to ensure.
+#   ATTIC_LOCAL_ENDPOINT            Loopback API endpoint, no trailing slash.
+#   ATTIC_EXPECTED_PUBLIC_KEY       "<name>:<base64>" that consumers trust.
+#   ATTIC_SERVER_CONFIG             atticd's server.toml, for atticadm.
+#   ATTIC_CACHE_PRIORITY            nix-cache-info priority for a new cache.
+#   ATTIC_UPSTREAM_CACHE_KEY_NAMES  Comma separated upstream key names.
+#   ATTIC_SERVER_TOKEN_RS256_SECRET_BASE64  From EnvironmentFile; atticadm only.
+#   CREDENTIALS_DIRECTORY/signing-key       From LoadCredential.
+################################################################################
+set -euo pipefail
+# shellcheck source=bash-logging
+source "${BASH_LOGGING:-$HOME/.bash-logging}"
+
+: "${ATTIC_CACHE_NAME:?}" "${ATTIC_LOCAL_ENDPOINT:?}" \
+  "${ATTIC_EXPECTED_PUBLIC_KEY:?}" "${ATTIC_SERVER_CONFIG:?}" \
+  "${ATTIC_CACHE_PRIORITY:?}" "${ATTIC_UPSTREAM_CACHE_KEY_NAMES:?}" \
+  "${CREDENTIALS_DIRECTORY:?}"
+
+work_dir="$(mktemp --directory)"
+trap 'rm --recursive --force "$work_dir"' EXIT
+response_file="$work_dir/response.json"
+headers_file="$work_dir/headers"
+cache_url="$ATTIC_LOCAL_ENDPOINT/_api/v1/cache-config/$ATTIC_CACHE_NAME"
+
+# atticadm only reads the JWT secret and the TOML; it never opens the database.
+# The token travels in a header file so it never shows up in a command line.
+token="$(
+  atticadm --config "$ATTIC_SERVER_CONFIG" make-token \
+    --sub attic-cache-ensure \
+    --validity 15m \
+    --pull "$ATTIC_CACHE_NAME" \
+    --create-cache "$ATTIC_CACHE_NAME" \
+    --configure-cache "$ATTIC_CACHE_NAME"
+)"
+(
+  umask 077
+  printf 'Authorization: Bearer %s\n' "$token" > "$headers_file"
+)
+unset token ATTIC_SERVER_TOKEN_RS256_SECRET_BASE64
+
+# Prints the HTTP status; the body lands in $response_file.
+api() {
+  local method="$1" url="$2" body="${3:-}"
+  local -a args=(
+    --silent --show-error --max-time 30
+    --request "$method"
+    --header "@$headers_file"
+    --header 'Content-Type: application/json'
+    --output "$response_file"
+    --write-out '%{http_code}'
+  )
+  if [[ -n "$body" ]]; then
+    args+=(--data "$body")
+  fi
+  curl "${args[@]}" "$url"
+}
+
+fail_with_body() {
+  slog "$1 (HTTP $2): $(cat "$response_file" 2> /dev/null || true)"
+  exit 1
+}
+
+check_public_key() {
+  local actual
+  actual="$(jq --raw-output '.public_key // empty' "$response_file")"
+  if [[ "$actual" != "$ATTIC_EXPECTED_PUBLIC_KEY" ]]; then
+    slog "FATAL: cache '$ATTIC_CACHE_NAME' signs with '$actual' but consumers trust '$ATTIC_EXPECTED_PUBLIC_KEY'."
+    slog "Refusing to continue.  Rotate deliberately (docs/nix-cache.org) or restore the previous secret."
+    exit 1
+  fi
+  slog "Cache '$ATTIC_CACHE_NAME' signs with the expected key ($actual)."
+}
+
+# After= only orders against atticd's process start, not its readiness.
+deadline=$((SECONDS + 120))
+until curl --silent --fail --max-time 5 --output /dev/null "$ATTIC_LOCAL_ENDPOINT/"; do
+  if ((SECONDS >= deadline)); then
+    slog "atticd at $ATTIC_LOCAL_ENDPOINT did not answer within 120s."
+    exit 1
+  fi
+  sleep 2
+done
+
+status="$(api GET "$cache_url")"
+case "$status" in
+  200)
+    check_public_key
+    exit 0
+    ;;
+  404)
+    slog "Cache '$ATTIC_CACHE_NAME' does not exist; creating it."
+    ;;
+  *)
+    fail_with_body "Unexpected response probing cache '$ATTIC_CACHE_NAME'" "$status"
+    ;;
+esac
+
+keypair="$(tr --delete '\n' < "$CREDENTIALS_DIRECTORY/signing-key")"
+# The payload is secret(32)||public(32); the trailing 32 bytes must be the
+# public key consumers trust, or the .age and its .pub sidecar have diverged.
+derived_public_key="${keypair%%:*}:$(
+  printf '%s' "${keypair#*:}" | base64 --decode | tail --bytes 32 | base64 --wrap 0
+)"
+if [[ "$derived_public_key" != "$ATTIC_EXPECTED_PUBLIC_KEY" ]]; then
+  slog "FATAL: signing-key credential derives '$derived_public_key', expected '$ATTIC_EXPECTED_PUBLIC_KEY'."
+  slog "The .age secret and its .pub sidecar have diverged; regenerate both together."
+  exit 1
+fi
+
+# shellcheck disable=SC2016
+body="$(
+  jq --null-input --compact-output \
+    --arg keypair "$keypair" \
+    --argjson priority "$ATTIC_CACHE_PRIORITY" \
+    --arg upstream "$ATTIC_UPSTREAM_CACHE_KEY_NAMES" \
+    '{
+      keypair: { Keypair: $keypair },
+      is_public: true,
+      store_dir: "/nix/store",
+      priority: $priority,
+      upstream_cache_key_names: ($upstream | split(",") | map(select(length > 0)))
+    }'
+)"
+unset keypair
+
+status="$(api POST "$cache_url" "$body")"
+case "$status" in
+  200 | 201 | 204)
+    slog "Created cache '$ATTIC_CACHE_NAME'."
+    ;;
+  400)
+    # The server inserts with ON CONFLICT DO NOTHING and reports a lost race as
+    # CacheAlreadyExists; the verification below decides whether the winner
+    # used our key.
+    if jq --exit-status '.error == "CacheAlreadyExists"' "$response_file" > /dev/null; then
+      slog "Cache '$ATTIC_CACHE_NAME' appeared concurrently; verifying."
+    else
+      fail_with_body "Create rejected" "$status"
+    fi
+    ;;
+  *)
+    fail_with_body "Create failed" "$status"
+    ;;
+esac
+
+status="$(api GET "$cache_url")"
+if [[ "$status" != 200 ]]; then
+  fail_with_body "Post-create read of cache '$ATTIC_CACHE_NAME' failed" "$status"
+fi
+check_public_key

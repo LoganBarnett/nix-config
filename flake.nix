@@ -34,11 +34,6 @@
       # agenix-rekey's README for details.
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    # Attic is a Nix cache server.
-    attic = {
-      url = "github:zhaofengli/attic";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
     authentik-nix = {
       url = "github:nix-community/authentik-nix";
     };

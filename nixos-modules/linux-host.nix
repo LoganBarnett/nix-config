@@ -99,6 +99,8 @@
     ../nixos-configs/secrets.nix
     # Allow servers to consume builds from other hosts.
     ../agnostic-configs/nix-builder-consume.nix
+    # Substitute from the LAN caches on silicon.
+    ../agnostic-configs/nix-cache-consume.nix
     # TODO: Remove this and only include it on hosts that need it.  Also make it
     # use the domain.
     ../nixos-configs/tls-leaf-proton.nix

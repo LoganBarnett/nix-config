@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+################################################################################
+# Mint a push token for the local atticd and exec `attic watch-store`, which
+# pushes every newly registered /nix/store path to the cache.
+#
+# Environment (set by the systemd unit):
+#   ATTIC_CACHE_NAME      Cache to push to.
+#   ATTIC_ENDPOINT        Attic API endpoint, with trailing slash.
+#   ATTIC_SERVER_CONFIG   atticd's server.toml, for atticadm.
+#   ATTIC_TOKEN_VALIDITY  Token lifetime in humantime form, e.g. 30d.
+#   ATTIC_PUSH_JOBS       Parallel uploads.
+#   RUNTIME_DIRECTORY     Private scratch space for the client config.
+#   ATTIC_SERVER_TOKEN_RS256_SECRET_BASE64  From EnvironmentFile; atticadm only.
+################################################################################
+set -euo pipefail
+# shellcheck source=bash-logging
+source "${BASH_LOGGING:-$HOME/.bash-logging}"
+
+: "${ATTIC_CACHE_NAME:?}" "${ATTIC_ENDPOINT:?}" "${ATTIC_SERVER_CONFIG:?}" \
+  "${ATTIC_TOKEN_VALIDITY:?}" "${ATTIC_PUSH_JOBS:?}" "${RUNTIME_DIRECTORY:?}"
+
+# The client reads $XDG_CONFIG_HOME/attic/config.toml.
+export XDG_CONFIG_HOME="$RUNTIME_DIRECTORY/xdg-config"
+export XDG_CACHE_HOME="$RUNTIME_DIRECTORY/xdg-cache"
+config_dir="$XDG_CONFIG_HOME/attic"
+token_file="$config_dir/token"
+install --directory --mode 0700 "$config_dir" "$XDG_CACHE_HOME"
+
+token="$(
+  atticadm --config "$ATTIC_SERVER_CONFIG" make-token \
+    --sub attic-watch-store \
+    --validity "$ATTIC_TOKEN_VALIDITY" \
+    --pull "$ATTIC_CACHE_NAME" \
+    --push "$ATTIC_CACHE_NAME"
+)"
+(
+  umask 077
+  printf '%s' "$token" > "$token_file"
+  cat > "$config_dir/config.toml" << EOT
+default-server = "local"
+
+[servers.local]
+endpoint = "$ATTIC_ENDPOINT"
+token-file = "$token_file"
+EOT
+)
+# Only atticadm needed the signing secret; keep it away from the client.
+unset token ATTIC_SERVER_TOKEN_RS256_SECRET_BASE64
+
+slog "Pushing new store paths to '$ATTIC_CACHE_NAME' via $ATTIC_ENDPOINT (token valid for $ATTIC_TOKEN_VALIDITY)."
+exec attic watch-store --jobs "$ATTIC_PUSH_JOBS" "$ATTIC_CACHE_NAME"

@@ -23,21 +23,23 @@ Generated secrets land in ~secrets/generated/~ automatically (unless
 
 ** Available generators
 
-| Generator                   | Declared in                         | Output                                         |
-|-----------------------------+-------------------------------------+------------------------------------------------|
-| ~long-passphrase~           | ~nixos-configs/secrets.nix~         | 10-word xkcdpass passphrase                    |
-| ~long-passphrase-hashed~    | ~nixos-configs/secrets.nix~         | bcrypt hash of a ~long-passphrase~ dependency  |
-| ~ssh-ed25519-with-pub~      | ~nixos-configs/secrets.nix~         | Ed25519 private key; copies ~.pub~ alongside   |
-| ~tls-ca-root~               | ~agenix/tls-secret.nix~             | Self-signed CA certificate + key               |
-| ~hex~                       | ~agenix/hex-configurable-secret.nix~| Random hex string of configurable length       |
-| ~template-file~             | ~agenix/secret-template-file.nix~   | Text file with ~%dep-name%~ placeholders filled|
-| ~htpasswd~                  | ~agenix/htpasswd.nix~               | htpasswd entry for a username + password       |
-| ~slapd-hashed~              | ~agenix/slapd-hashed.nix~           | SSHA-hashed password for OpenLDAP              |
-| ~base64~                    | ~agenix/base64-configurable-secret.nix~ | Random base64 string                       |
-| ~wireguard-priv~            | ~agenix/wireguard-priv.nix~         | WireGuard private key                          |
-| ~mosquitto-password-file~   | ~agenix/agenix-rekey-generator-mosquitto-password-file.nix~ | Mosquitto password file entry |
-| ~environment-file~          | ~agenix/environment-file-secret.nix~| Shell ~KEY=value~ environment file             |
-| ~yaml~                      | ~agenix/yaml-secret.nix~            | YAML file with generated values                |
+| Generator                           | Declared in                                                 | Output                                             |
+|-------------------------------------+-------------------------------------------------------------+----------------------------------------------------|
+| ~long-passphrase~                   | ~nixos-configs/secrets.nix~                                 | 10-word xkcdpass passphrase                        |
+| ~long-passphrase-hashed~            | ~nixos-configs/secrets.nix~                                 | bcrypt hash of a ~long-passphrase~ dependency      |
+| ~ssh-ed25519-with-pub~              | ~nixos-configs/secrets.nix~                                 | Ed25519 private key; copies ~.pub~ alongside       |
+| ~tls-ca-root~                       | ~agenix/tls-secret.nix~                                     | Self-signed CA certificate + key                   |
+| ~hex~                               | ~agenix/hex-configurable-secret.nix~                        | Random hex string of configurable length           |
+| ~template-file~                     | ~agenix/secret-template-file.nix~                           | Text file with ~%dep-name%~ placeholders filled    |
+| ~htpasswd~                          | ~agenix/htpasswd.nix~                                       | htpasswd entry for a username + password           |
+| ~slapd-hashed~                      | ~agenix/slapd-hashed.nix~                                   | SSHA-hashed password for OpenLDAP                  |
+| ~base64~                            | ~agenix/base64-configurable-secret.nix~                     | Random base64 string                               |
+| ~wireguard-priv~                    | ~agenix/wireguard-priv.nix~                                 | WireGuard private key                              |
+| ~mosquitto-password-file~           | ~agenix/agenix-rekey-generator-mosquitto-password-file.nix~ | Mosquitto password file entry                      |
+| ~environment-file~                  | ~agenix/environment-file-secret.nix~                        | Shell ~KEY=value~ environment file                 |
+| ~yaml~                              | ~agenix/yaml-secret.nix~                                    | YAML file with generated values                    |
+| ~attic-server-jwt-environment-file~ | ~agenix/attic-server-jwt-environment-file.nix~              | atticd RS256 JWT secret as an EnvironmentFile      |
+| ~nix-cache-signing-key~             | ~agenix/nix-cache-signing-key.nix~                          | Nix cache signing keypair; writes ~.pub~ alongside |
 
 ** ~ssh-ed25519-with-pub~ note
 

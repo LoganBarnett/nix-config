@@ -20,6 +20,16 @@
     # flip to "silicon" when network-gateway.nix is enabled there (its MAC is
     # already recorded).
     gateway-host = "gateway";
+    # The LAN binary caches on silicon.  Nix sorts substituters by the priority
+    # each advertises, lowest first: attic takes atticPriority, ncps hardcodes
+    # 10, and cache.nixos.org is 40, so locally built paths are found before
+    # anything is asked of upstream.
+    binaryCache = {
+      atticAlias = "attic";
+      atticCache = "proton";
+      atticPriority = 5;
+      ncpsAlias = "ncps";
+    };
     # These are just stringly prefixes for IP addresses.  At some point I should
     # turn these into real subnets with masks.
     subnets = {

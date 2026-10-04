@@ -18,6 +18,7 @@ in
     ../nixos-configs/acme.nix
     ../nixos-configs/alertmanager.nix
     ../nixos-configs/alertmanager-alerts.nix
+    ../nixos-configs/attic.nix
     ../hardware/aeotec-z-stick-7.nix
     ../nixos-configs/openhab.nix
     ../nixos-configs/zwave-js-ui.nix
@@ -31,6 +32,7 @@ in
     ../nixos-modules/nextcloud.nix
     ../nixos-configs/notes-sync.nix
     ../nixos-configs/ntfy.nix
+    ../nixos-configs/ncps.nix
     ../nixos-configs/dns-server.nix
     ../nixos-configs/dns-smart-block.nix
     ../nixos-configs/unbound.nix
