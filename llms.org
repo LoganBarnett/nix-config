@@ -15,93 +15,48 @@ actually run anything.
 
 No file lists in documentation.
 
-** Authoring Comments and Documentation
+** Prose rules
 
-*** Formatting and punctuation
+These apply to comments, doc comments, org documents, commit bodies, and
+replies.  The rules are stated, not argued.  The reasoning behind each one is in
+rust-template's [[https://github.com/LoganBarnett/rust-template/blob/main/docs/prose-rationale.org][=docs/prose-rationale.org=]].  That document is not imported.
 
-Comments must be complete sentences, wrapped at ~80 columns, with standard
-punctuation.  Use two spaces after sentence-ending punctuation for easier
-sentence matching.
+- Sentences are short.  One idea each.  About twenty words.
+- Punctuation is ASCII.  No em dashes.  No semicolons.  No parentheses.
+- A comma sets off one leading clause or separates a list.  Anything else is two
+  sentences.
+- Comments are complete sentences wrapped at 80 columns.
+- Two spaces follow sentence-ending punctuation.
+- Open with the conclusion.  The mechanism comes after, or not at all.
+- A fact lives at the lowest level where it applies.  A line of code is the
+  lowest and the README is the highest.  A workaround is explained on the line
+  it guards, never above it.
+- A summary states the outcome.  It never lists the steps.
+- A comment states what the code cannot.  If the code could regenerate the
+  comment, delete the comment.
+- Do not describe code that no longer exists.  If the obvious approach fails,
+  state the fact that breaks it.
+- A number that was a coin flip says so.
+- When unsure whether to write a comment, do not.
+- Draft prose longer than a paragraph in a scratch file.  Rewrite it against
+  this list.  Only the rewrite lands.
 
-*** Content
+Bad.  The problem is a relative clause in the middle and the fix is the last
+three words.
 
-Only comment non-obvious intent, invariants, tradeoffs, or historical
-constraints; no restating of control flow.
+#+begin_example
+reqwest's error text carries the request URL, which for a v3 key
+includes the key itself; the endpoint field already names the call, so
+every wrapped reqwest error drops its URL.
+#+end_example
 
-These rules apply to comments and documentation roughly the same.
+Good.  The first sentence stands alone and the mechanism follows.
 
-**** Anti Pattern: Historical / Tombstone Verbiage
-
-Historical verbiage are such as "We used to do X, but now we do Y".  We should
-only provide such prose in the _surprising_ case.  These would be better thought
-of as "One would typically reach for X, but it fails because of Y, so instead we
-do Z".  This is the only case in which we use historical prose that refers to
-prior code that no longer exists.
-
-The easy test for this is "If you would have gotten this right on the first
-pass, would this have still needed this prose?".  If the answer is no, then do
-not leave historical prose.
-
-**** Anti Pattern: Obvious Intent
-
-Commenting intent that is obvious "This assigns foo to bar" or "This
-run_workflow function runs the workflow" are simple anti patterns.  We only
-comment on code that needs to be called out.  Assume the reader knows how to
-write software.  If the code is self documenting, obvious code should never need
-comments.
-
-The only exception is special documentation comments on the headers of things
-like functions, which then later get aggregated by a tool or auto-complete
-systems.  Even then, these comments should only refer to abstract outcomes and
-not implementation detail unless there is something specifically important about
-that implementation.  Stating what algorithm a sort uses is fine.  Stating in
-the doc comment that you used a ~loop~ over a combinator is not appropriate.
-
-**** Anti Pattern: Inventory
-
-Taking inventory in prose ("this does X, Y, and Z") just means you now have
-extra places to account for a change.  The moment you stop doing Y, all prose
-that takes inventory must be updated.  Same goes if you add a W activity.  The
-simple answer is to not write this prose at all.  If you find yourself writing
-these remarks, they are virtually always wrong, and instead an even briefer
-summary must be written instead, or the comment must be removed entirely.
-
-**** How to Summarize
-
-This covers any summarized activity (function headers, file headers, and so on).
-
-A summary details what the outcome of the activity is, and never the steps
-involved unless those steps are particularly surprising.  A "fire the nukes"
-script shouldn't include anything about arming the nukes, aiming the nukes,
-authorizing the nukes, or anything else that we _do_ to fire the nukes unless
-there's some specific quirk that truly needs calling out that is _relevant to
-that summary_.  A good summary for a ~nuke-fire.sh~ is "Fires the nukes.".
-
-***** Documenting Quirks and Surprises
-
-Most quirks in a function or script needn't make it to the summary.  Let's say
-that we generally expect these steps for any nation to fire its nukes:
-
-1. Arm the nuke.
-2. Aim the nuke.
-3. Authorize the firing of the nuke.
-4. Fire the nuke.
-
-Any nuke firing activity here wouldn't be in a summary.
-
-Let's say our nation requires the tips to be signed using the public key of the
-recipient.  So now our script looks like:
-
-1. Arm the nuke.
-2. Aim the nuke.
-3. Sign the tip with the recipient's public key.
-4. Authorize the firing of the nuke.
-5. Fire the nuke.
-
-Okay that's an odd step, and because it's an odd step, it would require a
-comment _immediately adjacent_ to that specific functionality.  Since this has
-no great impact on how our ~nuke-fire.sh~ script works, we should leave it out
-of the summary.
+#+begin_example
+A wrapped reqwest error would leak the API key.  The key travels in the
+request URL.  The endpoint field already names the call, so the URL is
+dropped.
+#+end_example
 
 ** Code
 
