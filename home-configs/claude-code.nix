@@ -605,7 +605,7 @@ in
       '';
     };
   };
-  programs.claude-code.memory.source = ./claude-memory.org;
+  programs.claude-code.context = ./claude-memory.org;
 
   home.packages = [
     # Recovery tool for when Claude Code leaves orphaned shells, spares, or

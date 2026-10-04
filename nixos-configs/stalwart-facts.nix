@@ -1,5 +1,5 @@
 ################################################################################
-# Maps facts.network.mail data into services.stalwart-mail.settings and
+# Maps facts.network.mail data into services.stalwart.settings and
 # related declarations.
 #
 # Data shape (facts.network.mail.externalDomains): attrset keyed by domain
@@ -124,10 +124,10 @@ in
   # name must match the domain exactly.
   security.acme.certs = lib.mapAttrs (_: _: {
     group = "stalwart-mail";
-    postRun = "systemctl reload-or-restart stalwart-mail.service || true";
+    postRun = "systemctl reload-or-restart stalwart.service || true";
   }) externalDomains;
 
-  services.stalwart-mail.settings = {
+  services.stalwart.settings = {
     # The SNI cert list.  External domain certs first, then the internal
     # fallback for mail.<internal-domain> connections.  Stalwart matches
     # by hostname against names in the [certificate] section.
@@ -138,7 +138,7 @@ in
     # LoadCredential so no group-membership changes are needed.
     certificate = lib.mapAttrs (domain: _: {
       cert = "/var/lib/acme/${domain}/fullchain.pem";
-      private-key = "%{file:/run/credentials/stalwart-mail.service/acme-key-${domain}}%";
+      private-key = "%{file:/run/credentials/stalwart.service/acme-key-${domain}}%";
     }) externalDomains;
 
     # DKIM signing config per external domain.
@@ -146,7 +146,7 @@ in
       algo = "ed25519-sha256";
       inherit domain;
       selector = cfg.dkimSelector;
-      private-key = "%{file:/run/credentials/stalwart-mail.service/${cfg.dkimSecretName}}%";
+      private-key = "%{file:/run/credentials/stalwart.service/${cfg.dkimSecretName}}%";
       headers.relaxed = [
         "From"
         "To"
@@ -191,15 +191,13 @@ in
 
   # Per-domain LoadCredential extensions: DKIM private key + ACME private
   # key.  Merges with the base set declared in stalwart.nix.
-  systemd.services.stalwart-mail.serviceConfig.LoadCredential =
-    lib.lists.concatMap
-      (domain: [
-        "${externalDomains.${domain}.dkimSecretName}:${
-          config.age.secrets.${externalDomains.${domain}.dkimSecretName}.path
-        }"
-        "acme-key-${domain}:/var/lib/acme/${domain}/key.pem"
-      ])
-      externalDomainNames;
+  systemd.services.stalwart.serviceConfig.LoadCredential = lib.lists.concatMap (
+    domain: [
+      "${externalDomains.${domain}.dkimSecretName}:${
+        config.age.secrets.${externalDomains.${domain}.dkimSecretName}.path
+      }"
+      "acme-key-${domain}:/var/lib/acme/${domain}/key.pem"
+    ]) externalDomainNames;
 
   # TODO: re-introduce sender-alignment scoring on catch-all'd domains
   # once the spam-filter merge in nixos-modules/stalwart.nix is working.

@@ -25,6 +25,7 @@
   gtk3,
   hicolor-icon-theme,
   libpng,
+  libx11,
   mpfr,
   nanosvg,
   nlopt,
@@ -34,9 +35,8 @@
   qhull,
   rcodesign,
   tbb_2022,
-  wxGTK32,
+  wxwidgets_3_2,
   xmlstarlet,
-  xorg,
   libbgcode,
   heatshrink,
   catch2,
@@ -46,7 +46,7 @@
 }:
 let
   opencascade-occt = opencascade-occt_7_6;
-  wxGTK-prusa = wxGTK32.overrideAttrs (old: rec {
+  wxGTK-prusa = wxwidgets_3_2.overrideAttrs (old: rec {
     pname = "wxwidgets-prusa3d-patched";
     version = "3.2.0";
     configureFlags = old.configureFlags ++ [ "--disable-glcanvasegl" ];
@@ -144,7 +144,7 @@ stdenv.mkDerivation (finalAttrs: {
     qhull
     tbb_2022
     wxGTK-override'
-    xorg.libX11
+    libx11
     libbgcode
     heatshrink
     catch2

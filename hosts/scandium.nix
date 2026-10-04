@@ -142,7 +142,7 @@ in
               "firefox"
               "firefox-bin-unwrapped"
               "ngrok"
-              "signal-desktop-bin"
+              "signal-desktop"
               "unrar"
               "zoom"
             ]
@@ -230,62 +230,13 @@ in
             # the local overlay had drifted from upstream.  Re-enabling vanilla
             # nixpkgs to see whether the upstream situation has improved.
             pkgs.prusa-slicer
-            # Yet another chat app.  I guess it's supposed to be secure, but I
+            # Yet another chat app.  I guess it is supposed to be secure, but I
             # assume anything going to the Internet is fundamentally insecure to
             # whomever receives it, and everyone in between.
-            # There's some other signal packages worth looking at if I get into it
-            # enough:
-            # https://search.nixos.org/packages?channel=24.11&from=0&size=50&sort=relevance&type=packages&query=signal
-            # I'd love to build from source, but the signal-desktop package isn't
-            # configured well for overriding.  Presently it is set to be Linux only,
-            # and imports a couple of packages using callPackage in a let binding.
-            # I tried overriding them where they are used (via passthru), but still
-            # no joy.
-            pkgs.signal-desktop-bin
-            # (pkgs.signal-desktop-bin.overrideAttrs (old: {
-            #   preInstall = pkgs.lib.traceVal ''
-            #     mkdir src-modified
-            #     ls -al "Signal.app"
-            #     ${pkgs.asar}/bin/asar \
-            #       extract \
-            #       "Signal.app/Contents/Resources/app.asar" \
-            #       src-modified
-            #     ls -al src-modified/app
-            #     # Keep this around in case the brittle substitution breaks.
-            #     grep -C20 -R hasExpired src-modified/ts/state/selectors/expiration.js
-            #     # Let's just see what's inside.
-            #     substituteInPlace \
-            #       src-modified/ts/state/selectors/expiration.js \
-            #       --replace-fail '(buildExpiration, autoDownloadUpdate, now) => {' \
-            #         '(buildExpiration, autoDownloadUpdate, now) => { return false;'
-            #     # Let's see how the file looks now too.
-            #     grep -C20 -R hasExpired src-modified/ts/state/selectors/expiration.js
-            #     cd src-modified
-            #     ls -al .
-            #     # This prevents the V8 engine from barfing on a cache mismatch.
-            #     rm -f preload.bundle.cache
-            #     ${pkgs.asar}/bin/asar pack . ../app.asar
-            #     cd ..
-            #     mv app.asar Signal.app/Contents/Resources/app.asar
-            #     # exit 1
-            #   '';
-            #   # installPhase = ''
-            #   #   runHook preInstall
-
-            #   #   mkdir -p $out/Applications
-            #   #   cp -r Signal.app $out/Applications
-
-            #   #   runHook postInstall
-            #   # '';
-            # }))
-            # (pkgs-latest.signal-desktop-bin.overrideAttrs (old: {
-            #   src = pkgs.fetchFromGitHub {
-            #     owner = "LoganBarnett";
-            #     repo = "Signal-Desktop";
-            #     rev = "remove-expiration";
-            #     hash = "sha256-tmxaupVwN8k9ZYtFZjDJuhN9bbkIpcWEJ2JDfrDlBgg=";
-            #   };
-            # }))
+            # Comes from overlays/signal-desktop.nix, which pins the macOS DMG
+            # rather than taking the nixpkgs from-source build, because Signal
+            # disables itself as soon as a newer release ships.
+            pkgs.signal-desktop
             # A cloud VPN provider.  It breaks my self hosted proclivities, but
             # others can give me links to go into their VPNs.
             pkgs.tailscale

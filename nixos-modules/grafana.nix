@@ -55,6 +55,11 @@ in
       text = builtins.toJSON value;
     };
   }) dashboards;
+  # Hex secret used as Grafana's secret_key.
+  age.secrets."${service-user-prefix}-grafana-secret-key" = {
+    generator.script = "hex";
+    settings.length = 32;
+  };
   services.grafana = {
     enable = true;
     declarativePlugins = with pkgs.grafanaPlugins; [ ];
@@ -92,6 +97,7 @@ in
     settings = {
       # Avoid port conflict with dns-smart-block on hosts that run both.
       server.http_port = 3002;
+      security.secret_key = "$__file{/run/credentials/grafana.service/secret-key}";
       # Enable anonymous access to the dashboards.  Everything is exposed
       # publicly via Prometheus exporters anyways.
       "auth.anonymous" = {
@@ -189,6 +195,9 @@ in
     serviceConfig.LoadCredential = [
       "ldap-password:${
         config.age.secrets."${service-user-prefix}-grafana-service-ldap-password".path
+      }"
+      "secret-key:${
+        config.age.secrets."${service-user-prefix}-grafana-secret-key".path
       }"
     ];
     # Use a handy trick seen in

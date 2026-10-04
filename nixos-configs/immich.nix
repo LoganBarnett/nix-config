@@ -26,6 +26,10 @@ in
 {
   imports = [ ../nixos-modules/immich.nix ];
   networking.dnsAliases = [ "immich" ];
+  # Immich 2.x receives no further upstream fixes and 3.x only lands in 26.11,
+  # so CVE-2026-59258 and CVE-2026-82272 are knowingly carried until that
+  # upgrade.  Revisit when the pinned nixpkgs can supply immich 3.x.
+  nixpkgs.config.permittedInsecurePackages = [ "immich-2.7.5" ];
 
   age.secrets."immich-oauth-config" = {
     generator = {

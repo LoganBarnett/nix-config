@@ -193,12 +193,6 @@
     # };
     nixpkgs.url = "github:nixos/nixpkgs/nixos-26.05";
     nixpkgs-openscad-bin.url = "github:LoganBarnett/nixpkgs/openscad-darwin-preserve-cli";
-    lix-module = {
-      # Not sure what to do about the warning - release-2.92 doesn't work, even
-      # though the error says it what is expected.
-      url = "https://git.lix.systems/lix-project/nixos-module/archive/stable.tar.gz";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
     hyuqueue = {
       url = "github:LoganBarnett/hyuqueue";
       inputs.nixpkgs.follows = "nixpkgs";

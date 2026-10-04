@@ -31,7 +31,7 @@ in
     ../nixos-configs/sshd.nix
     ../nixos-configs/nix-store-tools.nix
     ../nixos-configs/narcolepsy.nix
-    flake-inputs.lix-module.nixosModules.lixFromNixpkgs
+    ../agnostic-configs/lix.nix
     ../nixos-modules/nix-flake-environment.nix
     ../nixos-configs/nix-store-optimize.nix
     ../agnostic-configs/nix-builder-consume.nix

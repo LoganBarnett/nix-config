@@ -1,12 +1,12 @@
 ################################################################################
-# Stalwart-mail module extensions.
+# Stalwart module extensions.
 #
-# Configuration of services.stalwart-mail itself happens directly in the
+# Configuration of services.stalwart itself happens directly in the
 # nixos-configs/ consumer files (stalwart.nix for invariant pieces,
 # stalwart-facts.nix for facts-derived pieces).
 #
 # This module exists only to add a small extension to the upstream
-# `services.stalwart-mail` namespace: a way to contribute custom
+# `services.stalwart` namespace: a way to contribute custom
 # spam-filter rules that actually fire.  See the option descriptions for
 # the architectural reason that requires its own machinery.
 ################################################################################
@@ -18,7 +18,7 @@
 }:
 let
   inherit (lib) mkOption types;
-  cfg = config.services.stalwart-mail;
+  cfg = config.services.stalwart;
 
   hasExtras = cfg.extraSpamFilterRules != { } || cfg.extraSpamFilterScores != { };
 
@@ -32,7 +32,7 @@ let
   # with our additions appended) — to be wired up once landed.
 in
 {
-  options.services.stalwart-mail = {
+  options.services.stalwart = {
     extraSpamFilterRules = mkOption {
       type = types.attrsOf (types.attrsOf types.anything);
       default = { };
@@ -54,10 +54,10 @@ in
         at evaluation time.
 
         Stalwart 0.14 loads its working rule set from the URL given by
-        `services.stalwart-mail.settings.spam-filter.resource` (by
+        `services.stalwart.settings.spam-filter.resource` (by
         default the bundled file in
-        `pkgs.stalwart-mail.spam-filter`).  Rules declared in local TOML
-        under `services.stalwart-mail.settings.spam-filter.rule.<id>`
+        `pkgs.stalwart.spam-filter`).  Rules declared in local TOML
+        under `services.stalwart.settings.spam-filter.rule.<id>`
         do appear in the running configuration but are silently NOT
         evaluated — the rule engine consults only the resource.  This
         is a documented gap; the upstream maintainer's note at
@@ -114,7 +114,7 @@ in
   # Warn loudly if any consumer sets the extras options before the merge
   # is wired up, so we don't pretend to honor them.
   config.warnings = lib.optional (cfg.enable && hasExtras) ''
-    services.stalwart-mail.extraSpamFilterRules / extraSpamFilterScores are
+    services.stalwart.extraSpamFilterRules / extraSpamFilterScores are
     set but the underlying merge into the bundled spam-filter resource is
     not yet implemented (the bundled file is invalid TOML; see
     https://github.com/LoganBarnett/stalwart-spam-filter-toml-bug).  Those

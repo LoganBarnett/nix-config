@@ -15,6 +15,12 @@
 # The dependencies pulled in will substitute based on their name.
 # The template string is in the form of %name% but one day I may make that
 # configurable.
+#
+# `replace-secret` reads the replacement from a file instead of an argument, so
+# the decrypted dependency never appears in /proc/<pid>/cmdline.  It also edits
+# in place, hence staging the template in a temporary file and writing the
+# result to stdout, which is what agenix-rekey captures.  It strips surrounding
+# newlines from the secret, matching what command substitution would have done.
 ################################################################################
 { lib, ... }:
 {
@@ -34,15 +40,17 @@
       );
     in
     ''
-      printf '%s' ${lib.escapeShellArg template} \
-        ${lib.strings.concatStringsSep " " (
-          builtins.map (dep: ''
-            | ${pkgs.replace}/bin/replace-literal \
-              -e \
-              -f \
-              "%${lib.escapeShellArg dep.name}%" \
-              "$(${decrypt} ${lib.escapeShellArg dep.file})" \
-          '') deps
-        )}
+      staged="$(${pkgs.coreutils}/bin/mktemp)"
+      trap '${pkgs.coreutils}/bin/rm --force "$staged"' EXIT
+      printf '%s' ${lib.escapeShellArg template} > "$staged"
+      ${lib.strings.concatStringsSep "\n" (
+        builtins.map (dep: ''
+          ${pkgs.replace-secret}/bin/replace-secret \
+            ${lib.escapeShellArg "%${dep.name}%"} \
+            <(${decrypt} ${lib.escapeShellArg dep.file}) \
+            "$staged"
+        '') deps
+      )}
+      ${pkgs.coreutils}/bin/cat "$staged"
     '';
 }

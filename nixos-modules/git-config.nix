@@ -166,7 +166,14 @@ in
     # ./git-program.nix
   ];
   environment.etc = {
-    gitignore.source = ../git/gitignore_global;
+    # `builtins.path` pins just this file into its own content-addressed store
+    # path.  A bare `../git/gitignore_global` resolves inside the flake's own
+    # source copy, so /etc/gitignore would symlink into it and every unrelated
+    # change to this tree would churn the system derivation.
+    gitignore.source = builtins.path {
+      path = ../git/gitignore_global;
+      name = "gitignore_global";
+    };
   }
   // builtins.listToAttrs (lib.attrsets.mapAttrsToList makeHook hookScripts);
   nixpkgs.overlays = [

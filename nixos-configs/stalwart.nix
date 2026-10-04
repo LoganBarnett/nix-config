@@ -65,9 +65,9 @@ in
   # Without both, an upgrade is a foot-gun.
   assertions = [
     {
-      assertion = lib.versionOlder pkgs.stalwart-mail.version "0.16";
+      assertion = lib.versionOlder pkgs.stalwart.version "0.16";
       message = ''
-        stalwart-mail ${pkgs.stalwart-mail.version} ≥ 0.16 is not yet
+        stalwart ${pkgs.stalwart.version} ≥ 0.16 is not yet
         supported by this configuration.
 
         Stalwart 0.16 moves spam-filter, session, and domain config from
@@ -83,10 +83,9 @@ in
           - Stand up end-to-end mail health probes so we'd see a silent
             regression instead of finding out months later.
 
-        Until then, pin stalwart-mail to a 0.14 version (the 25.11
-        channel ships a working pin).  If you intentionally want to
-        proceed without the reconciler, delete this assertion and
-        prepare to debug.
+        Until then, pin stalwart to a 0.14 version (the 25.11 channel ships a
+        working pin).  If you intentionally want to proceed without the
+        reconciler, delete this assertion and prepare to debug.
       '';
     }
   ];
@@ -121,7 +120,11 @@ in
 
   services.stalwart = {
     enable = true;
-    stateVersion = config.system.nixos.release;
+    # Per the 26.05 release notes this must equal `system.stateVersion` on an
+    # existing install.  Anything 26.05 or newer renames the service user,
+    # group and data directory away from the `stalwart-mail` ones already on
+    # disk, so it must not follow the release.
+    stateVersion = config.system.stateVersion;
     settings = {
       # All data backed by a single embedded RocksDB instance.  Migrate to
       # PostgreSQL later if needed.
@@ -222,7 +225,7 @@ in
 
       certificate.internal = {
         cert = "%{file:${internalCertFile}}%";
-        private-key = "%{file:/run/credentials/stalwart-mail.service/tls-key}%";
+        private-key = "%{file:/run/credentials/stalwart.service/tls-key}%";
       };
 
       # Allow relay only for authenticated users.
@@ -244,11 +247,11 @@ in
     };
   };
 
-  systemd.services.stalwart-mail = {
+  systemd.services.stalwart = {
     # Restart whenever the generated TOML changes (relay rules, cert
     # paths, LDAP filters, etc.).  The upstream module does not trigger
     # restarts on settings changes by itself.
-    restartTriggers = [ (builtins.toJSON config.services.stalwart-mail.settings) ];
+    restartTriggers = [ (builtins.toJSON config.services.stalwart.settings) ];
     after = [
       "ldap-reconciler.service"
       "ldap-ready.target"
@@ -277,12 +280,12 @@ in
           # Stalwart's %{file:...}% reads verbatim, so strip trailing
           # newlines that agenix adds to secret files.
           ${pkgs.coreutils}/bin/tr -d '\n' \
-            < /run/credentials/stalwart-mail.service/${ldapCredential} \
+            < /run/credentials/stalwart.service/${ldapCredential} \
             > ${strippedLdapCred}
           chown stalwart-mail:stalwart-mail ${strippedLdapCred}
           chmod 0400 ${strippedLdapCred}
           ${pkgs.coreutils}/bin/tr -d '\n' \
-            < /run/credentials/stalwart-mail.service/${adminCredential} \
+            < /run/credentials/stalwart.service/${adminCredential} \
             > ${strippedAdminCred}
           chown stalwart-mail:stalwart-mail ${strippedAdminCred}
           chmod 0400 ${strippedAdminCred}

@@ -108,7 +108,7 @@
     ../nixos-modules/goss.nix
     ../nixos-modules/goss-exporter.nix
     ../nixos-modules/goss-checks.nix
-    flake-inputs.lix-module.nixosModules.lixFromNixpkgs
+    ../agnostic-configs/lix.nix
     ../nixos-modules/meraki-provisioning.nix
     ../nixos-modules/nix-flake-environment.nix
     ../nixos-modules/optical-drive.nix
@@ -161,6 +161,10 @@
     "ntfs"
     "xfs"
   ];
+  # The base profile pulls in ZFS support, which makes NixOS warn about
+  # force-importing the root pool.  No host here roots on ZFS, and `false`
+  # becomes the default in 26.11.
+  boot.zfs.forceImportRoot = false;
   # Install terminfo entries for all packaged terminal emulators so that
   # programs like watch, htop, etc. work correctly over SSH regardless of
   # which terminal the connecting user runs.

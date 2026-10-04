@@ -16,9 +16,9 @@
   # Both nixos-rebuild and nix copy shell out to ssh, so a client-side Match
   # block is what routes root logins on the LAN to this key.  IdentitiesOnly
   # keeps the user's own keys from being offered for root.
-  home-manager.users.logan.programs.ssh.matchBlocks."deploy-identity" = {
-    match = "host *.${facts.network.domain} user root";
-    identityFile = config.age.secrets.deploy-key.path;
-    identitiesOnly = true;
+  home-manager.users.logan.programs.ssh.settings."deploy-identity" = {
+    header = "Match host *.${facts.network.domain} user root";
+    IdentityFile = config.age.secrets.deploy-key.path;
+    IdentitiesOnly = true;
   };
 }

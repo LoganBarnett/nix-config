@@ -12,7 +12,7 @@
 let
   inherit (lib) pipe;
   inherit (lib.attrsets) filterAttrs mapAttrsToList;
-  inherit (lib.lists) fold;
+  inherit (lib.lists) foldr;
   monitor-to-exporter = monitor: {
     ${pkgs.lib.custom.monitor-to-exporter-name monitor} = {
       enable = true;
@@ -72,6 +72,6 @@ in
   #   openFirewall = enable;
   # };
   services.prometheus.exporters = pipe exporterMonitors [
-    (fold (monitor: acc: acc // (monitor-to-exporter monitor)) { })
+    (foldr (monitor: acc: acc // (monitor-to-exporter monitor)) { })
   ];
 }

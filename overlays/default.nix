@@ -18,18 +18,13 @@
   (import ./test-script.nix)
   (import ./write-shell-application-with-libs.nix)
   (import ./vpn-tools.nix)
-  (import ./augeas.nix)
   (import ./battlescribe-update-data.nix)
   (import ./blueutil.nix)
-  (import ./cacert.nix)
   (import ./discord.nix)
   (import ./element-desktop.nix)
   # (import ./crystal.nix)
   (import ./hiera-eyaml.nix)
   (import ./lastversion.nix)
-  (import ./man-pages-fix.nix)
-  (import ./maven.nix)
-  (import ./nightlight.nix)
   (import ./percol.nix)
   (import ./prusa-slicer.nix)
   # (import ./python-hatch-vcs-fix.nix)
@@ -39,7 +34,7 @@
   (import ./firefox-bin.nix)
   (import ./ghostty-bin.nix)
   (import ./gpclient.nix)
-  (import ./signal-desktop.nix { inherit flake-inputs system; })
+  (import ./signal-desktop.nix)
   (import ./claude-code.nix { inherit flake-inputs system; })
   (import ./opencode.nix { inherit system; })
   (import ./makemkv.nix)
@@ -49,9 +44,7 @@
   # (import ./openconnect-sso.nix)
   # Kept as an example of using someone else's overlay remotely.
   # (import "${builtins.fetchTarball https://github.com/vlaci/openconnect-sso/archive/master.tar.gz}/overlay.nix")
-  (import ./wireguard.nix)
   (import ./yt-dlp.nix)
-  (import ./zig.nix)
   (import ./zoom-us.nix)
   (import ./zwave-js-ui.nix)
   # Needed until https://github.com/NixOS/nixpkgs/pull/391654 is merged.
@@ -85,20 +78,6 @@
   (final: prev: {
     dness = final.callPackage ../derivations/dness.nix { };
   })
-  # (final: prev: {
-  #   # Earlier my tests didn't give me any info but I found out I'd mispelled
-  #   # "signal" as "singal".  So I should try again and see if this works.
-  #   # signal-desktop-bin = (import ./signal-desktop-bin.nix final prev);
-  #   signal-desktop-bin = prev.signal-desktop-bin.overrideAttrs (_: let
-  #     version = "7.72.1";
-  #     url = "https://updates.signal.org/desktop/signal-desktop-mac-universal-${version}.dmg";
-  #   in {
-  #     src = prev.fetchurl {
-  #       hash = "";
-  #       inherit url version;
-  #     };
-  #   });
-  # })
   # This section is for anything we have listed in ../derivations/ which we
   # intend to see moved to nixpkgs, and not a deliberate overriding.
   # We need to migrate some things here.  Scan above and figure out what to move
