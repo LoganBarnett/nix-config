@@ -159,15 +159,23 @@ in
   # Extend the generated service with LDAP ordering, credentials,
   # hardening, and restart triggers.
   systemd.services.nix-hapi-ldap = {
+    # A serving slapd is not enough on its own.  The reconciler reaches it by
+    # name over TLS, so the lookup fails until this host's resolver answers
+    # and the certificate check fails until the clock is corrected.
+    # time-sync.target is passive (chronyd pulls it in), so it is ordered
+    # after but not wanted.
     after = [
       "openldap.service"
       "run-agenix.d.mount"
       "network-online.target"
+      "nss-lookup.target"
+      "time-sync.target"
     ];
     wants = [
       "openldap.service"
       "run-agenix.d.mount"
       "network-online.target"
+      "nss-lookup.target"
     ];
     # Restart when the tree JSON or any LDAP password hash changes.
     restartTriggers = [

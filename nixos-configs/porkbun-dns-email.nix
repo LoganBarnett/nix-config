@@ -134,8 +134,20 @@ in
   # Extend the generated nix-hapi-porkbun service with credential binding,
   # dependency ordering, and restart triggers.
   systemd.services.nix-hapi-porkbun = {
-    after = [ "run-agenix.d.mount" ];
-    wants = [ "run-agenix.d.mount" ];
+    # The generated unit waits only for network-online.target, which is
+    # reached before this host can resolve names.  The reconciler speaks HTTPS
+    # to a named host, so it also needs the resolver answering and a corrected
+    # clock for the certificate check.  time-sync.target is passive (chronyd
+    # pulls it in), so it is ordered after but not wanted.
+    after = [
+      "nss-lookup.target"
+      "run-agenix.d.mount"
+      "time-sync.target"
+    ];
+    wants = [
+      "nss-lookup.target"
+      "run-agenix.d.mount"
+    ];
     # Restart when the desired-state JSON changes (new records, updated keys).
     restartTriggers = [
       config.services.nix-hapi.jsonFiles.porkbun
