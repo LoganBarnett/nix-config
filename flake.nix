@@ -125,18 +125,22 @@
     nix-hapi-provider-aruba-cx = {
       url = "github:LoganBarnett/nix-hapi-provider-aruba-cx";
       inputs.nixpkgs.follows = "nixpkgs";
+      inputs.nix-hapi.follows = "nix-hapi";
     };
     nix-hapi-provider-ldap = {
       url = "github:LoganBarnett/nix-hapi-provider-ldap";
       inputs.nixpkgs.follows = "nixpkgs";
+      inputs.nix-hapi.follows = "nix-hapi";
     };
     nix-hapi-provider-ntfy = {
       url = "github:LoganBarnett/nix-hapi-provider-ntfy";
       inputs.nixpkgs.follows = "nixpkgs";
+      inputs.nix-hapi.follows = "nix-hapi";
     };
     nix-hapi-provider-porkbun = {
       url = "github:LoganBarnett/nix-hapi-provider-porkbun";
       inputs.nixpkgs.follows = "nixpkgs";
+      inputs.nix-hapi.follows = "nix-hapi";
     };
     # Homebrew removed: scandium's last two casks were migrated to Nix —
     # alfred -> derivations/alfred.nix, steam -> programs.steam
