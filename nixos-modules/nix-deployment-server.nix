@@ -6,6 +6,12 @@
 # 2. Evaluates if any host configurations would change
 # 3. Automatically deploys updates to affected hosts
 # 4. Tracks deployment status for external tools (like Claude)
+#
+# No host enables this module.  It never completed a host check on rubidium.
+# The failures were silent because check-host-changed discards stderr.  It also
+# deploys the public flake with raw nixos-rebuild.  Hosts are deployed with
+# proton-deploy from the private flake, so enabling this as written would drop
+# their private configuration.
 ################################################################################
 {
   config,

@@ -7,7 +7,7 @@
 # place.
 #
 # Rubidium is my headless code host.  I can write software and direct the LLMs
-# to do the things here.  It doubles as a NixOS based deployment host.
+# to do the things here.
 #
 # The hardware is a Mac Mini 7,1 (Late 2014) with an Intel Core i5-4260U
 # (Haswell) CPU.
@@ -23,7 +23,7 @@
   imports = [
     (flake-inputs.nixos-hardware + "/apple/macmini")
     ../nixos-configs/code-headless.nix
-    ../nixos-configs/deployment-server.nix
+    ../nixos-configs/persistent-terminal.nix
     ../nixos-modules/linux-host.nix
     ../users/logan-headless-development.nix
     (
@@ -60,7 +60,8 @@
         disk = {
           os = {
             type = "disk";
-            device = "/dev/disk/by-id/ata-APPLE_HDD_HTS545050A7E362_TEL51939JD3Z1H";
+            device =
+              "/dev/disk/by-id/ata-APPLE_HDD_HTS545050A7E362_TEL51939JD3Z1H";
             content = {
               type = "gpt";
               partitions = {

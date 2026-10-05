@@ -27,7 +27,6 @@ in
     ../nixos-configs/dhcp-lease-textfile.nix
     ../nixos-configs/chronicle-proxy.nix
     ../nixos-configs/gitea.nix
-    ../nixos-configs/gitea-deployment-webhooks.nix
     ../nixos-configs/gitea-github-sync.nix
     ../nixos-configs/garage-queue-server.nix
     ../nixos-modules/nextcloud.nix
@@ -284,13 +283,17 @@ in
       # Fetched over TFTP by the Meraki diagnostic firmware, then written to
       # the u-boot partition.  This is the irreversible step.
       "mr42_u-boot.mbn" = {
-        url = "https://raw.githubusercontent.com/clayface/openwrt-cryptid/master/mr42_u-boot.mbn";
-        sha256 = "ac39dcfb396b2fb115d8890ff812b51c0ff608b77cd3947c4d1f99aaf855a7ac";
+        url =
+          "https://raw.githubusercontent.com/clayface/openwrt-cryptid/master/mr42_u-boot.mbn";
+        sha256 =
+          "ac39dcfb396b2fb115d8890ff812b51c0ff608b77cd3947c4d1f99aaf855a7ac";
       };
       # Only needed for the UART fallback path, via ubootwrite.py.
       "mr42_u-boot.bin" = {
-        url = "https://raw.githubusercontent.com/clayface/openwrt-cryptid/master/mr42_u-boot.bin";
-        sha256 = "319742c4baac6a8506b0ab2fd69b2927c0ef8f6f0d96c744388101ad7f62c53b";
+        url =
+          "https://raw.githubusercontent.com/clayface/openwrt-cryptid/master/mr42_u-boot.bin";
+        sha256 =
+          "319742c4baac6a8506b0ab2fd69b2927c0ef8f6f0d96c744388101ad7f62c53b";
       };
       # Deliberately clayface's build rather than a current OpenWrt release,
       # and this is load-bearing.  The 25.12.5 initramfs transferred completely
@@ -310,14 +313,18 @@ in
       # ends up installed comes from the sysupgrade image below, so the two
       # deliberately do not match.
       "openwrt-ipq806x-generic-meraki_mr42-initramfs-fit-uImage.itb" = {
-        url = "https://raw.githubusercontent.com/clayface/openwrt-cryptid/master/openwrt-ipq806x-generic-meraki_mr42-initramfs-fit-uImage.itb";
-        sha256 = "861e57593a207afbc26c2c2df2b8deb838b413af006b23e9f6142922fc9ed722";
+        url =
+          "https://raw.githubusercontent.com/clayface/openwrt-cryptid/master/openwrt-ipq806x-generic-meraki_mr42-initramfs-fit-uImage.itb";
+        sha256 =
+          "861e57593a207afbc26c2c2df2b8deb838b413af006b23e9f6142922fc9ed722";
       };
       # Pulled over HTTP from the booted initramfs, not by u-boot, so the
       # versioned name is fine and preferable.
       "openwrt-25.12.5-ipq806x-generic-meraki_mr42-squashfs-sysupgrade.bin" = {
-        url = "https://downloads.openwrt.org/releases/25.12.5/targets/ipq806x/generic/openwrt-25.12.5-ipq806x-generic-meraki_mr42-squashfs-sysupgrade.bin";
-        sha256 = "c0c4c529997552b32e62357c1cdb097ae3cd74e4d208a7bdd81c9676a7ab6967";
+        url =
+          "https://downloads.openwrt.org/releases/25.12.5/targets/ipq806x/generic/openwrt-25.12.5-ipq806x-generic-meraki_mr42-squashfs-sysupgrade.bin";
+        sha256 =
+          "c0c4c529997552b32e62357c1cdb097ae3cd74e4d208a7bdd81c9676a7ab6967";
       };
     };
   };
@@ -333,8 +340,12 @@ in
       RemainAfterExit = true;
     };
     script = ''
-      ${pkgs.acl}/bin/setfacl -d -m g:media-shared:rwx /tank/data/nextcloud-shared-media
-      ${pkgs.acl}/bin/setfacl -m g:media-shared:rwx /tank/data/nextcloud-shared-media
+      ${
+        pkgs.acl
+      }/bin/setfacl -d -m g:media-shared:rwx /tank/data/nextcloud-shared-media
+      ${
+        pkgs.acl
+      }/bin/setfacl -m g:media-shared:rwx /tank/data/nextcloud-shared-media
       # Loku writes .compat.mp4 and thumbnail sidecars beside the MakeMKV
       # masters here.  Without a default ACL those files would carry group
       # loku-server and be unreadable to kodi over NFS (media-shared, gid

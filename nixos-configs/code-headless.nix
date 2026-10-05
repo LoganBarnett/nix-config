@@ -6,7 +6,6 @@
 # Includes tmux for terminal multiplexing to manage multiple coding sessions.
 ################################################################################
 {
-  facts,
   lib,
   pkgs,
   ...
@@ -25,9 +24,8 @@
     pkgs.tmux
     # Alternative terminal multiplexer if preferred: pkgs.screen
 
-    # Claude deployment status hook for checking deployment progress.
-    (pkgs.callPackage ../packages/claude-deployment-hook.nix {
-      domain = facts.network.domain;
-    })
+    # Better git experience.
+    pkgs.gitFull
+    pkgs.lazygit
   ];
 }
