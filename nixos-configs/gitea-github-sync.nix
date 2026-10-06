@@ -36,6 +36,7 @@
     repos = {
       agenix.branches = [ "installSecretFn" ];
       agenix-rekey.branches = [ "rust-runtime" ];
+      attic.branches = [ "watch-store-invalid-paths" ];
       dns-smart-block = { };
       emacs-config = { };
       flake-sync-status = { };

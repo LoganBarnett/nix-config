@@ -34,6 +34,15 @@
       # agenix-rekey's README for details.
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    attic = {
+      # Fork with a fix for the watch-store panic in zhaofengli/attic issue
+      # #226.  Lix unlinks store lock files for paths that never became valid,
+      # and the stock client dies on them.  Only the watcher's client comes
+      # from here.  Drop the fork once nixpkgs ships a fixed client.
+      url = "github:LoganBarnett/attic?ref=watch-store-invalid-paths";
+      # url = "github:zhaofengli/attic";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     authentik-nix = {
       url = "github:nix-community/authentik-nix";
     };

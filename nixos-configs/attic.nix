@@ -16,8 +16,10 @@
 {
   config,
   facts,
+  flake-inputs,
   lib,
   pkgs,
+  system,
   ...
 }:
 let
@@ -47,9 +49,13 @@ let
       {
         attic-server = config.services.atticd.package;
       };
+  # The stock client panics on lock removals for paths that never became
+  # valid.  See the attic input in flake.nix.
+  attic-client = flake-inputs.attic.packages.${system}.attic-client;
   attic-watch-store =
     pkgs.callPackage ../derivations/attic-watch-store/default.nix
       {
+        inherit attic-client;
         attic-server = config.services.atticd.package;
       };
   # TODO:  Let's make a helper or DI injected object out of this so it's easy to
@@ -99,7 +105,8 @@ in
         fqdn
         "127.0.0.1:${toString port}"
       ];
-      database.url = "postgresql://atticd@localhost/atticd?host=/run/postgresql";
+      database.url =
+        "postgresql://atticd@localhost/atticd?host=/run/postgresql";
       storage = {
         type = "local";
         path = "${dataDir}/storage";
@@ -163,7 +170,8 @@ in
   };
 
   systemd.services.attic-cache-ensure = {
-    description = "Ensure Attic cache '${cacheName}' exists with the pinned signing key";
+    description =
+      "Ensure Attic cache '${cacheName}' exists with the pinned signing key";
     after = [
       "atticd.service"
       "run-agenix.d.mount"
