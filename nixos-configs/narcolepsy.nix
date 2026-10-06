@@ -22,31 +22,10 @@ let
     optional
     setAttrByPath
     ;
-  inherit (lib.versions) version;
-  inherit (lib.strings) versionAtLeast;
-  # TODO: Move these to shared functions.
-  nixpkgsVersion =
-    if lib ? version then
-      lib.version
-    else if pkgs ? lib && pkgs.lib ? version then
-      pkgs.lib.version
-    else if pkgs ? version then
-      pkgs.version
-    else
-      throw "Cannot determine nixpkgs version";
 in
 {
   config = mkMerge [
-    (
-      if
-        versionAtLeast nixpkgsVersion "25.11"
-      # TODO: I lost the real path for the new way of doing it, and I don't have
-      # a host which warns about this on hand.
-      then
-        { services.displayManager.gdm.autoSuspend = false; }
-      else
-        { services.xserver.displayManager.gdm.autoSuspend = false; }
-    )
+    { services.displayManager.gdm.autoSuspend = false; }
     {
       # Disable the GNOME3/GDM auto-suspend feature that cannot be disabled in
       # GUI!  Without this, if no user is logged in, the machine will power down

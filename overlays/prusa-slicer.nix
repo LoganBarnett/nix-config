@@ -1,4 +1,8 @@
 final: prev: {
+  # Still needed on nixpkgs 26.05.  Its prusa-slicer 2.9.4 lists webkitgtk_4_1
+  # unconditionally, and nixpkgs marks webkitgtk broken on darwin, so the
+  # vanilla package does not evaluate on scandium.  Checked 2026-10-06.
+  #
   # This follows the suggestion by @wegank here:
   # https://github.com/NixOS/nixpkgs/pull/283524#discussion_r1465828416
   # This works around the binary_function / __binary_function Boost issue seen

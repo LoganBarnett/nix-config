@@ -2136,22 +2136,6 @@
         "type": "github"
       }
     },
-    "nixpkgs-openscad-bin": {
-      "locked": {
-        "lastModified": 1765847327,
-        "narHash": "sha256-zwsr7nT2liw4ZaB593EVbGqkuqmDD/Uxo9rqLDndMyw=",
-        "owner": "LoganBarnett",
-        "repo": "nixpkgs",
-        "rev": "994a1d85fdb7cc360e5ab264b276c202ccb0b657",
-        "type": "github"
-      },
-      "original": {
-        "owner": "LoganBarnett",
-        "ref": "openscad-darwin-preserve-cli",
-        "repo": "nixpkgs",
-        "type": "github"
-      }
-    },
     "nixpkgs-stable": {
       "locked": {
         "lastModified": 1782116945,
@@ -3371,7 +3355,6 @@
         "nixos-hardware": "nixos-hardware",
         "nixos-raspberrypi": "nixos-raspberrypi",
         "nixpkgs": "nixpkgs_27",
-        "nixpkgs-openscad-bin": "nixpkgs-openscad-bin",
         "nur": "nur",
         "openhab-flake": "openhab-flake",
         "optnix": "optnix",

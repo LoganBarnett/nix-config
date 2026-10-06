@@ -8,17 +8,15 @@
 # master and updating the commit reference above.
 #
 # Why we vendor it instead of using pkgs.opencode directly:
-#   Our pinned nixpkgs (25.11) ships opencode 1.0.105, whose derivation builds
-#   node_modules in a `let` binding consumed via `cp -R ${node_modules}` — a
-#   path captured at eval time that `overrideAttrs` cannot reach, so the version
-#   cannot be bumped in place (see the "Rapid Package Updates" notes in
-#   README.org).  This master copy was refactored into a single `finalAttrs:`
-#   fixpoint that consumes `${finalAttrs.node_modules}`, which IS overridable.
-#   That lets overlays/opencode.nix drive the version, src hash, and
-#   node_modules hash from static.nix while keeping a from-source build.
+#   Our pinned nixpkgs ships opencode 1.15.10 and trails releases.  This master
+#   copy is a single `finalAttrs:` fixpoint that consumes
+#   `${finalAttrs.node_modules}`, which is overridable.  That lets
+#   overlays/opencode.nix drive the version, src hash, and node_modules hash
+#   from static.nix while keeping a from-source build.  See the "Rapid Package
+#   Updates" notes in README.org.
 #
 # We need a current opencode because the Emacs client (emacs-opencode) tracks
-# opencode's HTTP API on the latest release, many minor versions ahead of 25.11.
+# opencode's HTTP API on the latest release.
 ################################################################################
 {
   lib,
@@ -168,11 +166,14 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     runHook postInstall
   '';
 
-  postInstall = lib.optionalString (stdenvNoCC.buildPlatform.canExecute stdenvNoCC.hostPlatform) ''
-    installShellCompletion --cmd opencode \
-      --bash <($out/bin/opencode completion) \
-      --zsh <(SHELL=/bin/zsh $out/bin/opencode completion)
-  '';
+  postInstall =
+    lib.optionalString
+      (stdenvNoCC.buildPlatform.canExecute stdenvNoCC.hostPlatform)
+      ''
+        installShellCompletion --cmd opencode \
+          --bash <($out/bin/opencode completion) \
+          --zsh <(SHELL=/bin/zsh $out/bin/opencode completion)
+      '';
 
   nativeInstallCheckInputs = [
     versionCheckHook

@@ -200,8 +200,6 @@
       };
       bromine = {
         controlledHost = true;
-        flake-input-overrides = {
-        };
         ipv4 = 3;
         system = "aarch64-linux";
       };
@@ -223,8 +221,6 @@
       };
       cobalt = {
         controlledHost = true;
-        flake-input-overrides = {
-        };
         ipv4 = 11;
         system = "aarch64-linux";
       };
@@ -236,8 +232,6 @@
       };
       gallium = {
         controlledHost = true;
-        flake-input-overrides = {
-        };
         ipv4 = 4;
         system = "aarch64-linux";
       };
@@ -316,9 +310,6 @@
       "M-CL64PK702X" = {
         controlledHost = true;
         blockProfiles = [ "adult" ];
-        # flake-input-overrides = {
-        #   nixpkgs = "nixpkgs-latest";
-        # };
         ipv4 = 103;
         macAddresses = [
           "bc:d0:74:07:50:eb" # WiFi
@@ -337,8 +328,6 @@
       };
       nickel = {
         controlledHost = true;
-        flake-input-overrides = {
-        };
         ipv4 = 1;
         system = "aarch64-linux";
       };
@@ -385,9 +374,6 @@
       scandium = {
         blockProfiles = [ "adult" ];
         controlledHost = true;
-        flake-input-overrides = {
-          nixpkgs = "nixpkgs";
-        };
         macAddresses = [ "bc:d0:74:1a:78:d1" ];
         ipv4 = 101;
         roaming = true;
@@ -395,8 +381,6 @@
       };
       selenium = {
         controlledHost = true;
-        flake-input-overrides = {
-        };
         ipv4 = 5;
         system = "aarch64-linux";
       };
@@ -412,7 +396,6 @@
         extraAddresses = {
           silicon-external = 100;
         };
-        flake-input-overrides = { };
         ipv4 = 9;
         macAddresses = [ "b8:ca:3a:77:a9:2a" ];
         networkInterface = "eth0";
@@ -919,7 +902,9 @@
           width = 8;
           without-socket-port =
             query:
-            ''label_replace(${query}, "instance", "$1", "instance", "^(.*):[0-9]+$")'';
+            ''label_replace(${
+              query
+            }, "instance", "$1", "instance", "^(.*):[0-9]+$")'';
         in
         {
           active-alerts = import ../nixos-configs/grafana-active-alerts.nix { };
@@ -939,9 +924,11 @@
             inherit without-socket-port;
           };
           power = import ../nixos-configs/grafana-power.nix { };
-          uptime-timeseries = import ../nixos-configs/grafana-uptime-timeseries.nix {
-            inherit without-socket-port;
-          };
+          uptime-timeseries =
+            import ../nixos-configs/grafana-uptime-timeseries.nix
+              {
+                inherit without-socket-port;
+              };
           uptime-stat = import ../nixos-configs/grafana-uptime-stat.nix {
             inherit without-socket-port;
           };

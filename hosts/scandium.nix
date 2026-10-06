@@ -20,35 +20,33 @@ let
     ]
   );
   nextcloud = (
-    flake-inputs.nextcloud-desktop.packages.${system}.default.overrideAttrs (old: {
-      # Inkscape dies with SIGTRAP and we see no other useful information.
-      # Sounds like a project unto itself.  However as of
-      # https://github.com/nextcloud/desktop/pull/3719, we can use
-      # rsvg-convert instead, which should express less desktop-isms that
-      # are probably causing Inkscape to die here.
-      nativeBuildInputs =
-        (lib.lists.filter (
-          p: !(lib.traceVal (lib.strings.hasPrefix "inkscape" p.name))
-        ) old.nativeBuildInputs)
-        ++ [ pkgs.librsvg ]
-        # Give us xcodebuild, or some equivalent.
-        ++ [
+    flake-inputs.nextcloud-desktop.packages.${system}.default.overrideAttrs
+      (old: {
+        # Inkscape dies with SIGTRAP and we see no other useful information.
+        # Sounds like a project unto itself.  However as of
+        # https://github.com/nextcloud/desktop/pull/3719, we can use
+        # rsvg-convert instead, which should express less desktop-isms that
+        # are probably causing Inkscape to die here.
+        nativeBuildInputs =
+          (lib.lists.filter (
+            p: !(lib.traceVal (lib.strings.hasPrefix "inkscape" p.name))
+          ) old.nativeBuildInputs)
+          ++ [ pkgs.librsvg ]
+          # Give us xcodebuild, or some equivalent.
+          ++ [
+            pkgs.xcbuild
+            pkgs.apple-sdk
+          ];
+        buildInputs = old.buildInputs ++ [
           pkgs.xcbuild
           pkgs.apple-sdk
         ];
-      buildInputs = old.buildInputs ++ [
-        pkgs.xcbuild
-        pkgs.apple-sdk
-      ];
-      # cmakeFlags = [
-      #   "-DCMAKE_OSX_SYSROOT=$(xcrun --sdk macosx --show-sdk-path)"
-      # ];
-      #   buildInputs = old.buildInputs ++ [ pkgs.libp11 pkgs.libsForQt5 ];
-    })
+        # cmakeFlags = [
+        #   "-DCMAKE_OSX_SYSROOT=$(xcrun --sdk macosx --show-sdk-path)"
+        # ];
+        #   buildInputs = old.buildInputs ++ [ pkgs.libp11 pkgs.libsForQt5 ];
+      })
   );
-  pkgs-openscad-bin = import flake-inputs.nixpkgs-openscad-bin {
-    inherit system;
-  };
 in
 {
   system.primaryUser = username;
@@ -109,16 +107,19 @@ in
         #   Host silicon.${facts.network.domain}
         #     HostName 192.168.254.${facts.network.hosts.silicon.ipv4}
         # '';
-        environment.etc."ssh/ssh_config.d/103-${work-alias}-workstation.conf".text = ''
-          Host M-CL64PK702X
-            User logan.barnett
-          Host M-CL64PK702X.${facts.network.domain}
-            User logan.barnett
-          Host m-cl64pk702x
-            User logan.barnett
-          Host m-cl64pk702x.${facts.network.domain}
-            User logan.barnett
-        '';
+        environment.etc."ssh/ssh_config.d/103-${
+          work-alias
+        }-workstation.conf".text =
+          ''
+            Host M-CL64PK702X
+              User logan.barnett
+            Host M-CL64PK702X.${facts.network.domain}
+              User logan.barnett
+            Host m-cl64pk702x
+              User logan.barnett
+            Host m-cl64pk702x.${facts.network.domain}
+              User logan.barnett
+          '';
       }
     )
     (
@@ -215,7 +216,7 @@ in
             # Allow generating Nextcloud plugins as a Nix expression.
             pkgs.nc4nix
             # nextcloud
-            pkgs-openscad-bin.openscad
+            pkgs.openscad
             # Used as a better `screen` for communicating at various baud rates and
             # formats.  I found this necessary for interfacing with an Aruba managed
             # switch.
@@ -223,10 +224,9 @@ in
             # Download content from Pixiv.
             pkgs.pxder
             # A 3D printer slicer I really like.  It might work for resin printers
-            # but I know it best for its FFF/FDM support.  Previously disabled
-            # because the nixpkgs version pulled webkitgtk (broken on Darwin) and
-            # the local overlay had drifted from upstream.  Re-enabling vanilla
-            # nixpkgs to see whether the upstream situation has improved.
+            # but I know it best for its FFF/FDM support.  This is the vendored
+            # 2.8.0 from overlays/prusa-slicer.nix.  nixpkgs 26.05's 2.9.4 pulls
+            # webkitgtk, which is broken on Darwin.
             pkgs.prusa-slicer
             # Yet another chat app.  I guess it is supposed to be secure, but I
             # assume anything going to the Internet is fundamentally insecure to

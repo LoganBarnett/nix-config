@@ -7,9 +7,10 @@
 
 # Vendored from nix-darwin's modules/system/applications.nix (branch
 # nix-darwin-25.11, rev ebec37af) to carry the timestamp and LaunchServices
-# changes in the activation script ahead of an upstream pull request; see
-# nix-darwin issue #1842.  Drop this module, and its disabledModules entry,
-# once upstream carries the same behaviour.
+# changes in the activation script ahead of an upstream pull request.  See
+# nix-darwin issue #1842.  Still needed on nix-darwin-26.05, which copies with
+# `rsync --archive` and so preserves the store's mtime.  Drop this module, and
+# its disabledModules entry, once upstream carries the same behaviour.
 {
   disabledModules = [ "system/applications.nix" ];
 
@@ -130,7 +131,9 @@
 
       # A command substitution rather than a pipe or process substitution, so
       # that a failing rsync still fails the activation.
-      itemized=$(${lib.getExe pkgs.rsync} "''${rsyncFlags[@]}" ${config.system.build.applications}/Applications/ "$targetFolder")
+      itemized=$(${lib.getExe pkgs.rsync} "''${rsyncFlags[@]}" ${
+        config.system.build.applications
+      }/Applications/ "$targetFolder")
 
       # Each itemized line is an eleven character change summary (or
       # "*deleting" padded to the same width), one space, then the path

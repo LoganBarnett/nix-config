@@ -19,7 +19,6 @@
   (import ./write-shell-application-with-libs.nix)
   (import ./vpn-tools.nix)
   (import ./battlescribe-update-data.nix)
-  (import ./blueutil.nix)
   (import ./element-desktop.nix)
   # (import ./crystal.nix)
   (import ./hiera-eyaml.nix)
@@ -46,12 +45,6 @@
   (import ./yt-dlp.nix)
   (import ./zoom-us.nix)
   (import ./zwave-js-ui.nix)
-  # Needed until https://github.com/NixOS/nixpkgs/pull/391654 is merged.
-  (final: prev: {
-    nc4nix = prev.nc4nix.overrideAttrs (old: {
-      meta.platforms = final.lib.platforms.unix;
-    });
-  })
   # nixpkgs's obs-studio derivation is Linux-only.  Replace it with the
   # vendored copy of NixOS/nixpkgs#498663, which refactors the package
   # into shared/linux/darwin pieces and adds an aarch64-darwin/x86_64-darwin
@@ -59,23 +52,6 @@
   # nixpkgs catches up.
   (final: prev: {
     obs-studio = final.qt6Packages.callPackage ../derivations/obs-studio { };
-  })
-  # aiohttp ships a wall-clock performance test
-  # (test_cookie_pattern_performance) that asserts an operation completes in
-  # under 10ms.  Nix builds are not hermetic with respect to CPU scheduling, so
-  # this fails intermittently on loaded build machines and blocks any system
-  # that depends on aiohttp (notably octoprint).  Drop doCheck globally.
-  (final: prev: {
-    pythonPackagesExtensions = prev.pythonPackagesExtensions ++ [
-      (python-final: python-prev: {
-        aiohttp = python-prev.aiohttp.overrideAttrs (_: {
-          doCheck = false;
-        });
-      })
-    ];
-  })
-  (final: prev: {
-    dness = final.callPackage ../derivations/dness.nix { };
   })
   # This section is for anything we have listed in ../derivations/ which we
   # intend to see moved to nixpkgs, and not a deliberate overriding.
@@ -95,7 +71,7 @@
     elktail = final.callPackage ../derivations/elktail.nix { };
     mqttpassworder = final.callPackage ../derivations/mqttpassworder.nix { };
     musicgpt = final.callPackage ../derivations/musicgpt.nix { };
-    mypaint = final.callPackage ../derivations/mypaint.nix { };
+    mypaint = final.callPackage ../derivations/mypaint/mypaint.nix { };
     # vlc = final.callPackage ../derivations/vlc.nix {};
     zalgo-cli = final.callPackage ../derivations/zalgo-cli.nix { };
     zsh-git-prompt = final.callPackage ../derivations/zsh-git-prompt.nix { };

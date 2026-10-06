@@ -198,12 +198,7 @@
       url = "github:nvmd/nixos-raspberrypi/develop";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    # nixpkgs-nixos-raspberrypi = {
-    #   url = "github:nvmd/nixpkgs/modules-with-keys-26.05";
-    # };
     nixpkgs.url = "github:nixos/nixpkgs/nixos-26.05";
-    nixpkgs-openscad-bin.url =
-      "github:LoganBarnett/nixpkgs/openscad-darwin-preserve-cli";
     hyuqueue = {
       url = "github:LoganBarnett/hyuqueue";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -360,8 +355,6 @@
             {
               nixpkgs.overlays = [
                 (final: prev: {
-                  # nixos-option =
-                  #   flake-inputs.nixos-option-pr-369151.outputs.legacyPackages.${system}.nixos-option;
                   nix-remote-builder-doctor =
                     flake-inputs.nix-remote-builder-doctor.packages.${system}.default;
                 })

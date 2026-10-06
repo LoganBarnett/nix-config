@@ -5,13 +5,11 @@
 # (scripts/gpclient-update) can bump them without touching this file or the
 # derivations.
 #
-# Why fully vendored instead of overrideAttrs: nixpkgs's pinned gpauth is
-# still on 2.4.6, which uses an entirely different packaging shape
-# (externally-linked openconnect, different hardcoded paths to patch).  The
-# 2.5.x line statically links OpenConnect from a git submodule and the build
-# pipeline diverges enough that overrideAttrs cannot bridge the gap cleanly.
-# We pick up the 2.5.x packaging from nixpkgs-unstable so we can sit on top
-# of the upstream auth/callback fixes.
+# Why fully vendored instead of overrideAttrs: the vendored derivations were
+# copied from nixpkgs-unstable when the pinned nixpkgs still carried the 2.4.x
+# packaging shape.  The pinned nixpkgs now ships 2.6.4 with the 2.5.x shape.
+# The vendoring remains so the rapid updater can pin a version independently
+# of nixpkgs.
 ################################################################################
 final: prev:
 let

@@ -1,23 +1,24 @@
 ################################################################################
-# Replace nixpkgs's opencode (pinned at 25.11's older 1.0.105) with our vendored
-# copy of master's derivation (../derivations/opencode/default.nix), and drive
-# its version + source hash + node_modules hash from static.nix so the version
-# can be bumped via scripts/opencode-update without re-touching nixpkgs.
+# Replace nixpkgs's opencode with our vendored copy of master's derivation in
+# ../derivations/opencode/default.nix.  Its version, source hash and
+# node_modules hash come from static.nix, so the version can be bumped via
+# scripts/opencode-update without touching nixpkgs.
 #
-# This is a from-source build (the preferred mode — see "Rapid Package Updates"
-# in README.org).  The override works because the vendored derivation consumes
-# node_modules through the `finalAttrs` fixpoint (`cp -R ${finalAttrs.node_modules}`),
-# so overrideAttrs on `node_modules` actually reaches the build — unlike 25.11's
-# `let`-bound copy.  When static.nix holds the same values the vendored file
-# pins, this override is a no-op and builds identically to upstream.
+# The pinned nixpkgs ships 1.15.10 and trails the releases the Emacs client
+# tracks.  This is a from-source build, the preferred mode.  See "Rapid Package
+# Updates" in README.org.  The override works because the derivation consumes
+# node_modules through the `finalAttrs` fixpoint, so overrideAttrs on
+# `node_modules` actually reaches the build.  When static.nix holds the same
+# values the vendored file pins, this override is a no-op and builds
+# identically to upstream.
 #
-# opencode 1.17.x's build embeds its web UI via a Bun virtual-module entrypoint
-# that needs a newer Bun than 25.11 ships (1.3.2).  Rather than bump the global
-# pkgs.bun (which everything else depends on), we pin a Bun *scoped to opencode*
-# (static.nix.opencode-bun / scripts/opencode-bun-update) and hand it to the
-# derivation via callPackage.  Bun ships only as prebuilt release zips, so this
-# scoped Bun is itself a binary download — see the source-vs-binary policy in
-# README.org; here from-source opencode unavoidably rests on a prebuilt Bun.
+# A Bun scoped to opencode is handed to the derivation via callPackage.  Its
+# version comes from static.nix.opencode-bun and scripts/opencode-bun-update,
+# so it can run ahead of pkgs.bun when a release needs it.  On x86_64 it also
+# selects the baseline zip, which pkgs.bun does not.  See the bunFileMap note
+# below.  Bun ships only as prebuilt release zips, so this scoped Bun is
+# itself a binary download.  See the source-vs-binary policy in README.org.
+# From-source opencode unavoidably rests on a prebuilt Bun.
 ################################################################################
 { system, ... }:
 final: prev:
@@ -40,14 +41,17 @@ let
     "x86_64-linux" = "bun-linux-x64-baseline.zip";
   };
   bunFile =
-    bunFileMap.${system} or (throw "opencode-bun: unsupported system ${system}");
+    bunFileMap.${system}
+      or (throw "opencode-bun: unsupported system ${system}");
 
   # Scoped Bun: override only version + src on the global bun derivation, so we
   # inherit its darwin code-signing / linux autoPatchelf handling unchanged.
   opencodeBun = prev.bun.overrideAttrs (_: {
     version = bunStatics.version;
     src = final.fetchurl {
-      url = "https://github.com/oven-sh/bun/releases/download/bun-v${bunStatics.version}/${bunFile}";
+      url = "https://github.com/oven-sh/bun/releases/download/bun-v${
+        bunStatics.version
+      }/${bunFile}";
       hash = bunStatics.${system}.hash;
     };
   });

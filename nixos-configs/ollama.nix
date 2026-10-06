@@ -17,7 +17,9 @@
   # Liveness check — confirm Ollama is running and responding to HTTP
   # requests.  Catches process-down or wedged-startup failures that
   # surface in Grafana's Service Health panels via Prometheus.
-  services.goss.checks.http."http://localhost:${toString config.services.ollama.port}/api/tags" =
+  services.goss.checks.http."http://localhost:${
+    toString config.services.ollama.port
+  }/api/tags" =
     {
       status = 200;
       timeout = 5000;
@@ -46,7 +48,9 @@
       port = toString config.services.ollama.port;
     in
     pkgs.writeShellScript "wait-for-ollama" ''
-      until ${pkgs.curl}/bin/curl -sf http://${host}:${port}/ > /dev/null 2>&1; do
+      until ${pkgs.curl}/bin/curl -sf http://${host}:${
+        port
+      }/ > /dev/null 2>&1; do
         sleep 1
       done
     '';
@@ -59,15 +63,6 @@
       ]
     )
   ];
-  # nixpkgs.overlays = [
-  #   (final: prev: {
-  #     pythonPackageExtensions = [(py-final: py-prev: {
-  #       einops = py-prev.overrideAttrs {
-  #         doCheck = false;
-  #       };
-  #     })];
-  #   })
-  # ];
   # Currently broken, I think.
   # services.open-webui = {
   #   enable = true;

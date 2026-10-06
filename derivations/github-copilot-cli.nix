@@ -2,9 +2,9 @@
 # When people say "Copilot", this is what they mean.  There is an AWS Copilot (a
 # competitor fork?).
 #
-# My current Nixpkgs version is quite a bit behind, given how fast things are
-# moving for github-copilot-cli.  They even moved repos at some point, which my
-# old version (the latest Nixpkgs stable) points at the old repo.
+# The pinned nixpkgs now packages the current github/copilot-cli repo, but it
+# trails releases, given how fast things are moving for github-copilot-cli.
+# This copy of the derivation exists so the version can be bumped here.
 #
 # Using `overrideAttrs` doesn't work per
 # https://wiki.nixos.org/wiki/Node.js#Override_NodeJS_package but its counter
@@ -49,9 +49,12 @@ buildNpmPackage (finalAttrs: {
   };
 
   meta = {
-    description = "GitHub Copilot CLI brings the power of Copilot coding agent directly to your terminal";
+    description =
+      "GitHub Copilot CLI brings the power of Copilot coding agent directly to your terminal";
     homepage = "https://github.com/github/copilot-cli";
-    changelog = "https://github.com/github/copilot-cli/releases/tag/v${finalAttrs.version}";
+    changelog = "https://github.com/github/copilot-cli/releases/tag/v${
+      finalAttrs.version
+    }";
     downloadPage = "https://www.npmjs.com/package/@github/copilot";
     license = lib.licenses.unfree;
     maintainers = with lib.maintainers; [

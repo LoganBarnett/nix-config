@@ -223,7 +223,6 @@ in
           ProtectHostname = true;
           ProtectKernelLogs = true;
           ProtectKernelModules = true;
-          # Pending: https://github.com/NixOS/nixpkgs/pull/418537
           ProtectKernelTunables = true;
           ProtectProc = "invisible";
           ProcSubset = "pid";

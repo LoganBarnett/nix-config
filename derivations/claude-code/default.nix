@@ -12,12 +12,13 @@
 #
 # Why we vendor it instead of using pkgs.claude-code directly:
 #   Claude Code ships as a native binary, which master's derivation installs
-#   from Anthropic's release manifest.  Our pinned nixpkgs (25.11) still builds
-#   an old release as a Node.js bundle.  Master reads the version and
-#   per-platform checksums through the `manifest` argument, and
-#   overlays/claude-code.nix fills that from static.nix, so the pin lives in
-#   static.nix (bumped by scripts/claude-code-update) while the derivation
-#   itself tracks master.  That argument is the only point of deviation.
+#   from Anthropic's zstd release manifest.  Our pinned nixpkgs also installs
+#   the native binary, but it trails releases and reads the older uncompressed
+#   manifest.  Master reads the version and per-platform checksums through the
+#   `manifest` argument, and overlays/claude-code.nix fills that from
+#   static.nix.  The pin lives in static.nix, bumped by
+#   scripts/claude-code-update, while the derivation itself tracks master.
+#   That argument is the only point of deviation.
 ################################################################################
 # NOTE: Use the following command to update the package
 # ```sh
@@ -42,7 +43,8 @@
 let
   stdenv = stdenvNoCC;
   baseUrl = "https://downloads.claude.ai/claude-code-releases";
-  platformKey = "${stdenv.hostPlatform.node.platform}-${stdenv.hostPlatform.node.arch}";
+  platformKey =
+    "${stdenv.hostPlatform.node.platform}-${stdenv.hostPlatform.node.arch}";
   platformManifestEntry = manifest.platforms.${platformKey};
 in
 stdenv.mkDerivation (finalAttrs: {
@@ -50,7 +52,9 @@ stdenv.mkDerivation (finalAttrs: {
   inherit (manifest) version;
 
   src = fetchurl {
-    url = "${baseUrl}/${finalAttrs.version}/${platformKey}/${platformManifestEntry.binary}";
+    url = "${baseUrl}/${finalAttrs.version}/${platformKey}/${
+      platformManifestEntry.binary
+    }";
     sha256 = platformManifestEntry.checksum;
   };
 
@@ -80,9 +84,11 @@ stdenv.mkDerivation (finalAttrs: {
       --set-default FORCE_AUTOUPDATE_PLUGINS 1 \
       --set DISABLE_INSTALLATION_CHECKS 1 \
       --set USE_BUILTIN_RIPGREP 0 \
-      ${lib.optionalString stdenv.hostPlatform.isLinux ''
-        --prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath [ alsa-lib ]} \
-      ''}--prefix PATH : ${
+      ${
+        lib.optionalString stdenv.hostPlatform.isLinux ''
+          --prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath [ alsa-lib ]} \
+        ''
+      }--prefix PATH : ${
         lib.makeBinPath (
           [
             # claude-code uses [node-tree-kill](https://github.com/pkrumins/node-tree-kill) which requires procps's pgrep(darwin) or ps(linux)
@@ -112,10 +118,13 @@ stdenv.mkDerivation (finalAttrs: {
   passthru.updateScript = ./update.sh;
 
   meta = {
-    description = "Agentic coding tool that lives in your terminal, understands your codebase, and helps you code faster";
+    description =
+      "Agentic coding tool that lives in your terminal, understands your codebase, and helps you code faster";
     homepage = "https://github.com/anthropics/claude-code";
     downloadPage = "https://claude.com/product/claude-code";
-    changelog = "https://github.com/anthropics/claude-code/blob/v${finalAttrs.version}/CHANGELOG.md";
+    changelog = "https://github.com/anthropics/claude-code/blob/v${
+      finalAttrs.version
+    }/CHANGELOG.md";
     license = lib.licenses.unfree;
     sourceProvenance = with lib.sourceTypes; [ binaryNativeCode ];
     platforms = [

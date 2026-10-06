@@ -1,12 +1,13 @@
 ################################################################################
-# Replace nixpkgs's claude-code (25.11's Node.js-bundle build of an old release)
-# with our vendored copy of master's derivation
-# (../derivations/claude-code/default.nix), which installs the native binary
-# Claude Code now ships as.  Master reads the version and per-platform
-# checksums from its `manifest` argument; that manifest is built here from
-# static.nix so the version can be bumped via scripts/claude-code-update
-# without re-touching nixpkgs.  This is the only deviation from upstream: the
-# derivation file itself is unaltered.
+# Replace nixpkgs's claude-code with our vendored copy of master's derivation
+# in ../derivations/claude-code/default.nix.
+#
+# The pinned nixpkgs ships the native binary too, but it trails releases and
+# reads the older uncompressed manifest.  Master reads the version and
+# per-platform checksums of the zstd distribution from its `manifest`
+# argument.  That manifest is built here from static.nix, so the version can
+# be bumped via scripts/claude-code-update without touching nixpkgs.  This is
+# the only deviation from upstream.  The derivation file itself is unaltered.
 ################################################################################
 { system, ... }:
 final: prev:

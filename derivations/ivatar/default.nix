@@ -121,26 +121,7 @@ let
     propagatedBuildInputs = with python3.pkgs; [ pillow ];
   };
 
-  # social-auth-app-django 5.4.3 is the last release that supports Django 4.x;
-  # 5.5.0 bumped the floor to Django 5.1.  nixpkgs carries 5.5.1+, so we
-  # package 5.4.3 inline until nixpkgs Django is upgraded.
-  social-auth-app-django = buildPythonPackage rec {
-    pname = "social-auth-app-django";
-    version = "5.4.3";
-    format = "pyproject";
-    src = fetchPypi {
-      # PyPI sdist filename uses underscores; pname uses hyphens.
-      pname = "social_auth_app_django";
-      inherit version;
-      hash = "sha256-0fQobVyh5RLJsvaG5+yyoBKBSPGjPYU7adwHtYUINi4=";
-    };
-    build-system = with python3.pkgs; [ setuptools ];
-    propagatedBuildInputs = with python3.pkgs; [
-      django
-      social-auth-core
-    ];
-    doCheck = false;
-  };
+  social-auth-app-django = python3.pkgs.social-auth-app-django;
 
   # ── Auth / account packages not in nixpkgs ─────────────────────────────────
 
@@ -199,7 +180,8 @@ buildPythonApplication {
   format = "pyproject";
 
   src = fetchurl {
-    url = "https://git.linux-kernel.at/oliver/ivatar/-/archive/1.7.0/ivatar-1.7.0.tar.gz";
+    url =
+      "https://git.linux-kernel.at/oliver/ivatar/-/archive/1.7.0/ivatar-1.7.0.tar.gz";
     hash = "sha256-pU3vTgrf11D+D41e4z/9ss23dPbNgB6jcNNhpivtSAk=";
   };
 
@@ -429,7 +411,8 @@ buildPythonApplication {
   '';
 
   meta = {
-    description = "Self-hosted Libravatar / Gravatar-compatible federated avatar service";
+    description =
+      "Self-hosted Libravatar / Gravatar-compatible federated avatar service";
     homepage = "https://git.linux-kernel.at/oliver/ivatar";
     license = lib.licenses.agpl3Plus;
     mainProgram = "ivatar-manage";
