@@ -655,6 +655,54 @@ I can also see here why there would be an issue with overlays not being
 respected.  It does its own import of nixpkgs which doesn't get any overlays
 added to it.  That's a separate issue for another day.
 
+** Nix ~nixos-rebuild~ or ~darwin-rebuild~ ~could not update mtime~
+
+The symptom:
+
+#+begin_src text :results none :exports code
+Building and activating scandium locally...
+building the system configuration...
+warning: could not update mtime for file '': No such file or directory
+error:
+       … while updating the lock file of flake 'git+file:///Users/logan/dev/nix-config-private?ref=refs/heads/main&rev=2f45efd4c2b9c0171d6ac8428ae28edfac267a60'
+
+       … while updating the flake input 'emacs-config'
+
+       … while updating the flake input 'emacs-config/org-mode-fork'
+
+       … while fetching the input 'git+ssh://git@gitea.proton:2222/logan/org-mode?ref=org-lint-include-no-side-effects'
+
+       error: opening file '': No such file or directory
+#+end_src
+
+The fix:
+
+Take the nested input whose ~url~ or other setting you are overriding, and
+replace it with a top level Flake input (let's call it ~bar~).  Then:
+
+#+begin_src nix :results none :exports code
+bar = {
+  url = "github:LoganBarnett/bar";
+};
+foo = {
+  url = "github:LoganBarnett/foo";
+  inputs.bar.follows = "bar";
+};
+#+end_src
+
+Explanation:
+
+We see it all the time, but the problem is if this sneaks in:
+
+#+begin_src nix :results none :exports code
+foo = {
+  url = "github:LoganBarnett/foo";
+  inputs.bar.url = "github:LoganBarnett/bar";
+};
+#+end_src
+
+That produces the error above.
+
 ** Raspberry Pi startup issues
 
 When cooking a brand new host image for a Raspberry Pi (which is just a most
