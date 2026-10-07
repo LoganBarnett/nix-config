@@ -36,6 +36,18 @@ let
     "sysfs"
     "tmpfs"
   ];
+  # Mountpoints excluded from disk usage accounting.  Prometheus anchors
+  # label regexes.  Each entry must match the whole mountpoint.
+  excludedMountpoints = builtins.concatStringsSep "|" [
+    # Linux bind mount of the root filesystem.  Same device as /.
+    "/nix/store.*"
+    # /boot and /boot/firmware.
+    ".*boot.*"
+    # The agenix ramdisk on macOS.  It is an hfs volume on a real
+    # /dev/diskN device.  The device and fstype filters miss it.  On Linux
+    # the same ramdisk is caught by device=none.
+    "/private/var/run/agenix.d"
+  ];
   # Virtual interfaces, such as tunnels, lookpback, and container interfaces
   # (veth) all would cause double-counting, so we exclude them.
   excludedNetworkDevices = builtins.concatStringsSep "|" [
@@ -74,7 +86,10 @@ in
             # utilisation expression below zero.
             clamp_min(
               (1 -
-                avg by (instance) (${without-socket-port ''(rate(node_cpu_seconds_total{mode="idle"}[5m]))''})
+                avg by (instance) (${
+                  without-socket-port
+                    ''(rate(node_cpu_seconds_total{mode="idle"}[5m]))''
+                })
               ) * 100,
               0
             )
@@ -185,19 +200,24 @@ in
       targets = [
         {
           expr = without-socket-port ''
+            # APFS volumes share their container's free space.  Every volume
+            # in a container plots the same percentage.  Only / is kept.  The
+            # 500 MB firmware container has no / and is dropped entirely.
             (1 - (
               sum(node_filesystem_avail_bytes{
                 fstype!~"${excludedFstypes}",
                 device!~"^loop[0-9]+$|none|ramfs",
-                mountpoint!~"/nix/store.*|.*boot.*"
+                mountpoint!~"${excludedMountpoints}"
               }) by (instance, mountpoint)
               /
               sum(node_filesystem_size_bytes{
                 fstype!~"${excludedFstypes}",
                 device!~"^loop[0-9]+$|none|ramfs",
-                mountpoint!~"/nix/store.*|.*boot.*"
+                mountpoint!~"${excludedMountpoints}"
               }) by (instance, mountpoint)
             )) * 100
+            unless on (instance, mountpoint)
+            node_filesystem_size_bytes{fstype="apfs", mountpoint!="/"}
           '';
           legendFormat = "{{instance}} - {{mountpoint}}";
           format = "time_series";
@@ -297,25 +317,31 @@ in
               )
               or on(instance)
               sum by (instance) (
-                ${without-socket-port ''systemd_unit_state{name="basic.target",state="active"}''}
+                ${without-socket-port
+                  ''systemd_unit_state{name="basic.target",state="active"}''
+                }
               ) * 0
               or on(instance)
               sum by (instance) (
-                ${without-socket-port ''goss_tests_run_outcomes_total''}
+                ${without-socket-port "goss_tests_run_outcomes_total"}
               ) * 0
             )
             + on(instance)
             (
               count by (instance) (
-                ${without-socket-port ''increase(goss_tests_outcomes_total{outcome="fail"}[2m]) > 0''}
+                ${without-socket-port
+                  ''increase(goss_tests_outcomes_total{outcome="fail"}[2m]) > 0''
+                }
               )
               or on(instance)
               sum by (instance) (
-                ${without-socket-port ''systemd_unit_state{name="basic.target",state="active"}''}
+                ${without-socket-port
+                  ''systemd_unit_state{name="basic.target",state="active"}''
+                }
               ) * 0
               or on(instance)
               sum by (instance) (
-                ${without-socket-port ''goss_tests_run_outcomes_total''}
+                ${without-socket-port "goss_tests_run_outcomes_total"}
               ) * 0
             )
           '';
