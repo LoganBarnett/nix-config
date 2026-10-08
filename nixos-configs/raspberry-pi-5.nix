@@ -7,7 +7,12 @@
     ./raspberry-pi-host.nix
     # flake-inputs.nixos-hardware.nixosModules.raspberry-pi-5
     flake-inputs.nixos-raspberrypi.nixosModules.raspberry-pi-5.base
-    flake-inputs.nixos-raspberrypi.nixosModules.raspberry-pi-5.page-size-16k
+    # page-size-16k is left out because it pushes every Rust package off
+    # cache.nixos.org.  The module rebuilds jemalloc for 16 KiB pages.  Since
+    # rustc links jemalloc, rustc and everything it compiles get new hashes.
+    # Stock aarch64 jemalloc targets 64 KiB pages.  That already works on the
+    # 16 KiB Pi 5 kernel and only wastes some memory.
+    # flake-inputs.nixos-raspberrypi.nixosModules.raspberry-pi-5.page-size-16k
   ];
   boot.loader.raspberry-pi.bootloader = "kernel";
   # Undocumented from nixos-raspberrypi.  See

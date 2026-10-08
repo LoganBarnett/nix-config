@@ -15,9 +15,6 @@
   imports = [
     flake-inputs.nixos-raspberrypi.nixosModules.sd-image
     flake-inputs.nixos-raspberrypi.lib.inject-overlays
-    flake-inputs.nixos-raspberrypi.nixosModules.nixpkgs-rpi
-    # Make this suspect if there are problems with things like ffmpeg.
-    flake-inputs.nixos-raspberrypi.lib.inject-overlays-global
     ./raspberry-pi-firmware-host-key.nix
   ];
   # /boot/firmware must be kept small intentionally.
