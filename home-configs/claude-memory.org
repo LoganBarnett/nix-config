@@ -40,6 +40,10 @@ When editing existing prose that uses single-spacing, match the
 surrounding style rather than reflowing.  HTML/web output is exempt
 — browsers collapse whitespace in rendered output regardless.
 
+Exemptions are when there are known formatters at play that have their own
+preferences. Formatters that will undo your two spaces:
+
+1. ~elm-format~.
 * Nix
 
 ** Explicit ~default.nix~ paths
