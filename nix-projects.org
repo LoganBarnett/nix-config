@@ -891,8 +891,8 @@ Something about the dependencies coming from pypi.
 *** Secret generation (LLM guidance)
 
 This repository uses =agenix-rekey= to generate and manage secrets.  Several
-secret types — TLS leaf certificates, WireGuard keys, hashed passwords, and
-others — are produced by generator scripts that run via:
+secret types -- TLS leaf certificates, WireGuard keys, hashed passwords, and
+others -- are produced by generator scripts that run via:
 
 #+begin_src sh :exports code
 agenix rekey generate --rekey --add-to-git

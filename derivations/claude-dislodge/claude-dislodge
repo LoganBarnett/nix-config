@@ -6,7 +6,7 @@
 # Claude Code leaves work behind when a session dies uncleanly.  Each Bash
 # tool call runs as its own session leader, so it outlives the session that
 # started it, gets reparented to launchd, and keeps burning CPU (a
-# `nix develop … cargo clippy` left behind is an entire Rust build).  A
+# `nix develop ... cargo clippy` left behind is an entire Rust build).  A
 # server started from a session scratchpad has no parent link to the session
 # at all.  The transient daemon and its pre-warmed spares are meant to exit on
 # idle but leak.  The spares also sit on a pseudo-tty allocated by their pty
@@ -432,7 +432,7 @@ short_command() {
   if [[ "$rest" == "$args" ]]; then
     printf '%s' "$base"
   elif (( ${#rest} > 60 )); then
-    printf '%s %s…' "$base" "${rest:0:60}"
+    printf '%s %s...' "$base" "${rest:0:60}"
   else
     printf '%s %s' "$base" "$rest"
   fi

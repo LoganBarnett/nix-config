@@ -13,7 +13,7 @@
 #
 # Bumping target: 2.5.2 carries the upstream "fix auth callback data parsing"
 # and "preserve GlobalProtect cookie fields on reconnect" changes that we are
-# trying to pick up.  See README.org §Rapid Package Updates.
+# trying to pick up.  See README.org's "Rapid Package Updates" section.
 ################################################################################
 {
   rustPlatform,
@@ -57,9 +57,13 @@ rustPlatform.buildRustPackage (finalAttrs: {
   ];
 
   meta = {
-    changelog = "https://github.com/${finalAttrs.src.owner}/${finalAttrs.src.repo}/blob/${finalAttrs.src.rev}/changelog.md";
-    description = "CLI for GlobalProtect VPN, based on OpenConnect, supports the SSO authentication method";
-    homepage = "https://github.com/${finalAttrs.src.owner}/${finalAttrs.src.repo}";
+    changelog = "https://github.com/${finalAttrs.src.owner}/${
+      finalAttrs.src.repo
+    }/blob/${finalAttrs.src.rev}/changelog.md";
+    description =
+      "CLI for GlobalProtect VPN, based on OpenConnect, supports the SSO authentication method";
+    homepage =
+      "https://github.com/${finalAttrs.src.owner}/${finalAttrs.src.repo}";
     license = lib.licenses.gpl3Only;
     platforms = with lib.platforms; linux ++ darwin;
   };

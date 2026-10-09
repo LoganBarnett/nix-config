@@ -1,5 +1,5 @@
 ################################################################################
-# vpn-reconcile — packaged reconciler that keeps the WireGuard tunnel in the
+# vpn-reconcile -- packaged reconciler that keeps the WireGuard tunnel in the
 # right state as the laptop roams.  Driven by the sytter sytts in
 # ../darwin-configs/sytter.nix (a 60s cron tick plus Wake / network-device
 # events).  See ./vpn-reconcile.sh for the behavior.

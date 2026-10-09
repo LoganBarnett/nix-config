@@ -78,7 +78,7 @@ in
     # (see the commented-out attempt further down).
     #
     # The path is literal rather than derived from FLAKE_ROOT, which means
-    # "the flake root I am currently in" (the devshell sets it to $PWD) — a
+    # "the flake root I am currently in" (the devshell sets it to $PWD) -- a
     # different idea from "where this repository's working tree lives".
     ispell-config = ''
       ln -snf \
@@ -115,7 +115,8 @@ in
 
   # This gets oh-my-zsh where we can find it.
   home.file.".oh-my-zsh".source =
-    config.lib.file.mkOutOfStoreSymlink "${pkgs.oh-my-zsh.outPath}/share/oh-my-zsh";
+    config.lib.file.mkOutOfStoreSymlink
+      "${pkgs.oh-my-zsh.outPath}/share/oh-my-zsh";
 
   # For Emacs to prettify JavaScript files, this config must be laid down (or it
   # will not use great defaults).

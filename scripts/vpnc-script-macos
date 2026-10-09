@@ -80,7 +80,7 @@ case "$reason" in
     # gpclient strips the physical interface's IPv4 before calling the vpnc-
     # script with reason=connect.  Fall back to the state captured during
     # reason=pre-init (before gpclient modified the network) when either the
-    # IP or mask is missing — the mask can be absent even when the IP is still
+    # IP or mask is missing -- the mask can be absent even when the IP is still
     # present if the watchdog restored the address without completing the
     # subnet route before this script read ifconfig.
     if { [ -z "$PRE_VPN_IP" ] || [ -z "$PRE_VPN_MASK" ]; } && \
@@ -150,7 +150,7 @@ case "$reason" in
       fi
       # Fallback: try ipconfig set MANUAL (goes through configd).
       if [ -z "$ACTUAL_TUNDEV" ]; then
-        echo "  ifconfig failed after 5 attempts — trying ipconfig set MANUAL..."
+        echo "  ifconfig failed after 5 attempts -- trying ipconfig set MANUAL..."
         /usr/sbin/ipconfig set "$INITIAL_TUNDEV" MANUAL \
           "$INTERNAL_IP4_ADDRESS" "255.255.255.255" 2>&1 || true
         sleep 1
@@ -198,11 +198,11 @@ case "$reason" in
       # gpclient assigns the IP after calling this script in some versions.
       # Trust TUNDEV and let the route-fixer subshell re-add routes once the
       # IP appears (started below, after the route loop).
-      echo "  WARNING: No utun with IP found yet — using gpclient TUNDEV=$INITIAL_TUNDEV"
+      echo "  WARNING: No utun with IP found yet -- using gpclient TUNDEV=$INITIAL_TUNDEV"
       TUNDEV="$INITIAL_TUNDEV"
     else
-      # Bring the interface UP — macOS will not route packets through an interface
-      # that lacks IFF_UP, even if IFF_RUNNING is set.
+      # Bring the interface UP -- macOS will not route packets through an
+      # interface that lacks IFF_UP, even if IFF_RUNNING is set.
       echo "  Bringing $TUNDEV UP (ifconfig up)..."
       "$IFCONFIG" "$TUNDEV" up 2>/dev/null || echo "    Warning: ifconfig $TUNDEV up failed"
     fi
@@ -295,8 +295,8 @@ EOF
       else
         # No CISCO_SPLIT_DNS from VPN server.  Use hardcoded fallback corporate
         # domains.  Set SupplementalMatchDomains so VPN DNS is scoped to only
-        # those domains — without it, macOS routes ALL DNS through VPN, breaking
-        # public-domain resolution (e.g. yahoo.com returns NXDOMAIN).
+        # those domains -- without it, macOS routes ALL DNS through VPN,
+        # breaking public-domain resolution (e.g. yahoo.com returns NXDOMAIN).
         # Domain list comes from $GP_AUTO_CONFIG
         # (written by services.globalprotect-monitor.fallbackSearchDomains).
         # If the file is missing or unreadable the array stays empty and
@@ -386,7 +386,8 @@ EOF
         RESTORE_SERVICE=$(cat "$PRE_VPN_SERVICE_FILE")
         if [ -n "$RESTORE_DNS" ] && [ -n "$RESTORE_SERVICE" ]; then
           echo "  Restoring public DNS ($RESTORE_DNS) on service '$RESTORE_SERVICE'..."
-          # SC2086: word-split intentional — RESTORE_DNS may contain multiple IPs
+          # SC2086: word-split intentional -- RESTORE_DNS may contain
+          # multiple IPs
           # shellcheck disable=SC2086
           /usr/sbin/networksetup -setdnsservers "$RESTORE_SERVICE" $RESTORE_DNS
           echo "  Public DNS restored via networksetup"
@@ -416,8 +417,9 @@ d.add InterfaceName ${PRE_VPN_IF:-en10}
 set State:/Network/Service/vpn-public-dns/IPv4
 quit
 SCEOF
-        # Create DNS entry with NO SupplementalMatchDomains — makes it global.
-        # SC2086: word-split intentional — RESTORE_DNS may contain multiple IPs.
+        # Create DNS entry with NO SupplementalMatchDomains -- makes it global.
+        # SC2086: word-split intentional -- RESTORE_DNS may contain multiple
+        # IPs.
         # shellcheck disable=SC2086
         /usr/sbin/scutil << SCEOF
 d.init
@@ -441,7 +443,7 @@ SCEOF
       # servers are unreachable, caching "Not Reachable" permanently.  The
       # caller (vpn-test-harness) should restart mDNSResponder AFTER confirming
       # the VPN data plane is working.
-      echo "  (skipping mDNSResponder restart — tunnel data plane not yet active)"
+      echo "  (skipping mDNSResponder restart -- tunnel data plane not yet active)"
     fi
 
     # Set up routes.  The server sends a mix of /32 host routes (DNS servers)
@@ -482,11 +484,11 @@ SCEOF
                 awk '/inet [0-9]/ {print $2}' | head -1)
               echo "  $PRE_VPN_IF inet: ${CURRENT_IFIP:-NONE} (restoring before bypass route)"
               # Use ifconfig (synchronous, kernel-direct) to restore the IP.
-              # ipconfig set MANUAL is asynchronous — configd processes it after
-              # this script returns, so the subnet route would not yet be present
-              # when the bypass route add runs immediately below.  ifconfig sets
-              # the address in the kernel immediately, so the subnet route is
-              # available at once.
+              # ipconfig set MANUAL is asynchronous -- configd processes it
+              # after this script returns, so the subnet route would not yet be
+              # present when the bypass route add runs immediately below.
+              # ifconfig sets the address in the kernel immediately, so the
+              # subnet route is available at once.
               if [ -z "$CURRENT_IFIP" ]; then
                 echo "  Restoring IP $PRE_VPN_IP/$MASK_DEC on $PRE_VPN_IF (ifconfig, synchronous)"
                 "$IFCONFIG" "$PRE_VPN_IF" inet "$PRE_VPN_IP" netmask "$MASK_DEC" 2>&1 || \
@@ -537,7 +539,7 @@ SCEOF
                 echo "$VPN_SERVER_IP" > "$VPN_GATEWAY_FILE"
               elif [ -n "$VPNGW_IF" ] && [ "$VPNGW_IF" != "$TUNDEV" ]; then
                 # Interface-only route (e.g., through Proton VPN's utun).  A
-                # host route via another tunnel is still correct — it breaks
+                # host route via another tunnel is still correct -- it breaks
                 # the loop as long as the outer tunnel has its own bypass.
                 echo "  Locking host route: $VPN_SERVER_IP via interface $VPNGW_IF"
                 if ! route add -host "$VPN_SERVER_IP" -interface "$VPNGW_IF" 2>/dev/null; then
@@ -573,11 +575,11 @@ SCEOF
                 fi
                 echo "$VPN_SERVER_IP" > "$VPN_GATEWAY_FILE"
               else
-                echo "  WARNING: No usable pre-VPN route to $VPN_SERVER_IP — keepalives may fail"
+                echo "  WARNING: No usable pre-VPN route to $VPN_SERVER_IP -- keepalives may fail"
                 echo "    gateway=${VPNGW_GW:-empty} interface=${VPNGW_IF:-empty} tundev=$TUNDEV pre-vpn-if=${PRE_VPN_IF:-empty}"
               fi
             else
-              echo "  WARNING: VPN server IP unknown — keepalives may fail"
+              echo "  WARNING: VPN server IP unknown -- keepalives may fail"
               echo "    VPNGATEWAY=${VPNGATEWAY:-unset} GP_GATEWAY=${GP_GATEWAY:-unset} GP_SERVER=${GP_SERVER:-unset}"
             fi
 
@@ -587,7 +589,7 @@ SCEOF
             # default during tunnel setup; restore it here via the pre-VPN
             # gateway so that general internet connectivity survives.
             echo "  Adding private routes through VPN ($TUNDEV)"
-            # Delete any stale route first — a previous killed session may have
+            # Delete any stale route first -- a previous killed session may have
             # left routes pointing to an old not-UP utun, and both 'route add'
             # and 'route change' fail silently to update WASCLONED host routes
             # derived from the stale parent.  Delete guarantees a clean slate.
@@ -619,7 +621,7 @@ SCEOF
           else
             echo "  Adding route: $NETWORK/$NETMASKLEN via $TUNDEV"
             # Delete any existing route first (handles stale WASCLONED host
-            # routes from previous sessions — 'route change' does not update
+            # routes from previous sessions -- 'route change' does not update
             # cloned routes derived from an old parent).
             route delete -net "$NETWORK/$NETMASKLEN" 2>/dev/null || true
             if ! route add -net "$NETWORK/$NETMASKLEN" -interface "$TUNDEV" 2>/dev/null; then
@@ -645,14 +647,14 @@ SCEOF
         FIXER_IP=$("$IFCONFIG" "$FIXER_TUNDEV" 2>/dev/null | \
           awk '/inet [0-9]/ {print $2}' | head -1)
         [ -z "$FIXER_IP" ] && continue
-        # Interface has an IP — ensure IFF_UP is set and the broad private
+        # Interface has an IP -- ensure IFF_UP is set and the broad private
         # routes are installed.  Route changes are idempotent (route add fails
         # silently if the route already exists, route change handles updates).
         "$IFCONFIG" "$FIXER_TUNDEV" up 2>/dev/null || true
         NEED_ROUTES=false
         route -n get 10.0.0.0 2>/dev/null | grep -q "$FIXER_TUNDEV" || NEED_ROUTES=true
         if [ "$NEED_ROUTES" = "true" ]; then
-          echo "  route-fixer: $FIXER_TUNDEV has IP $FIXER_IP — adding private routes"
+          echo "  route-fixer: $FIXER_TUNDEV has IP $FIXER_IP -- adding private routes"
           route add -net 10.0.0.0/8 -interface "$FIXER_TUNDEV" 2>/dev/null || \
             route change -net 10.0.0.0/8 -interface "$FIXER_TUNDEV" 2>/dev/null || true
           route add -net 172.16.0.0/12 -interface "$FIXER_TUNDEV" 2>/dev/null || \
@@ -724,7 +726,7 @@ SCEOF
     echo "Post-routes: DNS config complete (mDNSResponder restart deferred to harness)"
 
     echo ""
-    echo "vpnc-script connect done — final network state:"
+    echo "vpnc-script connect done -- final network state:"
     echo "  $PRE_VPN_IF inet: $("$IFCONFIG" "${PRE_VPN_IF:-en10}" 2>/dev/null | awk '/inet [0-9]/ {print $2}' | head -1)"
     echo "  bypass route for ${VPN_SERVER_IP:-?}: $(route -n get "${VPN_SERVER_IP:-130.0.0.0}" 2>/dev/null | awk '/gateway:|interface:/ {printf $2 " "}'; echo)"
     echo "  default route: $(route -n get default 2>/dev/null | awk '/interface:/ {print $2}')"
@@ -969,9 +971,9 @@ EOF
         "0x${PI_h:0:2}" "0x${PI_h:2:2}" "0x${PI_h:4:2}" "0x${PI_h:6:2}")
       PI_LOCK="/var/run/gpclient.lock"
       (
-        for _ in $(seq 1 300); do  # 300 × 0.2 s = 60 s max
+        for _ in $(seq 1 300); do  # 300 x 0.2 s = 60 s max
           sleep 0.2
-          # Stop once gpclient has written its lock file — at that point
+          # Stop once gpclient has written its lock file -- at that point
           # the connect-phase watchdog takes over.  Do NOT stop on
           # ACTUAL_TUNDEV_FILE: that is written early in the connect case
           # (before the route loop), so the watchdog would exit before

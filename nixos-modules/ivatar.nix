@@ -54,7 +54,8 @@ in
       endpoint = mkOption {
         type = types.str;
         default = "https://authelia.${facts.network.domain}";
-        description = "Base URL of the OIDC provider (discovery at <endpoint>/.well-known/openid-configuration).";
+        description =
+          "Base URL of the OIDC provider (discovery at <endpoint>/.well-known/openid-configuration).";
       };
 
       clientId = mkOption {
@@ -146,7 +147,7 @@ in
 
       environment = {
         DJANGO_SETTINGS_MODULE = "ivatar.settings";
-        # PostgreSQL connection — peer auth over Unix socket, no password.
+        # PostgreSQL connection -- peer auth over Unix socket, no password.
         POSTGRESQL_DATABASE = "ivatar";
         POSTGRESQL_USER = "ivatar";
         POSTGRESQL_PASSWORD = "";
@@ -163,8 +164,10 @@ in
         BASE_URL = "https://${cfg.fqdn}/avatar/";
         # OIDC (only populated when cfg.oidc.enable = true; empty strings are
         # ignored by the Python config.py overrides).
-        IVATAR_OIDC_ENDPOINT = if cfg.oidc.enable then cfg.oidc.endpoint else "";
-        IVATAR_OIDC_CLIENT_ID = if cfg.oidc.enable then cfg.oidc.clientId else "";
+        IVATAR_OIDC_ENDPOINT =
+          if cfg.oidc.enable then cfg.oidc.endpoint else "";
+        IVATAR_OIDC_CLIENT_ID =
+          if cfg.oidc.enable then cfg.oidc.clientId else "";
         # Python's requests library uses certifi by default and does not read
         # the system trust store.  Point it at the NixOS bundle so our
         # internal CA is trusted when fetching the OIDC discovery document.
@@ -190,7 +193,9 @@ in
           "secret-key:${config.age.secrets.ivatar-secret-key.path}"
         ]
         ++ lib.optionals cfg.oidc.enable [
-          "oidc-client-secret:${config.age.secrets."ivatar-oidc-client-secret".path}"
+          "oidc-client-secret:${
+            config.age.secrets."ivatar-oidc-client-secret".path
+          }"
         ];
 
         # Create sub-directories, apply pending migrations, then collect static

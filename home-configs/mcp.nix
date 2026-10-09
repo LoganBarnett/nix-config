@@ -120,7 +120,7 @@ in
 
       # Pending:
       #
-      #   postgres  Deferred by choice — worth doing deliberately with the
+      #   postgres  Deferred by choice -- worth doing deliberately with the
       #             read-only role + structured-ops + session-elevation design
       #             rather than a quick read-only entry.  Also needs a
       #             reachability decision, since silicon serves PostgreSQL over

@@ -21,8 +21,8 @@ JavaScript and may include third-party content (analytics, identity
 provider widgets, etc.).  Running such a runtime as root means any
 exploit that escapes the webview lands on the host as root.  The
 project's stance is that the auth UI should always run as an
-unprivileged user — typically the human who is sitting at the
-keyboard — even if the resulting cookie is later handed to a
+unprivileged user -- typically the human who is sitting at the
+keyboard -- even if the resulting cookie is later handed to a
 privileged tunnel-creation process.
 
 The check is targeted at the webview path specifically.  The
@@ -33,7 +33,7 @@ JS executes inside ~gpauth~ itself, so the refusal does not apply.
 
 * Where this bites us today
 
-Almost nowhere — by design.  The relevant pieces of our setup:
+Almost nowhere -- by design.  The relevant pieces of our setup:
 
 - ~launchd.daemons.globalprotect-monitor~ runs as ~cfg.primaryUser~,
   not as root.  See ~darwin-modules/global-protect-persistent.nix~.
@@ -96,14 +96,14 @@ the root question entirely.
 
 * See also
 
-- ~overlays/gpclient-with-gpauth-wrapper.nix~ — the dormant
+- ~overlays/gpclient-with-gpauth-wrapper.nix~ -- the dormant
   wrapper, intentionally not loaded.
-- ~darwin-modules/global-protect-persistent.nix~ — module that
+- ~darwin-modules/global-protect-persistent.nix~ -- module that
   configures the monitor service to run as ~cfg.primaryUser~.
-- ~scripts/gp-connect-auto~ / ~scripts/gp-connect-pty~ — the
+- ~scripts/gp-connect-auto~ / ~scripts/gp-connect-pty~ -- the
   automation that uses ~--browser remote~ to keep gpauth in its
   non-privileged lane.
-- Upstream issue [[https://github.com/yuezk/GlobalProtect-openconnect/issues/572][yuezk/GlobalProtect-openconnect#572]] — the
+- Upstream issue [[https://github.com/yuezk/GlobalProtect-openconnect/issues/572][yuezk/GlobalProtect-openconnect#572]] -- the
   ~portal -> gateway~ cookie-reuse regression that motivated the
   ~--as-gateway~ migration which made ~--browser remote~ load-bearing
   for our automation.

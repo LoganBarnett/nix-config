@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 ################################################################################
-# Complete DNS fix — runs both VPN scoping and local domain setup.  Creates
+# Complete DNS fix -- runs both VPN scoping and local domain setup.  Creates
 # /etc/resolver entries for the VPN search domains (filtered by the corporate
 # suffix list) plus a local-network resolver for the host's primary domain.
 #
 # Configuration (corporate-domain suffix regex, local DNS server) is read
-# from $GP_AUTO_CONFIG — see
+# from $GP_AUTO_CONFIG -- see
 # services.globalprotect-monitor in
 # darwin-modules/global-protect-persistent.nix.
 ################################################################################
@@ -14,7 +14,7 @@ set -e
 
 CONFIG_FILE="$GP_AUTO_CONFIG"
 if [ ! -r "$CONFIG_FILE" ]; then
-  echo "Error: $CONFIG_FILE not found — globalprotect-monitor module not in effect?"
+  echo "Error: $CONFIG_FILE not found -- globalprotect-monitor module not in effect?"
   exit 1
 fi
 

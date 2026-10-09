@@ -1,5 +1,5 @@
 ################################################################################
-# programs.steam (macOS) — a Darwin analogue of NixOS's programs.steam.
+# programs.steam (macOS) -- a Darwin analogue of NixOS's programs.steam.
 #
 # NixOS's programs.steam prepares the host (FHS env, 32-bit drivers, udev,
 # firewall) and then lets Steam's bootstrapper self-manage its client, runtime,
@@ -8,11 +8,11 @@
 # the real client into ~/Library/Application Support/Steam.
 #
 # So rather than pin Steam.app as an immutable, hashed store package, we install
-# it imperatively — once, via a login LaunchAgent — and let Steam do its thing.
-# Valve serves a single rolling, *unversioned* installer URL (steam.dmg), so
-# there is no stable hash to pin; Homebrew's own cask is likewise
-# `sha256 :no_check`.  Installing into the mutable /Applications (not the Nix
-# store) also lets Steam's updater rewrite the launcher stub itself.
+# it imperatively -- once, via a login LaunchAgent -- and let Steam do its
+# thing.  Valve serves a single rolling, *unversioned* installer URL
+# (steam.dmg), so there is no stable hash to pin; Homebrew's own cask is
+# likewise `sha256 :no_check`.  Installing into the mutable /Applications (not
+# the Nix store) also lets Steam's updater rewrite the launcher stub itself.
 ################################################################################
 {
   config,
@@ -33,7 +33,7 @@ let
   installer = pkgs.writeShellScript "steam-bootstrap" ''
     set -euo pipefail
 
-    # Already installed — Steam self-updates in place, so there is nothing to
+    # Already installed -- Steam self-updates in place, so there is nothing to
     # do.  Running at every login is therefore cheap, and self-healing if
     # Steam is ever removed.
     if [ -d "${cfg.appPath}" ]; then
@@ -62,7 +62,7 @@ let
     # Install with ditto, the macOS-idiomatic bundle copy: it preserves the
     # extended attributes and code signature that a plain cp would strip,
     # keeping Valve's notarisation intact.  ditto takes positional
-    # source/destination arguments — it has no long-form flags.
+    # source/destination arguments -- it has no long-form flags.
     /usr/bin/ditto "Steam.app" "${cfg.appPath}"
   '';
 in
@@ -71,7 +71,7 @@ in
     enable = mkEnableOption ''
       Steam on macOS.  Installs the Steam.app launcher bootstrapper into
       /Applications at login (via a LaunchAgent) when it is missing, then
-      lets Steam self-update — mirroring how NixOS's programs.steam prepares
+      lets Steam self-update -- mirroring how NixOS's programs.steam prepares
       the host and lets Steam manage itself'';
 
     appPath = mkOption {
@@ -86,7 +86,8 @@ in
 
     installerUrl = mkOption {
       type = types.str;
-      default = "https://cdn.cloudflare.steamstatic.com/client/installer/steam.dmg";
+      default =
+        "https://cdn.cloudflare.steamstatic.com/client/installer/steam.dmg";
       description = ''
         Valve's rolling, unversioned macOS installer DMG.  No integrity hash
         is pinned because the URL always serves the latest installer (as with
@@ -103,7 +104,7 @@ in
     launchd.agents.steam-bootstrap = {
       serviceConfig = {
         RunAtLoad = true;
-        # One-shot installer, not a resident service — do not respawn it.
+        # One-shot installer, not a resident service -- do not respawn it.
         KeepAlive = false;
         ProgramArguments = [ "${installer}" ];
         StandardOutPath = "/tmp/steam-bootstrap.log";

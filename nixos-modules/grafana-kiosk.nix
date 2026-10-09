@@ -85,7 +85,9 @@ let
   health-check-invocations = lib.concatLines (
     lib.concatLists (
       lib.mapAttrsToList (output: display: [
-        "check_layout ${lib.escapeShellArg (expected-xrandr-line output display)}"
+        "check_layout ${
+          lib.escapeShellArg (expected-xrandr-line output display)
+        }"
         "check_process ${lib.escapeShellArg (expected-process-pattern display)}"
       ]) cfg.displays
     )
@@ -127,7 +129,9 @@ in
 {
   options = {
     services.grafana-kiosk = {
-      enable = mkEnableOption "Use Grafana-kiosk to display Grafana dashboards in kiosk mode.";
+      enable =
+        mkEnableOption
+          "Use Grafana-kiosk to display Grafana dashboards in kiosk mode.";
       displays = mkOption {
         default = { };
         description = ''
@@ -218,7 +222,8 @@ in
     assertions = [
       {
         assertion = cfg.displays != { };
-        message = "services.grafana-kiosk.displays must declare at least one display.";
+        message =
+          "services.grafana-kiosk.displays must declare at least one display.";
       }
     ];
     age.secrets.grafana-kiosk-passphrase = {
@@ -242,7 +247,8 @@ in
         "video"
         "input"
       ];
-      hashedPasswordFile = config.age.secrets.grafana-kiosk-passphrase-hashed.path;
+      hashedPasswordFile =
+        config.age.secrets.grafana-kiosk-passphrase-hashed.path;
     };
     users.groups.${cfg.systemGroup} = { };
     services.displayManager = {
@@ -271,12 +277,14 @@ in
         # tolerate errors here: the || true only neutralizes the exit code,
         # while xrandr's stderr still lands in LightDM's log.  The degraded
         # result is X's default cloned layout with every kiosk stacked on
-        # one screen — still showing a dashboard and recoverable over ssh,
+        # one screen -- still showing a dashboard and recoverable over ssh,
         # where a stopped seat would show nothing at all.  The health probe
         # below turns that degradation into an alert.
         setupCommands = ''
           ${
-            lib.escapeShellArgs ([ "${pkgs.xorg.xrandr}/bin/xrandr" ] ++ xrandr-arguments)
+            lib.escapeShellArgs (
+              [ "${pkgs.xorg.xrandr}/bin/xrandr" ] ++ xrandr-arguments
+            )
           } || true
         '';
         # Optional: Turn off the screen saver and DPMS.
@@ -356,7 +364,7 @@ in
       wantedBy = [ "timers.target" ];
       timerConfig = {
         # Grace period before the first probe, counted from when the timer
-        # itself starts — at boot, and also when a deploy first introduces
+        # itself starts -- at boot, and also when a deploy first introduces
         # the timer on a long-running system.
         OnActiveSec = "3min";
         OnUnitActiveSec = "1min";

@@ -12,34 +12,34 @@ DNS routes through, and small sytter reconcilers keep its dynamic bits correct
 as the host roams.
 
 This is the resolver-layer approach that /subsumes/ the abandoned per-host
-=curl.override { c-aresSupport = false; }=.  c-ares never needs fixing — it just
-talks to dnsmasq, which is where the intelligence lives.
+=curl.override { c-aresSupport = false; }=.  c-ares never needs fixing -- it
+just talks to dnsmasq, which is where the intelligence lives.
 
 This converges with the "dnsmasq as the single resolver" architecture already
 proposed in [[file:globalprotect-rust-rewrite-spec.org]]; see [[*Convergence with the GP Rust spec][Convergence with the GP
 Rust spec]] for the shared foundation and the two things the tether concern adds.
 
-** Failure taxonomy — two distinct tether pathologies
+** Failure taxonomy -- two distinct tether pathologies
 
 Live diagnosis on scandium while tethered (2026-08-30) corrected this doc's
 original single-pathology premise.  There are two independent ways a tether
 breaks c-ares clients:
 
-- *Pathology A — scoped link-local nameserver (observed, proven).*  The
+- *Pathology A -- scoped link-local nameserver (observed, proven).*  The
   tether's only nameserver arrives via DHCPv6 option 23 as a link-local
   address, which macOS records in =/etc/resolv.conf= with a zone, e.g.
   =nameserver fe80::1234:56ff:fe78:9abc%en0= (fictional example).
   =ipconfig getpacket en0=
   (DHCPv4) is empty on such networks.  c-ares (1.34.5) cannot use the scoped
-  literal and fails instantly — "Could not contact DNS servers", even with
-  =--ipv4= — while Apple's resolver and =dig @fe80::…%en0= work fine.
+  literal and fails instantly -- "Could not contact DNS servers", even with
+  =--ipv4= -- while Apple's resolver and =dig @fe80::...%en0= work fine.
   Direct IPv6 was /healthy/ on the observed network: all three v6 probe
   literals below connected within 2 s, so the symptom probe correctly does
   not fire and filter-AAAA would not help.  The forwarder alone fixes this:
   c-ares talks to 127.0.0.1, and dnsmasq's resolv-file parser accepts scoped
-  literals (proven live — store dnsmasq 2.91 forwarding to the scoped
+  literals (proven live -- store dnsmasq 2.91 forwarding to the scoped
   upstream took Nix curl from instant failure to HTTP 200 in 0.14 s).
-- *Pathology B — black-holed direct IPv6 (this doc's original hypothesis).*
+- *Pathology B -- black-holed direct IPv6 (this doc's original hypothesis).*
   c-ares picks a dead AAAA on a NAT64/CLAT hotspot and hangs.  The
   filter-AAAA reconciler below targets this.  Not yet observed on a real
   network; its build is deferred until one exhibits it (see milestones).
@@ -70,14 +70,14 @@ dnsmasq inputs and reload dnsmasq.  They never coordinate; each owns one knob.
 This matches the existing ~vpn-reconcile~ design (60s cron floor + Wake +
 network-device events, condition = ~true~, the executor decides everything).
 
-* Component 1 — the shared dnsmasq forwarder (host primitive)
+* Component 1 -- the shared dnsmasq forwarder (host primitive)
 
 Today the forwarder lives inside ~services.globalprotect-monitor~ (the
 =dnsmasqConf=, the "point every service at 127.0.0.1" activation script, and the
 ~dnsmasq-upstream-sync~ daemon).  Lift it into a standalone always-on module,
-~services.dns-c-ares-scopeless-fix~ (named for what it fixes — the c-ares
-scopeless-nameserver limitation — rather than for the dnsmasq mechanism), that
-is *not* owned by GP — scandium runs it with no GP anywhere, purely for the
+~services.dns-c-ares-scopeless-fix~ (named for what it fixes -- the c-ares
+scopeless-nameserver limitation -- rather than for the dnsmasq mechanism), that
+is *not* owned by GP -- scandium runs it with no GP anywhere, purely for the
 tether.
 
 - Runs the ~dnsmasq~ + ~dnsmasq-upstream-sync~ launchd daemons on every macOS
@@ -86,16 +86,16 @@ tether.
   nameservers, appending the =%<iface>= zone to link-local entries; dnsmasq
   accepts the scoped literals in its resolv-file.  This is the whole of the
   pathology-A fix.
-- Owns =/etc/resolv.conf= → =127.0.0.1= and the per-service DNS pointer.
+- Owns =/etc/resolv.conf= -> =127.0.0.1= and the per-service DNS pointer.
 - =max-ttl=0= so ~mDNSResponder~ does not double-cache (the spec's gating
-  prerequisite — test #35 there).
+  prerequisite -- test #35 there).
 - Reads a ~conf-dir~ of fragments so reconcilers can drop files in and reload:
   =conf-dir=/var/run/dnsmasq.d,*.conf=.
 - GP, /when present/, becomes just another consumer: it layers its
   =server=/domain/<vpn-dns>= entries via the servers-file.  It stops being
   responsible for standing dnsmasq up.
 
-* Component 2 — the tether sytt + ~tether-reconcile~
+* Component 2 -- the tether sytt + ~tether-reconcile~
 
 Mirror ~vpn-reconcile~ exactly.  New sytt in =darwin-configs/sytter.nix=:
 
@@ -119,15 +119,15 @@ Mirror ~vpn-reconcile~ exactly.  New sytt in =darwin-configs/sytter.nix=:
   };
 #+end_src
 
-** Detection — by symptom, never by identity
+** Detection -- by symptom, never by identity
 
 *Rejected: facts-driven* (an allowlist of hotspot SSIDs / gateway MACs).  It
 dies exactly when it matters: tether to someone else's phone and the allowlist
-does not match, and the only fix — editing the Nix config — needs a working
+does not match, and the only fix -- editing the Nix config -- needs a working
 network you do not have.  You get stranded behind a config update.
 
-*Chosen: probe the actual reachability.*  The failure mode is concrete —
-"direct IPv6 hangs, IPv4 works" — so measure that, using literals so no DNS is
+*Chosen: probe the actual reachability.*  The failure mode is concrete --
+"direct IPv6 hangs, IPv4 works" -- so measure that, using literals so no DNS is
 involved in the probe:
 
 #+begin_example
@@ -135,24 +135,24 @@ involved in the probe:
           { [2606:4700:4700::1111]:443, [2001:4860:4860::8888]:443, [2620:fe::fe]:443 }
   v4_ok = same for { 1.1.1.1:443, 8.8.8.8:443 }
 
-  tethered/broken-v6  :=  v4_ok && !v6_ok   → filter AAAA
-  healthy dual stack  :=  v4_ok &&  v6_ok   → do not filter
-  no internet         := !v4_ok             → leave state unchanged
+  tethered/broken-v6  :=  v4_ok && !v6_ok   -> filter AAAA
+  healthy dual stack  :=  v4_ok &&  v6_ok   -> do not filter
+  no internet         := !v4_ok             -> leave state unchanged
 #+end_example
 
 This survives any hotspot, self-heals when you leave it, and needs zero
 knowledge of the specific network.
 
-** Manual override — the anti-stranding escape hatch
+** Manual override -- the anti-stranding escape hatch
 
 The reconciler reads =/var/lib/tether-dns/mode= first:
 
-- =force-on=  → filter AAAA regardless of the probe.
-- =force-off= → never filter.
-- =auto= / absent → use the probe.
+- =force-on=  -> filter AAAA regardless of the probe.
+- =force-off= -> never filter.
+- =auto= / absent -> use the probe.
 
 So if the probe is ever wrong for some network, =echo force-on >
-/var/lib/tether-dns/mode= fixes it in one command — no Nix rebuild, no network
+/var/lib/tether-dns/mode= fixes it in one command -- no Nix rebuild, no network
 required.  That is the recourse the facts-driven design lacked.
 
 ** Reconcile logic (idempotent)
@@ -165,33 +165,33 @@ required.  That is the recourse the facts-driven design lacked.
   frag    = /var/run/dnsmasq.d/20-tether.conf
   body    = desired==filter ? "filter-AAAA\n" : ""
   if contents(frag) != body:
-      write body → frag
-      restart dnsmasq                     # NOT SIGHUP — see event model
+      write body -> frag
+      restart dnsmasq                     # NOT SIGHUP -- see event model
 #+end_example
 
 Only restarts on an actual state change, so the 60s tick is free when nothing
-moved — same discipline as ~vpn-reconcile~.
+moved -- same discipline as ~vpn-reconcile~.
 
 * Event model / reload timing
 
 The reconcile is driven by sytter's ~device-connection~/~network~/~Add~, which
-fires whenever *any* interface appears — the tether plugging in and the utun
+fires whenever *any* interface appears -- the tether plugging in and the utun
 tunnel coming up alike.  So it is responsive without waiting for the cron floor.
 
-- Tether appears → reconcile → probe → filter.  Tether leaves → a later event or
-  the floor → probe succeeds on v6 → unfilter.
-- Tunnel comes up → same event re-fires the probe, which is *desirable*: once
+- Tether appears -> reconcile -> probe -> filter.  Tether leaves -> a later
+  event or the floor -> probe succeeds on v6 -> unfilter.
+- Tunnel comes up -> same event re-fires the probe, which is *desirable*: once
   the VPN carries v6, direct-v6 reachability can change, and we want to
   re-evaluate.
 - =filter-AAAA= is a main-config option, so it needs a real ~launchctl
-  kickstart~, not SIGHUP — but that cost (a cache drop) is only paid on actual
-  tether transitions, which are rare.  The VPN =server=/domain/…= entries stay
+  kickstart~, not SIGHUP -- but that cost (a cache drop) is only paid on actual
+  tether transitions, which are rare.  The VPN =server=/domain/...= entries stay
   in the SIGHUP-reloadable servers-file, so only the tether knob ever restarts.
 
-* Interface identity — names float; do not key on them
+* Interface identity -- names float; do not key on them
 
 Observed on scandium: nine =utunN= interfaces, all =UP,POINTOPOINT= with only
-link-local addresses — visually identical — plus the iOS tether showing up as
+link-local addresses -- visually identical -- plus the iOS tether showing up as
 =en10= (service "iPhone USB").  Kernel device names (=utunN=, =enN=) are handed
 out in creation order and are not stable, so no rule may hardcode them.
 
@@ -200,8 +200,8 @@ Three rules keep every check name-independent:
 1. *The tether is an uplink, not a tunnel.*  USB tether is an Ethernet-class
    device (macOS =enN= / service "iPhone USB"; Linux =usb0= / =enx<mac>=); a
    Wi-Fi hotspot is the Wi-Fi device plus an SSID.  The =utunN= crowd is overlay
-   /tunnels/ (WireGuard, GlobalProtect, iCloud Private Relay).  Different class —
-   the tether can never be mistaken for a VPN tunnel.
+   /tunnels/ (WireGuard, GlobalProtect, iCloud Private Relay).  Different
+   class -- the tether can never be mistaken for a VPN tunnel.
 2. *Identify a tunnel by asking its owner, never by inspecting it.*  A =utun= is
    opaque from outside (witness the nine look-alikes).  Read the manager's own
    record: WireGuard via =wg show interfaces= (and =/var/run/wireguard/*.name=);
@@ -217,30 +217,30 @@ Three rules keep every check name-independent:
 The /questions/ are portable; the /mechanisms/ are per-OS.  Two checks are
 portable as-is:
 
-- =wg show interfaces= is cross-platform (userspace on macOS, kernel on Linux) —
-  the clean "is this my WireGuard tunnel?" query on both.
+- =wg show interfaces= is cross-platform (userspace on macOS, kernel on
+  Linux) -- the clean "is this my WireGuard tunnel?" query on both.
 - The *symptom probe* (TCP-connect to a v6 literal) is portable by construction,
-  and the tether-DNS decision needs /no interface identity at all/ — so the knob
-  that matters most is also the most portable check we have.
+  and the tether-DNS decision needs /no interface identity at all/ -- so the
+  knob that matters most is also the most portable check we have.
 
 Per-OS only where it must be:
 
 - uplink-vs-tunnel: macOS name-prefix skip-list + =networksetup= service; Linux
-  =/sys/class/net/<if>/= (a =device= symlink ⇒ physical) or =ip -d link show=
-  (=kind=wireguard/tun=…).
+  =/sys/class/net/<if>/= (a =device= symlink means physical) or
+  =ip -d link show= (=kind=wireguard/tun=...).
 - stable identity: macOS =networksetup= service name; Linux the interface name
   itself / the NetworkManager connection.
 
-Windows is explicitly out — no users, so anything built there would be
+Windows is explicitly out -- no users, so anything built there would be
 speculative.
 
-** The trigger → condition "is it /you/?" hand-off
+** The trigger -> condition "is it /you/?" hand-off
 
 Sytter passes state between components as =sytter_*= environment variables
 (materialized by =sytter-vars=); the =device-connection= trigger already exposes
 =sytter_device_vendor_id= (=0x05ac= = Apple), =sytter_device_serial_number=,
 =sytter_device_location_id=, etc.  A reusable /network-change/ trigger would add
-the interface name and event type — say =sytter_network_interface= and
+the interface name and event type -- say =sytter_network_interface= and
 =sytter_network_event= (Add / Remove / Up / Down).
 
 The condition then takes that interface name and answers a *narrow,
@@ -256,28 +256,30 @@ concern-specific* "is it me?":
   '''
 #+end_src
 
-Do *not* build a generic "identify any interface" oracle — that is exactly where
-it stops being portable and starts needing per-subsystem knowledge everywhere.
+Do *not* build a generic "identify any interface" oracle -- that is exactly
+where it stops being portable and starts needing per-subsystem knowledge
+everywhere.
 Let each sytt own its narrow query and be intimate with its own subsystem (the
 WireGuard sytt knows =wg show=; a GP sytt knows GP's state).  That intimacy is
-the correct boundary; it keeps the generic layer thin — the trigger delivers
+the correct boundary; it keeps the generic layer thin -- the trigger delivers
 name + event, the shell condition supplies the logic.  The passing mechanism
 need not be Turing-complete: the shell component already is; the passer only has
 to hand =$sytter_network_interface= across.
 
 Bonus: for USB tether specifically, =sytter_device_vendor_id = 0x05ac= on a
-/network/ device flags an iOS tether generically — /any/ Apple phone, not a
-declared one — a legitimate hint without the facts-allowlist fragility.  It does
-not cover Wi-Fi hotspots and the symptom probe already subsumes it, so it stays a
-hint, never the basis for action.
+/network/ device flags an iOS tether generically -- /any/ Apple phone, not a
+declared one -- a legitimate hint without the facts-allowlist fragility.  It
+does not cover Wi-Fi hotspots and the symptom probe already subsumes it, so it
+stays a hint, never the basis for action.
 
 * Relationship to the VPN reconciler (orthogonal)
 
-Tether ⊥ VPN.  ~vpn-reconcile~ already brings the tunnel up whenever we are /not
-on the home network/ (gateway-MAC test), and a tether is just one way to be
-off-home — so "tether ⇒ VPN up" falls out of the existing off-home logic, no
-coupling needed.  ~tether-reconcile~ only ever touches the AAAA-filter knob.
-Separate sytts, separate fragments, zero shared state.
+Tether is independent of VPN.  ~vpn-reconcile~ already brings the tunnel up
+whenever we are /not on the home network/ (gateway-MAC test), and a tether is
+just one way to be off-home -- so "tether means VPN up" falls out of the
+existing off-home logic, no coupling needed.  ~tether-reconcile~ only ever
+touches the AAAA-filter knob.  Separate sytts, separate fragments, zero shared
+state.
 
 * Convergence with the GP Rust spec
 
@@ -293,7 +295,7 @@ not cover:
    (~services.dns-c-ares-scopeless-fix~) that GP /consumes/ rather than
    /owns/.
 2. *A second reconciler.*  The spec's DNS reconcile is the VPN servers-file.
-   The tether adds an orthogonal one — filter-AAAA driven by a symptom probe —
+   The tether adds an orthogonal one -- filter-AAAA driven by a symptom probe --
    writing its own fragment.  Same servers-file/SIGHUP split the spec relies on;
    only the tether config-option knob pays a restart.
 
@@ -306,66 +308,66 @@ note added to that spec.
 - *filter-AAAA is global while active:* it strips AAAA for every client on the
   box, not just c-ares tools.  Fine on a broken-v6 network (you want v4/CLAT
   anyway), and it is scoped to that state by the probe.
-- *Probe targets:* the anycast literals above must answer on 443.  Keep 2–3 with
+- *Probe targets:* the anycast literals above must answer on 443.  Keep 2-3 with
   OR so a single provider blip does not read as "v6 down".
-- *max-ttl=0 gating:* inherits the spec's open prerequisite — confirm
+- *max-ttl=0 gating:* inherits the spec's open prerequisite -- confirm
   ~mDNSResponder~ honours it before leaning on single-flush semantics.
 
 * Milestones (each independently shippable; M1a is the whole point)
 
 The critical functionality is *M1a*.  Everything after it is /improvement/, not
-/function/ — listed explicitly so the boundary is visible and M1a does not
+/function/ -- listed explicitly so the boundary is visible and M1a does not
 quietly absorb them.
 
-- *M1a* — the forwarder + DHCPv6 harvest on scandium — fixes the observed
+- *M1a* -- the forwarder + DHCPv6 harvest on scandium -- fixes the observed
   pathology-A tether.  Definition of done + checklist below.
-- *M1b* — ~tether-reconcile~ + the filter-AAAA sytt for pathology B.
+- *M1b* -- ~tether-reconcile~ + the filter-AAAA sytt for pathology B.
   /Deferred/ until a network actually exhibiting black-holed v6 is observed.
-- *M2* — GP becomes a /consumer/ of ~services.dns-c-ares-scopeless-fix~ (on the GP host); delete
+- *M2* -- GP becomes a /consumer/ of ~services.dns-c-ares-scopeless-fix~ (on the GP host); delete
   GP's dnsmasq stand-up.  Pulls in the spec's ~max-ttl=0~ / single-flush work.
-- *M3* — portable ~network-change~ trigger (sytter) + reusable conditions
+- *M3* -- portable ~network-change~ trigger (sytter) + reusable conditions
   (~physical-uplink?~, ~direct-v6-broken?~, ~is-it-my-wg?~); reconcilers go
   event-driven, the 60s floor becomes backstop-only.
-- *M4* — fold ~vpn-reconcile~ + ~tether-reconcile~ into a Rust ~net-reconcile~
+- *M4* -- fold ~vpn-reconcile~ + ~tether-reconcile~ into a Rust ~net-reconcile~
   (shared interface detection, one state dir, one scoped sudo rule).
-- *M5* — Linux support + rollout to the other Nix macOS/Linux hosts.
+- *M5* -- Linux support + rollout to the other Nix macOS/Linux hosts.
 
-* M1a — definition of done
+* M1a -- definition of done
 
 On scandium: on a tether whose only nameserver is a scoped link-local address
 (pathology A), =curl=, =git=, and =nix-daemon= resolve and transfer normally
 within one upstream-sync poll (30 s) of joining; on healthy networks,
 behaviour is unchanged.  No GP, no Rust, no sytter work, no Linux.
 
-* M1b — definition of done (deferred)
+* M1b -- definition of done (deferred)
 
 On scandium: when direct IPv6 is black-holed (a NAT64/CLAT tether exhibiting
 pathology B), =curl=, =git=, and =nix-daemon= stop hanging and
 resolve/transfer normally; when v6 is healthy, behaviour is unchanged; the
 toggle flips automatically within 60s and is hand-overridable.  No GP, no
 Rust, no new sytter trigger, no Linux.  When the acceptance test passes, *M1b
-is done — do not extend it.*
+is done -- do not extend it.*
 
 ** Explicitly OUT of M1a/M1b (anti-balloon)
 
-- GP integration / repointing GP DNS at ~services.dns-c-ares-scopeless-fix~ →
+- GP integration / repointing GP DNS at ~services.dns-c-ares-scopeless-fix~ ->
   *M2*.
 - portable ~network-change~ trigger, interface/event vars, Add/Remove/Up/Down,
-  reusable conditions, event-driven reconcile → *M3*.  M1b rides the 60s floor
+  reusable conditions, event-driven reconcile -> *M3*.  M1b rides the 60s floor
   + the existing ~device-connection~ =network= =Add= event.
-- Rust ~net-reconcile~ → *M4*.
-- Linux support, other hosts → *M5*.
-- ~max-ttl=0~ / ~mDNSResponder~ double-cache verification → *M2* (only matters
+- Rust ~net-reconcile~ -> *M4*.
+- Linux support, other hosts -> *M5*.
+- ~max-ttl=0~ / ~mDNSResponder~ double-cache verification -> *M2* (only matters
   once GP's single-flush semantics are on the line; irrelevant to the AAAA knob).
 
 ** Checklist
 
-*** ~services.dns-c-ares-scopeless-fix~ — always-on forwarder (M1a)
+*** ~services.dns-c-ares-scopeless-fix~ -- always-on forwarder (M1a)
 - [X] module with ~services.dns-c-ares-scopeless-fix.enable~ (lifted out of
       ~global-protect-persistent.nix~; not coupled to GP)
 - [X] dnsmasq launchd daemon: ~listen-address=127.0.0.1~, ~bind-interfaces~,
       ~conf-dir=/var/run/dnsmasq.d,*.conf~, cache, ~resolv-file~ = upstream
-      file.  A start wrapper recreates the conf-dir before every start —
+      file.  A start wrapper recreates the conf-dir before every start --
       =/var/run= is cleared at boot and dnsmasq exits fatally when the
       directory is missing.
 - [X] ~dnsmasq-upstream-sync~: harvest DHCPv6 nameservers (option 23, via
@@ -378,7 +380,7 @@ is done — do not extend it.*
       2026-09-01; the on-tether acceptance test awaits the next tether
       session)
 
-*** ~tether-reconcile~ — shell, mirrors ~vpn-reconcile~ (M1b, deferred)
+*** ~tether-reconcile~ -- shell, mirrors ~vpn-reconcile~ (M1b, deferred)
 - [ ] ~packages/tether-reconcile.sh~ + ~.nix~ wrapper (inject probe targets and
       paths; PATH deps)
 - [ ] read =/var/lib/tether-dns/mode= (=auto= | =force-on= | =force-off=)
@@ -396,28 +398,28 @@ is done — do not extend it.*
 - [ ] scoped ~NOPASSWD~ sudoers for the ~tether-reconcile~ store path (as
       ~vpn-reconcile~ does)
 
-** Acceptance test — M1a
+** Acceptance test -- M1a
 
 1. On the scoped-link-local tether: within one upstream-sync poll (30 s) of
    joining, =/var/run/dnsmasq-upstream-resolv.conf= contains the scoped
-   =fe80::…%<iface>= line, and previously-failing =curl=/=git=/=nix-daemon=
-   resolve and transfer — no =20-tether.conf= involved.
+   =fe80::...%<iface>= line, and previously-failing =curl=/=git=/=nix-daemon=
+   resolve and transfer -- no =20-tether.conf= involved.
 2. On the home network: =dig example.com @127.0.0.1= answers, plain lookups
    are unchanged, and =.proton= names still resolve (the scoped
    =/etc/resolver/proton= path is unaffected by the takeover).
 
-** Acceptance test — M1b (M1b done ⇔ all five pass)
+** Acceptance test -- M1b (M1b done if and only if all five pass)
 
 Test 1 requires a genuinely dual-stack network (a v4-only network classifies
 as broken-v6 by design), and test 2 requires a network actually exhibiting
-pathology B — the observed iOS tether does not.
+pathology B -- the observed iOS tether does not.
 
 1. Home / healthy v6: no =20-tether.conf=; =dig AAAA= returns AAAA; curl/git normal.
 2. On the broken tether: within 60s =20-tether.conf= appears, dnsmasq is
    restarted, =dig AAAA <host> @127.0.0.1= returns no AAAA, and curl/git/nix-daemon
    that previously hung now succeed.
 3. Leave the tether: within 60s the fragment is gone and AAAA returns.
-4. =echo force-off > /var/lib/tether-dns/mode= on the tether → no filtering;
-   =force-on= off-tether → filtering; =auto= → back to the probe.
-5. Run ~tether-reconcile~ twice with no network change → the second run does not
-   restart dnsmasq.
+4. =echo force-off > /var/lib/tether-dns/mode= on the tether -> no filtering;
+   =force-on= off-tether -> filtering; =auto= -> back to the probe.
+5. Run ~tether-reconcile~ twice with no network change -> the second run does
+   not restart dnsmasq.

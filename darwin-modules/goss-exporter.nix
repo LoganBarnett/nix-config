@@ -6,7 +6,7 @@
 # format on an internal port, and fronts it with a local nginx daemon that
 # rewrites the Content-Type header.
 #
-# goss ≤ 0.4.9 serves "application/vnd.goss-prometheus" instead of the
+# goss <= 0.4.9 serves "application/vnd.goss-prometheus" instead of the
 # "text/plain; version=0.0.4" that Prometheus 3.x requires.  The fix is merged
 # upstream (https://github.com/goss-org/goss/pull/1022) but not yet released.
 # Once nixpkgs carries a fixed release, remove the nginx daemon and let goss
@@ -94,12 +94,14 @@ in
       "verbose"
     ];
 
-    system.activationScripts.postActivation.text = lib.mkIf cfg.prometheus.openFirewall ''
-      /usr/libexec/ApplicationFirewall/socketfilterfw \
-        --add ${pkgs.nginx}/bin/nginx >/dev/null 2>&1 || true
-      /usr/libexec/ApplicationFirewall/socketfilterfw \
-        --unblockapp ${pkgs.nginx}/bin/nginx >/dev/null 2>&1 || true
-    '';
+    system.activationScripts.postActivation.text =
+      lib.mkIf cfg.prometheus.openFirewall
+        ''
+          /usr/libexec/ApplicationFirewall/socketfilterfw \
+            --add ${pkgs.nginx}/bin/nginx >/dev/null 2>&1 || true
+          /usr/libexec/ApplicationFirewall/socketfilterfw \
+            --unblockapp ${pkgs.nginx}/bin/nginx >/dev/null 2>&1 || true
+        '';
 
     launchd.daemons.goss-nginx = {
       serviceConfig = {

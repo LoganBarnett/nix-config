@@ -1,7 +1,7 @@
 # Outer (default) virtual server for the proton network.  Managed by nix-config
 # (nixos-configs/freeradius.nix); overlaid onto the upstream example raddb.
 #
-# Handles the EAP outer tunnel and accounting.  There are no local users — the
+# Handles the EAP outer tunnel and accounting.  There are no local users -- the
 # real authentication happens in the inner-tunnel virtual server (LDAP bind),
 # reached via the TTLS module.  Accounting is written to PostgreSQL via sql.
 #

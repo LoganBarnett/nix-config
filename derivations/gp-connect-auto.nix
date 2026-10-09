@@ -56,7 +56,7 @@ writeShellApplication {
   # The bash script with embedded Python script
   text = ''
     # gp-connect-auto is invoked via sudo, which strips env by default, so
-    # GP_AUTO_CONFIG would not survive the user-shell → root transition
+    # GP_AUTO_CONFIG would not survive the user-shell -> root transition
     # without help.  Default to configFile here; if the user explicitly
     # preserved an override (sudo --preserve-env=GP_AUTO_CONFIG ...) the
     # ''${VAR:=...} form keeps it.  gpclient and the vpnc-script-macos it
@@ -70,7 +70,7 @@ writeShellApplication {
       ${pythonWithPlaywright}/bin/playwright install chromium
     fi
 
-    # Make Python scripts available for this session as temp files — they
+    # Make Python scripts available for this session as temp files -- they
     # are only needed while gp-connect-auto runs and can be safely deleted
     # on exit.
     #

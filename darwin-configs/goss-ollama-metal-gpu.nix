@@ -11,9 +11,9 @@
 # | Fast (<2s)    | any         | GPU working                  | Pass   |
 # | Slow (>=2s)   | >0          | Partial offload, not eviction| Pass   |
 # | Slow (>=2s)   | 0           | GPU evicted                  | Fail   |
-# | No models     | —           | Can't test                   | Pass   |
+# | No models     | -           | Can't test                   | Pass   |
 #
-# Background: on Apple Silicon, memory is unified — size_vram always equals
+# Background: on Apple Silicon, memory is unified -- size_vram always equals
 # size when a model is loaded regardless of whether Metal or CPU is doing the
 # compute, and Ollama does not update its PROCESSOR field after initial load,
 # so neither metric can detect GPU eviction after the fact.
@@ -37,7 +37,9 @@ in
   services.goss.checks = {
     command."ollama-metal-acceleration" = {
       exec = ''
-        models=$(${pkgs.curl}/bin/curl -sf http://localhost:11434/api/ps) || exit 1
+        models=$(${
+          pkgs.curl
+        }/bin/curl -sf http://localhost:11434/api/ps) || exit 1
         count=$(printf '%s' "$models" | ${pkgs.jq}/bin/jq '.models | length')
         [ "$count" -eq 0 ] && exit 0
 
@@ -60,22 +62,28 @@ in
         # Sample GPU percent while the inference should be running.
         result=$(${metalps}/bin/metalps --json --interval-ms 2000) || exit 1
         gpu_percent=$(printf '%s' "$result" \
-          | ${pkgs.jq}/bin/jq '[.processes[] | select(.name == "ollama") | .gpu_percent] | max // 0')
+          | ${
+            pkgs.jq
+          }/bin/jq '[.processes[] | select(.name == "ollama") | .gpu_percent] | max // 0')
 
         # Wait for inference to complete and capture the response.
         wait "$infer_pid"
         infer_exit=$?
 
         # If inference timed out or failed, we can't determine eval_duration.
-        # Treat as inconclusive — pass to avoid false positives.
+        # Treat as inconclusive -- pass to avoid false positives.
         [ "$infer_exit" -ne 0 ] && exit 0
 
-        eval_duration=$(${pkgs.jq}/bin/jq '.eval_duration // 0' /tmp/ollama-goss-inference.json)
+        eval_duration=$(${
+          pkgs.jq
+        }/bin/jq '.eval_duration // 0' /tmp/ollama-goss-inference.json)
 
         # Fail only when BOTH signals confirm eviction:
         # - eval_duration >= 2s (2000000000 ns): inference is slow
         # - gpu_percent == 0: no GPU activity detected
-        slow=$(printf '%s\n' "$eval_duration" | ${pkgs.jq}/bin/jq '. >= 2000000000')
+        slow=$(printf '%s\n' "$eval_duration" | ${
+          pkgs.jq
+        }/bin/jq '. >= 2000000000')
         no_gpu=$(printf '%s\n' "$gpu_percent" | ${pkgs.jq}/bin/jq '. == 0')
 
         if [ "$slow" = "true" ] && [ "$no_gpu" = "true" ]; then

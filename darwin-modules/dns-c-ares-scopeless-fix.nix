@@ -6,7 +6,7 @@
 # "nameserver fe80::1%en0".  Apple's resolver handles the zone, but c-ares
 # does not, so every Nix-built libcurl consumer (curl, git, nix-daemon) dies
 # with "Could not contact DNS servers".  The fix is a local dnsmasq forwarder
-# on 127.0.0.1 — an address c-ares can always reach — whose upstreams are
+# on 127.0.0.1 -- an address c-ares can always reach -- whose upstreams are
 # kept current by dnsmasq-upstream-sync, which harvests DHCPv4 and DHCPv6
 # nameservers and writes scoped literals that dnsmasq accepts.  See
 # docs/tether-dns.org for the full design; this module is its M1a, lifted
@@ -62,14 +62,16 @@ let
   # access directory") when its conf-dir is missing, so the directory must
   # be recreated before every start.  This cannot be inlined into the
   # launchd `command` below because nix-darwin wraps that value in
-  # `/bin/sh -c "/bin/wait4path /nix/store && exec …"`, whose `exec` would
+  # `/bin/sh -c "/bin/wait4path /nix/store && exec ..."`, whose `exec` would
   # swallow a compound command.
-  dnsmasqStart = pkgs.writeShellScript "dns-c-ares-scopeless-fix-dnsmasq-start" ''
-    ${pkgs.coreutils}/bin/mkdir --parents ${cfg.confDir}
-    exec ${pkgs.dnsmasq}/bin/dnsmasq \
-      --keep-in-foreground \
-      --conf-file=${dnsmasqConf}
-  '';
+  dnsmasqStart =
+    pkgs.writeShellScript "dns-c-ares-scopeless-fix-dnsmasq-start"
+      ''
+        ${pkgs.coreutils}/bin/mkdir --parents ${cfg.confDir}
+        exec ${pkgs.dnsmasq}/bin/dnsmasq \
+          --keep-in-foreground \
+          --conf-file=${dnsmasqConf}
+      '';
 in
 {
   options.services.dns-c-ares-scopeless-fix = {
@@ -190,7 +192,7 @@ in
     '';
 
     # These daemons use `command` rather than raw ProgramArguments so
-    # nix-darwin wraps them in `/bin/wait4path /nix/store && exec …`.
+    # nix-darwin wraps them in `/bin/wait4path /nix/store && exec ...`.
     # Without the guard, launchd can attempt the first spawn before the
     # Nix store volume mounts at boot, fail with EX_CONFIG, and wedge on
     # an executable-appeared watch that never fires for the synthetic

@@ -3,8 +3,8 @@
 #
 # Kodi's libcec talks directly to the Pulse-Eight adapter over the USB serial
 # device (/dev/ttyACM0) using its P8_USB protocol.  This is simpler and
-# better-supported than the kernel CEC framework path (inputattach → serio →
-# pulse8_cec → /dev/cec0), which conflicts with libcec's exclusive serial
+# better-supported than the kernel CEC framework path (inputattach -> serio ->
+# pulse8_cec -> /dev/cec0), which conflicts with libcec's exclusive serial
 # access.
 #
 # The kernel CEC subsystem is still enabled for the i915 DRM driver, but the
@@ -39,8 +39,8 @@ let
     power_avr_on_as = "0";
     # Kodi's defaults treat "Kodi is exiting" as "the viewer is done for the
     # night" and tell the TV so.  On a box where kodi.service has
-    # Restart=always — and where an operator or a watchdog may restart it to
-    # clear a wedged audio engine — that is wrong: every restart blanks the
+    # Restart=always -- and where an operator or a watchdog may restart it to
+    # clear a wedged audio engine -- that is wrong: every restart blanks the
     # TV out from under whoever is watching.  Both of these are Kodi
     # localisation string IDs used as enum values; see
     # share/kodi/system/peripherals.xml in the Kodi package for the accepted
@@ -54,7 +54,7 @@ let
     standby_devices = "231";
     standby_devices_advanced = "";
     # standby_pc_on_tv_standby: 36028 is #36028, "Ignore".  The default 13011
-    # is #13011, "Suspend" — the TV going into standby would suspend the whole
+    # is #13011, "Suspend" -- the TV going into standby would suspend the whole
     # host.  This has never fired here, but it is a live trapdoor on a media
     # box that is meant to stay up and serve its web interface.
     standby_pc_on_tv_standby = "36028";
@@ -67,9 +67,9 @@ let
 in
 {
   environment.systemPackages = [
-    # cec-client — interactive CEC console and scanner.
+    # cec-client -- interactive CEC console and scanner.
     pkgs.libcec
-    # cec-ctl — low-level CEC monitoring and control.
+    # cec-ctl -- low-level CEC monitoring and control.
     pkgs.v4l-utils
   ];
 

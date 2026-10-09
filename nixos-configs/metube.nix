@@ -20,7 +20,7 @@
     # which silently bricked all downloads until a service restart.  Upstream
     # PR pending; drop this override once the fix is in a tagged release.
     #
-    # Only the outer derivation's src is overridden — the frontend
+    # Only the outer derivation's src is overridden -- the frontend
     # sub-derivation captures the upstream src via let-binding and is built
     # unchanged, which is fine because the fix is backend-only.
     package = pkgs.metube.overrideAttrs (_: {

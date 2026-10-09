@@ -1,7 +1,19 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 let
-  inherit (lib) mkEnableOption mkOption mkIf types concatStringsSep
-  mapAttrsToList optionalString;
+  inherit (lib)
+    mkEnableOption
+    mkOption
+    mkIf
+    types
+    concatStringsSep
+    mapAttrsToList
+    optionalString
+    ;
   cfg = config.services.chronicle-proxy;
   serviceName = "chronicle-proxy";
 
@@ -33,7 +45,7 @@ in
       type = types.attrsOf types.str;
       default = { };
       description = ''
-        Map of credential filename → source path on the host.
+        Map of credential filename -> source path on the host.
         Example: { db_url = config.age.secrets.chronicle-db-url.path; openai_key
         = config.age.secrets.openai-key.path; }
       '';
@@ -46,7 +58,8 @@ in
         # "--address" "0.0.0.0"   # if the binary supports it
         # "--port" "11434"        # if the binary supports it
       ];
-      description = "Extra CLI arguments passed to chronicle (long form preferred).";
+      description =
+        "Extra CLI arguments passed to chronicle (long form preferred).";
     };
 
     dataDir = mkOption {
@@ -102,11 +115,19 @@ in
         ProtectKernelModules = true;
         ProtectControlGroups = true;
         NoNewPrivileges = true;
-        RestrictAddressFamilies = [ "AF_UNIX" "AF_INET" "AF_INET6" ];
+        RestrictAddressFamilies = [
+          "AF_UNIX"
+          "AF_INET"
+          "AF_INET6"
+        ];
         RestrictRealtime = true;
         LockPersonality = true;
         SystemCallArchitectures = "native";
-        SystemCallFilter = [ "@system-service" "~@privileged" "~@resources" ];
+        SystemCallFilter = [
+          "@system-service"
+          "~@privileged"
+          "~@resources"
+        ];
         ReadWritePaths = [ cfg.dataDir ];
       };
     };

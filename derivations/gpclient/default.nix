@@ -15,10 +15,11 @@
 #     paths gated by cfg attributes.  The blanket /opt/homebrew/ -> $out/
 #     rewrite redirects gpclient/gpservice/gpgui-helper into our own out
 #     correctly, but the same rewrite would point gpauth at $out/bin/gpauth
-#     (which does not exist — gpauth is a separate derivation).  The
+#     (which does not exist -- gpauth is a separate derivation).  The
 #     explicit /opt/homebrew/bin/gpauth substitution must come first.
 #
-# See README.org §Rapid Package Updates and scripts/gpclient-update.
+# See the "Rapid Package Updates" section of README.org and
+# scripts/gpclient-update.
 ################################################################################
 {
   lib,

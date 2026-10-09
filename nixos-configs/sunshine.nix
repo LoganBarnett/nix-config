@@ -36,16 +36,16 @@
 #   appears empty regardless of CAP_SYS_ADMIN.  Sunshine logs an empty KMS
 #   monitor list, then "Unable to initialize capture method".  Critically,
 #   setting adapter_name commits Sunshine to KMS and prevents it from falling
-#   through to the portal — adapter_name must NOT be set alongside this config.
+#   through to the portal -- adapter_name must NOT be set alongside this config.
 #
 # X11 / gnome-xorg session  (defaultSession = "gnome-xorg")
 #   Was tested; caused significant feature regression.  Not viable.
 #
 # XWayland capture  (UnsetEnvironment = ["WAYLAND_DISPLAY"] in service)
 #   Sunshine connects successfully, but the XWayland root window (:0) is black
-#   — it does not mirror Wayland compositor output, only native X11 clients.
+#   -- it does not mirror Wayland compositor output, only native X11 clients.
 #
-# XDG Desktop Portal (PipeWire screencast)  ← used here
+# XDG Desktop Portal (PipeWire screencast)  <- used here
 #   The correct path for GNOME Wayland.  nixpkgs omits pipewire and libportal;
 #   adding them causes CMake to detect them via pkg-config and enable the portal
 #   screencast code path.  Sunshine requests a screencast session via
@@ -74,7 +74,7 @@
 
   # Auto-login starts the graphical session so Sunshine is always reachable via
   # Moonlight after a reboot.  The lock service immediately locks the screen, so
-  # physical access to a running machine still requires the password — the
+  # physical access to a running machine still requires the password -- the
   # security model is equivalent to a locked, unattended desktop.
   services.displayManager.autoLogin = {
     enable = true;

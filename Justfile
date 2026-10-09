@@ -6,20 +6,20 @@ test:
     nix flake check
 
 # `systemctl start` merges with the start job udev already queued, so this
-# attaches to a running rip rather than launching a second one — and starts a
+# attaches to a running rip rather than launching a second one -- and starts a
 # rip if the drive holds an unripped disc.  Exits non-zero if the rip fails.
 #
 # Ctrl-C only detaches: the rip is owned by systemd on the remote host and
 # keeps running, so re-running this recipe re-attaches.  Note the unit is
 # `Type=oneshot` with `RemainAfterExit=no`, so it sits in `activating` for the
-# whole rip and never reaches `active` — polling `systemctl is-active` would
+# whole rip and never reaches `active` -- polling `systemctl is-active` would
 # report "not running" the entire time, which is why this blocks on the job
 # instead.
 #
 # Both halves run in the background under `wait -n`, which returns as soon as
 # *either* finishes.  That covers the two ways this ends: the rip completes and
 # `systemctl start` returns, or the connection drops and `journalctl` takes a
-# SIGPIPE on its next write.  Whichever went first, the survivor gets killed —
+# SIGPIPE on its next write.  Whichever went first, the survivor gets killed --
 # otherwise an interrupted run strands a waiter on the host, since `systemctl
 # start` writes nothing and so never trips over the closed channel on its own.
 # The waiter needs `sudo kill`: it is root-owned, so an unprivileged kill is
@@ -46,7 +46,7 @@ failed host='silicon.proton':
 # so a service that needs its database gets the database first.  Three separate
 # `systemctl start` invocations throw that away, because each becomes its own
 # transaction with nothing to order against.  Hence one invocation carrying the
-# entire list — that is the whole trick.
+# entire list -- that is the whole trick.
 #
 # Two things the transaction engine will not do for us:
 #
@@ -59,7 +59,7 @@ failed host='silicon.proton':
 #   2. Undeclared dependencies are invisible.  If a service genuinely needs DNS
 #      but nobody wrote After=unbound.service, systemd has no way to know, and
 #      the only cure is trying again once the thing it implicitly wanted has
-#      come up.  That is what the passes buy — each one re-derives the failed
+#      come up.  That is what the passes buy -- each one re-derives the failed
 #      set from scratch, so a pass only retries what is still broken.
 #
 # Converges early: a pass that finds nothing failed stops the loop.  Exits

@@ -1,5 +1,5 @@
 ################################################################################
-# ivatar — self-hosted Libravatar / Gravatar-compatible avatar service.
+# ivatar -- self-hosted Libravatar / Gravatar-compatible avatar service.
 #
 # Python/Django application.  Several avatar-generator packages and a couple
 # of utility libraries are not in nixpkgs; they are packaged inline below.
@@ -12,9 +12,9 @@
 # it is importable at runtime.
 #
 # config.py reads many settings from environment variables.  We patch it to:
-#   • Fix a hardcoded Docker hostname in the PostgreSQL host.
-#   • Override CACHES to use the filesystem backend (no memcached required).
-#   • Allow ALLOWED_HOSTS and STATIC_ROOT to be injected via env vars.
+#   - Fix a hardcoded Docker hostname in the PostgreSQL host.
+#   - Override CACHES to use the filesystem backend (no memcached required).
+#   - Allow ALLOWED_HOSTS and STATIC_ROOT to be injected via env vars.
 #
 # SECRET_KEY is appended to settings.py so it is read from the systemd
 # credential file (CREDENTIALS_DIRECTORY/secret-key) rather than the
@@ -23,8 +23,8 @@
 # Entry points
 # ────────────
 # Two entry points are added to setup.cfg in postPatch:
-#   ivatar-manage  — Django management commands (migrate, collectstatic, …)
-#   ivatar-server  — gunicorn WSGI server wrapping ivatar.wsgi:application
+#   ivatar-manage  -- Django management commands (migrate, collectstatic, ...)
+#   ivatar-server  -- gunicorn WSGI server wrapping ivatar.wsgi:application
 #
 # Both are wrapped by buildPythonApplication with the full Python closure, so
 # all propagatedBuildInputs are available at runtime without extra PATH or
@@ -335,7 +335,7 @@ buildPythonApplication {
 
         # ── login.html: add SSO button ───────────────────────────────────────────
         # Write the SSO button to a fragment file and splice it in with sed's r
-        # command.  This keeps the Nix-string minimum indentation at ≥4 spaces
+        # command.  This keeps the Nix-string minimum indentation at >=4 spaces
         # so the heredoc terminators above remain at column 0 after stripping.
         cat > sso-button.html << 'SSO_EOF'
       &nbsp;
@@ -346,7 +346,7 @@ buildPythonApplication {
 
         # ── ivatar/urls.py: add social-auth URL routes ───────────────────────────
         # social_django serves /social/login/<backend>/ and
-        # /social/complete/<backend>/ — the OIDC callback lands at
+        # /social/complete/<backend>/ -- the OIDC callback lands at
         # /social/complete/oidc/ which must match the redirect_uri registered
         # with Authelia.
         sed -i \

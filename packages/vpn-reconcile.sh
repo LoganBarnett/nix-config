@@ -1,26 +1,27 @@
 ################################################################################
-# vpn-reconcile — keep the WireGuard tunnel in the desired state as the laptop
+# vpn-reconcile -- keep the WireGuard tunnel in the desired state as the laptop
 # roams.
 #
 # This is a *level-triggered, idempotent* reconciler: it senses the current
 # network and the tunnel's health, then drives toward the desired state.  It is
-# safe to run on a timer and on network/power events alike — every invocation
+# safe to run on a timer and on network/power events alike -- every invocation
 # does the same "look at reality, fix what's wrong" pass, so a missed or
 # duplicated event can never corrupt state (worst case: a fix waits for the next
 # tick).  Concurrent runs are serialized with a directory lock.
 #
 # Desired state:
-#   - On the home LAN          → tunnel DOWN (direct laptop↔silicon, no hairpin).
-#   - Roaming, normal mode     → split tunnel (SPLIT_IFACE): only home subnets
+#   - On the home LAN         -> tunnel DOWN (direct laptop<->silicon, no
+#                                hairpin).
+#   - Roaming, normal mode    -> split tunnel (SPLIT_IFACE): only home subnets
 #                                ride the tunnel; the internet stays direct, so a
 #                                dead tunnel never interrupts normal routing.
-#   - Roaming, travel mode     → full tunnel (FULL_IFACE): everything exits via
-#                                home.  Fail-closed by construction — while the
+#   - Roaming, travel mode    -> full tunnel (FULL_IFACE): everything exits via
+#                                home.  Fail-closed by construction -- while the
 #                                tunnel is down the default route blackholes
 #                                rather than leaking onto an untrusted network.
 #
 # Home detection is done at L2/DHCP (gateway MAC + subnet), NOT by probing a
-# home host — a home IP is reachable both directly at home and *through* the
+# home host -- a home IP is reachable both directly at home and *through* the
 # split tunnel when roaming, so it cannot distinguish the two.  The gateway MAC
 # is read independently of the routing table, so it holds even when the full
 # tunnel owns the default route.
@@ -37,13 +38,13 @@
 #   - No Nix equivalent exists: `ipconfig getoption` (read the DHCP lease) and
 #     `scutil` (SystemConfiguration) are Apple-only tools.
 #   - Behavioral mismatch with the Nix/Linux versions: macOS `ping -t` is a
-#     total timeout, whereas iputils/GNU `ping -t` is TTL — a silent footgun
-#     for the 1–3s probes below; `arp`/`ifconfig` emit BSD-format output (and
+#     total timeout, whereas iputils/GNU `ping -t` is TTL -- a silent footgun
+#     for the 1-3s probes below; `arp`/`ifconfig` emit BSD-format output (and
 #     macOS `ifconfig -l`); `stat -f %m` is BSD (GNU stat uses `-c %Y`).
 # DNS is not a factor: every probe below targets a literal IP, never a hostname,
 # so no resolver is exercised.  (And on darwin even Nix binaries resolve through
 # libSystem, so there is no Nix-vs-system resolver split to worry about.)  The
-# tunnel tools — wg / wg-quick / wireguard-go — remain the Nix-built ones via
+# tunnel tools -- wg / wg-quick / wireguard-go -- remain the Nix-built ones via
 # the derivation's runtime inputs; those are exactly what we want.
 readonly ARP=/usr/sbin/arp
 readonly IFCONFIG=/sbin/ifconfig
@@ -268,7 +269,7 @@ main() {
     return 0
   fi
 
-  # It is up — health-check it.
+  # It is up -- health-check it.
   if tunnel_healthy "$dev"; then
     log "$desired healthy"
     reset_backoff
@@ -282,7 +283,7 @@ main() {
   if [[ -n "$pg" ]]; then
     gw="${pg##* }"
     if "$PING" -c 1 -t 1 "$gw" >/dev/null 2>&1; then
-      log "$desired unhealthy; physical gateway reachable — restarting"
+      log "$desired unhealthy; physical gateway reachable -- restarting"
       restart "$desired"
       return 0
     fi

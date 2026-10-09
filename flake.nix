@@ -151,7 +151,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.nix-hapi.follows = "nix-hapi";
     };
-    # Homebrew removed: scandium's last two casks were migrated to Nix —
+    # Homebrew removed: scandium's last two casks were migrated to Nix --
     # alfred -> derivations/alfred.nix, steam -> programs.steam
     # (darwin-modules/steam.nix); firefox/discord/etc. were already on nixpkgs.
     # Dropping the integration also kills the brew `bundle`/`cleanup` activation

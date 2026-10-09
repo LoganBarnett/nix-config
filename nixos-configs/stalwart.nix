@@ -1,5 +1,5 @@
 ################################################################################
-# Stalwart mail server — the network-invariant pieces.
+# Stalwart mail server -- the network-invariant pieces.
 #
 # Anything network-specific (which external domains we own, which user is
 # the catch-all target, DKIM secret names, ACME certs, the rewrite rules)
@@ -54,7 +54,7 @@ in
   # that does not yet exist (gated on the nix-hapi core refactor).  Bumping past
   # 0.14 without that reconciler would silently break the catch-all rewrite, any
   # custom spam-filter logic, and the LDAP wiring we currently emit via local
-  # TOML — most of which would not surface as obvious service failures, just as
+  # TOML -- most of which would not surface as obvious service failures, just as
   # quiet degradation.
   #
   # Lift this assertion when:
@@ -67,7 +67,7 @@ in
     {
       assertion = lib.versionOlder pkgs.stalwart.version "0.16";
       message = ''
-        stalwart ${pkgs.stalwart.version} ≥ 0.16 is not yet
+        stalwart ${pkgs.stalwart.version} >= 0.16 is not yet
         supported by this configuration.
 
         Stalwart 0.16 moves spam-filter, session, and domain config from
@@ -276,20 +276,22 @@ in
       RuntimeDirectory = "stalwart-mail-creds";
       RuntimeDirectoryMode = "0700";
       ExecStartPre = [
-        "+${pkgs.writeShellScript "stalwart-strip-creds" ''
-          # Stalwart's %{file:...}% reads verbatim, so strip trailing
-          # newlines that agenix adds to secret files.
-          ${pkgs.coreutils}/bin/tr -d '\n' \
-            < /run/credentials/stalwart.service/${ldapCredential} \
-            > ${strippedLdapCred}
-          chown stalwart-mail:stalwart-mail ${strippedLdapCred}
-          chmod 0400 ${strippedLdapCred}
-          ${pkgs.coreutils}/bin/tr -d '\n' \
-            < /run/credentials/stalwart.service/${adminCredential} \
-            > ${strippedAdminCred}
-          chown stalwart-mail:stalwart-mail ${strippedAdminCred}
-          chmod 0400 ${strippedAdminCred}
-        ''}"
+        "+${
+          pkgs.writeShellScript "stalwart-strip-creds" ''
+            # Stalwart's %{file:...}% reads verbatim, so strip trailing
+            # newlines that agenix adds to secret files.
+            ${pkgs.coreutils}/bin/tr -d '\n' \
+              < /run/credentials/stalwart.service/${ldapCredential} \
+              > ${strippedLdapCred}
+            chown stalwart-mail:stalwart-mail ${strippedLdapCred}
+            chmod 0400 ${strippedLdapCred}
+            ${pkgs.coreutils}/bin/tr -d '\n' \
+              < /run/credentials/stalwart.service/${adminCredential} \
+              > ${strippedAdminCred}
+            chown stalwart-mail:stalwart-mail ${strippedAdminCred}
+            chmod 0400 ${strippedAdminCred}
+          ''
+        }"
       ];
       LoadCredential = [
         "${ldapCredential}:${config.age.secrets.${ldapCredential}.path}"
@@ -300,7 +302,7 @@ in
   };
 
   # Mail data lives on the tank volume so it participates in the existing
-  # btrfs + restic backup pipeline.  No quiesce needed — RocksDB's WAL
+  # btrfs + restic backup pipeline.  No quiesce needed -- RocksDB's WAL
   # ensures every btrfs snapshot of a live instance is recoverable.
   # group = "stalwart-mail" makes tmpfiles create the tank directory with
   # the right ownership so the service user can write to the RocksDB path.

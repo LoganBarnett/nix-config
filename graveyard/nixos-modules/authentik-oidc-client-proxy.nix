@@ -1,5 +1,5 @@
 ################################################################################
-# TOMBSTONE — The Authentik OIDC client proxy is no longer in use.
+# TOMBSTONE -- The Authentik OIDC client proxy is no longer in use.
 #
 # Sets up an OIDC client proxy via oauth2-proxy, intended to sit in front of
 # services that lack native OIDC support.  The implementation has skew toward
@@ -23,7 +23,7 @@ in
 {
   options.services.oidc-proxy = {
     fqdns = mkOption {
-      description = "Map of FQDN → OIDC proxy config.";
+      description = "Map of FQDN to OIDC proxy config.";
       type = types.attrsOf (
         types.submodule (
           { name, ... }:
@@ -42,7 +42,8 @@ in
               # Name of the age secret that holds the client_secret
               clientSecretName = mkOption {
                 type = types.str;
-                description = "age.secrets NAME containing the OIDC client_secret.";
+                description =
+                  "age.secrets NAME containing the OIDC client_secret.";
               };
               internalPort = mkOption {
                 type = types.port;
@@ -51,7 +52,8 @@ in
               proxyPort = mkOption {
                 type = types.port;
                 default = 4180;
-                description = "Local port oauth2-proxy listens on for this FQDN.";
+                description =
+                  "Local port oauth2-proxy listens on for this FQDN.";
               };
             };
           }
@@ -98,7 +100,8 @@ in
               secrets = {
                 ${inst.clientSecretName} = {
                   environmentVariable = "OAUTH2_PROXY_CLIENT_SECRET";
-                  secretName = "oauth2-proxy-${svc}-client-secret-environment-variable";
+                  secretName =
+                    "oauth2-proxy-${svc}-client-secret-environment-variable";
                 };
                 "${cookie}".environmentVariable = "OAUTH2_PROXY_COOKIE_SECRET";
               };
@@ -135,7 +138,9 @@ in
                   "OAUTH2_PROXY_REVERSE_PROXY=true"
                   "OAUTH2_PROXY_OIDC_ISSUER_URL=${inst.issuerUrl}"
                   "OAUTH2_PROXY_CLIENT_ID=${inst.clientId}"
-                  "OAUTH2_PROXY_HTTP_ADDRESS=127.0.0.1:${toString inst.proxyPort}"
+                  "OAUTH2_PROXY_HTTP_ADDRESS=127.0.0.1:${
+                    toString inst.proxyPort
+                  }"
                   "OAUTH2_PROXY_REDIRECT_URL=https://${fqdn}/oauth2/callback"
                   "OAUTH2_PROXY_SET_XAUTHREQUEST=true"
                   "OAUTH2_PROXY_PASS_ACCESS_TOKEN=true"

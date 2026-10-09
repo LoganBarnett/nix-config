@@ -5,8 +5,8 @@
 # changes automatically.
 #
 # Environment variables:
-#   DNSMASQ_UPSTREAM_RESOLV_FILE — output path (default /var/run/dnsmasq-upstream-resolv.conf)
-#   DNSMASQ_SYNC_INTERVAL        — seconds between checks (default 30)
+#   DNSMASQ_UPSTREAM_RESOLV_FILE -- output path (default /var/run/dnsmasq-upstream-resolv.conf)
+#   DNSMASQ_SYNC_INTERVAL        -- seconds between checks (default 30)
 ################################################################################
 set -euo pipefail
 
@@ -23,8 +23,8 @@ while true; do
     dns_v4=$(/usr/sbin/ipconfig getpacket "$iface" \
       | awk -F'[{}]' '/domain_name_server/{print $2}' \
       | tr ',' '\n' | sed 's/^ *//') || true
-    # DHCPv6 nameservers (option 23).  Some networks — notably iOS tethers on
-    # IPv6-only carriers — provide DNS exclusively this way.  Example line
+    # DHCPv6 nameservers (option 23).  Some networks -- notably iOS tethers on
+    # IPv6-only carriers -- provide DNS exclusively this way.  Example line
     # (fictional address) from `ipconfig getv6packet en0`:
     #   DNS_SERVERS (23) Length 16: fe80::1234:56ff:fe78:9abc
     # The fixed prefix is stripped with sed rather than field-splitting on
@@ -49,7 +49,7 @@ while true; do
   done < <(/usr/sbin/networksetup -listallhardwareports \
     | awk '/^Device:/{print $2}')
 
-  # Write resolv.conf for dnsmasq.  No fallback — blocky handles fallback
+  # Write resolv.conf for dnsmasq.  No fallback -- blocky handles fallback
   # internally.  If no DHCP DNS is found, leave the file unchanged (dnsmasq
   # keeps using the last known good upstream).
   if [ -n "$dns_found" ]; then

@@ -6,18 +6,18 @@ OpenWrt.  Written against an MR42; the procedure comes from the [[https://openwr
 device page]], with the parts we learned the hard way folded in.
 
 *Validation status:* fully validated end to end on an MR42, 2026-07-31.  The
-whole procedure below — diagnostic mode, u-boot write, TFTP initramfs boot,
-image transfer, and sysupgrade — was executed and confirmed working.  No case
+whole procedure below -- diagnostic mode, u-boot write, TFTP initramfs boot,
+image transfer, and sysupgrade -- was executed and confirmed working.  No case
 opening and no serial adapter were required.
 
 * What the network side provides
 
-Do not re-derive any of this — it is already declared:
+Do not re-derive any of this -- it is already declared:
 
-- [[file:../nixos-modules/meraki-provisioning.nix]] — the provisioning segment,
+- [[file:../nixos-modules/meraki-provisioning.nix]] -- the provisioning segment,
   TFTP server, HTTP server, and the runtime firmware fetch.
-- [[file:../hosts/silicon.nix]] — enables the above, pins the NIC port by MAC, and
-  carries the firmware manifest with pinned checksums.
+- [[file:../hosts/silicon.nix]] -- enables the above, pins the NIC port by MAC,
+  and carries the firmware manifest with pinned checksums.
 
 The short version of why the address is not negotiable: the replacement u-boot
 has =serverip=192.168.1.250= and an unversioned initramfs filename compiled
@@ -30,7 +30,7 @@ into it.  The module exists to satisfy those constants.
 The MR42 must negotiate *802.3at* at boot and peaks above 18 W.  802.3af at
 15.4 W is not sufficient.
 
-We use a *TRENDnet TPE-TG327* — unmanaged, 802.3af/at, 30 W per port, 70 W
+We use a *TRENDnet TPE-TG327* -- unmanaged, 802.3af/at, 30 W per port, 70 W
 total budget.  No injector needed.  At ~13 W typical draw that switch supports
 roughly five APs, or two at full Class 4 allocation.
 
@@ -43,7 +43,7 @@ Cat5e or better.  See [[file:poe-cabling.org]].
 
 ** Host
 
-Whichever host holds the provisioning segment — silicon here.  It serves TFTP
+Whichever host holds the provisioning segment -- silicon here.  It serves TFTP
 and HTTP, and is where you telnet from.  Everything below runs from an SSH
 session on that host; no laptop needs to be on the provisioning network.
 
@@ -68,8 +68,8 @@ changes behaviour and begins flashing, then *release* and press reset twice.
 
 *Do not trust the LED colours.*  In poor light orange, red, and white are hard
 to tell apart, and the sequence ends with the LED going dark, which reads as
-failure when it is not.  Ours went orange → flashing white → orange → off, and
-was in diagnostic mode the whole time.
+failure when it is not.  Ours went orange -> flashing white -> orange -> off,
+and was in diagnostic mode the whole time.
 
 * 3. Verify from the host, not the LED
 
@@ -108,13 +108,13 @@ What ours reported:
 : mtd3: 00136000 0001f000 "ART"
 
 *If =/etc/update_uboot.sh= is absent*, this firmware has no writable u-boot
-partition and you must use the UART method instead — case open, serial header,
+partition and you must use the UART method instead -- case open, serial header,
 =ubootwrite.py=.  Ours had it, so the rest of this document assumes the
 non-invasive path.
 
 * 5. Stage and verify the image
 
-Safe — nothing is written to flash yet.
+Safe -- nothing is written to flash yet.
 
 #+begin_src sh :results none :exports code
 cd /tmp
@@ -129,7 +129,7 @@ Expected: =0b93ddf7a18a9477620f604b5fc903e1= (319592 bytes).
 write like this is why we prefer the manual path over
 =/etc/update_uboot.sh 192.168.1.250 mr42_u-boot.mbn=, which does both blind.
 
-* 6. Write u-boot — the irreversible step
+* 6. Write u-boot -- the irreversible step
 
 #+begin_src sh :results none :exports code
 echo 1 > /sys/devices/platform/msm_nand/boot_layout
@@ -157,14 +157,14 @@ initramfs from the host.
 
 This cost us two hours, so it leads the section.
 
-We first served the stock =25.12.5= initramfs.  It transferred *completely* —
+We first served the stock =25.12.5= initramfs.  It transferred *completely* --
 the host's interface counters showed all 11125524 bytes out with a matching
-per-block ACK count — and then simply never booted.  u-boot's =bootbk= is a
+per-block ACK count -- and then simply never booted.  u-boot's =bootbk= is a
 vendor command with a fixed load address and a FIT layout expectation, and a
 2026-built image is not what it wants.
 
 The device then fell through to =bootbk 0x48000000 bootkernel2= and came up in
-stock Meraki firmware.  *That is the designed failure path and costs nothing* —
+stock Meraki firmware.  *That is the designed failure path and costs nothing* --
 it is not a brick, and it is how you can tell a boot failure from a transfer
 failure.
 
@@ -185,7 +185,7 @@ where you are without touching the device:
 | OpenWrt initramfs    | locally-administered | *dropbear on 22*, no telnet  |
 | stock Meraki firmware | real Meraki OUI     | broadcasts discovery frames  |
 
-Stock firmware announces itself loudly — ours still beacons its old
+Stock firmware announces itself loudly -- ours still beacons its old
 =NWEA QA Lab= site name and the previous owner's coordinates.  Seeing those
 frames means you fell back and did *not* boot the initramfs.
 
@@ -197,14 +197,14 @@ link to 10 Mb/s half duplex.
 
 * 8. Sysupgrade
 
-Optionally reclaim the Meraki volumes first — *never touch =ubi1= / ART*, which
+Optionally reclaim the Meraki volumes first -- *never touch =ubi1= / ART*, which
 holds radio calibration data and is not recoverable:
 
 #+begin_src sh :results none :exports code
 for i in diagnostic1 part.old storage part.safe ; do ubirmvol /dev/ubi0 -N $i ; done
 #+end_src
 
-** push the image from the host — do not pull it
+** push the image from the host -- do not pull it
 
 =wget= on the AP fails with:
 
@@ -212,7 +212,7 @@ for i in diagnostic1 part.old storage part.safe ; do ubirmvol /dev/ubi0 -N $i ; 
 
 =EPERM= on a send means the packet never left the AP.  The initramfs ships a
 firewall that blocks new outbound connections, so nothing ever reaches the
-host — confirmed by watching for the SYN on the host side and seeing none.
+host -- confirmed by watching for the SYN on the host side and seeing none.
 
 Inbound works fine, which is why you are already SSH'd in.  So reverse the
 direction.  From the *host*:
@@ -225,7 +225,7 @@ scp -O /var/lib/meraki-provisioning/openwrt-25.12.5-ipq806x-generic-meraki_mr42-
 =-O= forces the legacy SCP protocol; modern =scp= defaults to SFTP, which
 dropbear on an old initramfs does not provide.
 
-If you would rather pull, =/etc/init.d/firewall stop= on the AP first — it is
+If you would rather pull, =/etc/init.d/firewall stop= on the AP first -- it is
 an initramfs in RAM on an isolated segment with one peer, so there is nothing
 for a firewall to protect.
 
@@ -263,7 +263,7 @@ Three signals, each meaning something distinct:
   This is how you know you are running from flash rather than still in RAM.
 - *=tcp/23= is closed.*  You are no longer in Meraki diagnostic mode.
 - *The MAC is a real Meraki OUI* (ours: =0c:8d:db:70:d0:db=), not the
-  locally-administered address the initramfs used.  This is the important one —
+  locally-administered address the initramfs used.  This is the important one --
   it means OpenWrt read the device's identity out of ART, which confirms the
   calibration data survived.  A locally-administered MAC here would suggest ART
   was damaged.
@@ -290,12 +290,12 @@ rest into declarative management.
 
 * Gotchas
 
-- *=/tmp= on the AP is RAM.*  Any power cycle — including redoing the reset
-  dance — discards the staged image.  Re-fetch and re-verify the checksum in
+- *=/tmp= on the AP is RAM.*  Any power cycle -- including redoing the reset
+  dance -- discards the staged image.  Re-fetch and re-verify the checksum in
   the same boot as the write.  Check =cat /proc/uptime= if unsure.
 - *A completed transfer does not mean a successful boot.*  Interface counters
   and TFTP ACKs only prove bytes arrived.  Confirm the AP is actually up by
-  pinging =192.168.1.1= and checking which ports answer — dropbear on 22 is
+  pinging =192.168.1.1= and checking which ports answer -- dropbear on 22 is
   the initramfs, telnet on 23 is Meraki diagnostic mode.
 - *The SSH host key changes on every initramfs boot*, since it is regenerated
   in RAM.  Use =-o StrictHostKeyChecking=no=, and expect it to change again
@@ -309,5 +309,5 @@ rest into declarative management.
   provisioning module already renames the versioned download; do not "fix" it.
 - *Diagnostic mode uses a locally-administered MAC*, so do not expect a Meraki
   OUI in the host's ARP table.  Ours showed =ba:5d:e7:03:f1:5d=.
-- *Do not connect over the network during the UART path* (MR42 only) — that
+- *Do not connect over the network during the UART path* (MR42 only) -- that
   warning applies to the serial method, not to this one.

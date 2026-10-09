@@ -1,7 +1,7 @@
 { lib, ... }:
 {
   # networking.monitors is flat camelCase for the same reason as
-  # networking.dnsAliases — networking.dns is already a list of string
+  # networking.dnsAliases -- networking.dns is already a list of string
   # (DNS server addresses) so sub-options under it are not possible.
   options.networking.monitors = lib.mkOption {
     type = lib.types.listOf lib.types.str;

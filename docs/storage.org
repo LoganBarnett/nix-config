@@ -9,9 +9,9 @@ layout:
 
 #+begin_example
 /tank/data/<service>/
-  nfs-working-share    ← mount sanity check (NFS consumers look for this)
-  data/                ← the service's data directory
-  exports/             ← database dumps and other periodic exports
+  nfs-working-share    <- mount sanity check (NFS consumers look for this)
+  data/                <- the service's data directory
+  exports/             <- database dumps and other periodic exports
 #+end_example
 
 The ~data/~ and ~exports/~ subdirectories are always created, even when a

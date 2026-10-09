@@ -114,7 +114,7 @@ caffeinate proton-deploy switch $host
 #+end_src
 
 If secrets are missing on the freshly booted host (an empty ~/run/agenix~),
-see the triage steps in [[file:bootstrap/bootstrap.org::*Bootstrap Pis][bootstrap.org → Bootstrap Pis]].
+see the triage steps in [[file:bootstrap/bootstrap.org::*Bootstrap Pis][bootstrap.org -> Bootstrap Pis]].
 
 
 *** Container Guests
@@ -149,8 +149,8 @@ host='host'; ssh-keyscan $host.proton | grep -o 'ssh-ed25519.*' > secrets/$host-
 This covers miscellaneous devices on the network which need special instruction
 or understanding.
 
-For IoT devices specifically — how they're identified, provisioned onto the
-LAN, and controlled locally — see [[file:docs/iot.org]].
+For IoT devices specifically -- how they're identified, provisioned onto the
+LAN, and controlled locally -- see [[file:docs/iot.org]].
 
 
 * Topology
@@ -182,7 +182,7 @@ re-registering the mapping so it survives router reboots.
 
 The diagram below illustrates the traffic paths.  The named source block is
 tangled to ~docs/topology.d2~; the two shell blocks that follow it regenerate
-the light and dark SVGs in ~docs/~ — execute those to refresh the diagram after
+the light and dark SVGs in ~docs/~ -- execute those to refresh the diagram after
 any topology change.
 
 #+name: topology-d2
@@ -250,7 +250,7 @@ hit/miss checks, and signing-key rotation are in
 
 ** Rapid Package Updates
 
-Some packages need to be updated independently of nixpkgs — for example, to
+Some packages need to be updated independently of nixpkgs -- for example, to
 pick up a bug fix that landed upstream before the pinned nixpkgs revision caught
 up.  Bumping all of nixpkgs for a single package is risky, so instead we pin
 just the affected package's version and hash in ~static.nix~ and override it in
@@ -287,14 +287,14 @@ but deviates from the three-part shape above: it has no ~overlays/<pkg>.nix~
 because the artifact is not a usable nixpkgs package but a notarized ~.pkg~ that
 Apple's ~installer~ lays into ~/Library/Audio/Plug-Ins/HAL~ as root.  It is
 therefore installed by a ~darwin-modules/blackhole.nix~ LaunchDaemon (the
-*mechanism* from §Evergreen Packages) while keeping the pinned-version
-*philosophy* here — a hybrid, because BlackHole both publishes a versioned,
-hashable URL (so we pin) and ships no self-updater (so a bump must come from
-Nix, and the bootstrapper's idempotency check is version-aware, not
-existence-only).  The from-source default is waived for it under the
-binary-download exception below: a CoreAudio HAL driver must be Developer-ID
-signed and notarized to load under SIP, which we cannot reproduce — see the
-module header for the full justification.
+*mechanism* from the =Evergreen Packages= section) while keeping the
+pinned-version *philosophy* here -- a hybrid, because BlackHole both
+publishes a versioned, hashable URL (so we pin) and ships no self-updater (so a
+bump must come from Nix, and the bootstrapper's idempotency check is
+version-aware, not existence-only).  The from-source default is waived for it
+under the binary-download exception below: a CoreAudio HAL driver must be
+Developer-ID signed and notarized to load under SIP, which we cannot
+reproduce -- see the module header for the full justification.
 
 *** Prefer from-source builds over direct binary downloads
 
@@ -314,8 +314,8 @@ a convenience call:
   the following hold, *and a human has explicitly approved it*:
 
   1. We trust the source /enough/ to run its bytes unbuilt (a first-party
-     vendor artifact — npm package, signed release — not a random mirror), and
-  2. Building from source is genuinely impractical — the source is closed
+     vendor artifact -- npm package, signed release -- not a random mirror), and
+  2. Building from source is genuinely impractical -- the source is closed
      (e.g. ~claude-code~), or the from-source build is infeasible for reasons
      that must be spelled out *in loads of comments* in the overlay/derivation.
 
@@ -334,10 +334,10 @@ The [[*Rapid Package Updates][Rapid Package Updates]] pattern above pins an exac
 rebuilds when you bump them.  That depends on upstream publishing a /stable,
 addressable/ artifact: a URL that names a version, and bytes that do not change
 underneath it.  Some vendors do not cooperate.  They serve a single rolling,
-*unversioned* installer URL — names like ~latest~, ~lkg~ ("last known good"),
-or a bare ~download~ endpoint — and overwrite those bytes in place whenever they
-ship.  There is no version in the URL to record, and the hash changes silently
-and unpredictably.
+*unversioned* installer URL -- names like ~latest~, ~lkg~ ("last known good"),
+or a bare ~download~ endpoint -- and overwrite those bytes in place whenever
+they ship.  There is no version in the URL to record, and the hash changes
+silently and unpredictably.
 
 Pinning such a package by hash is actively harmful: every silent upstream
 rotation makes the hash mismatch, which *breaks the Nix build* at the worst
@@ -362,7 +362,7 @@ The pattern has three parts, all on the macOS (nix-darwin) side:
 - The bootstrapper :: A ~writeShellScript~ the job runs.  It must be
   *idempotent and self-healing*: first check whether the app already exists at
   ~appPath~ and exit ~0~ immediately if so (this is the common case at every
-  boot/login — cheap, and it re-installs automatically if the app is ever
+  boot/login -- cheap, and it re-installs automatically if the app is ever
   deleted).  Otherwise download the rolling URL to a scratch dir (use
   ~curl --fail~ so a 4xx/5xx becomes a non-zero exit and retries instead of
   "installing" an error page) and install it.  Fetch tools from nixpkgs
@@ -370,23 +370,23 @@ The pattern has three parts, all on the macOS (nix-darwin) side:
   long-form flags exist and behave predictably.  The install step depends on the
   artifact format:
 
-  - A ~.app~ in a ~.dmg~ or archive — unpack and copy with ~ditto~ (it
+  - A ~.app~ in a ~.dmg~ or archive -- unpack and copy with ~ditto~ (it
     preserves the code signature and extended attributes a plain ~cp~ would
     strip).  This needs no root, so the job can be a *LaunchAgent*.
 
-  - A ~.pkg~ installer — run it with ~/usr/sbin/installer -package <pkg>
+  - A ~.pkg~ installer -- run it with ~/usr/sbin/installer -package <pkg>
     -target /~.  This writes to root-owned locations and runs the vendor's
     pre/post-install scripts, so it needs root and the job must be a
     *LaunchDaemon*.
 
 - The ~launchd~ job :: Declared as ~launchd.agents.<name>~ (runs in the user's
-  GUI session, no root — pair with the ~ditto~ install) or
-  ~launchd.daemons.<name>~ (runs as root at boot — pair with the ~installer~
+  GUI session, no root -- pair with the ~ditto~ install) or
+  ~launchd.daemons.<name>~ (runs as root at boot -- pair with the ~installer~
   install).  Set ~RunAtLoad = true~ so it runs on each login/boot, and
   ~KeepAlive = false~ for a one-shot.  If the install can fail transiently
   (e.g. a daemon firing at boot before the network is up), use
-  ~KeepAlive = { SuccessfulExit = false; }~ instead — launchd then relaunches
-  only while the last run failed and stops once it exits ~0~ — and add a
+  ~KeepAlive = { SuccessfulExit = false; }~ instead -- launchd then relaunches
+  only while the last run failed and stops once it exits ~0~ -- and add a
   ~ThrottleInterval~ (seconds) so a persistently dead URL does not loop tightly.
   Log to ~/tmp/<name>.log~ via ~StandardOutPath~ / ~StandardErrorPath~ for
   post-mortem.
@@ -394,7 +394,7 @@ The pattern has three parts, all on the macOS (nix-darwin) side:
 To use an evergreen package, enable it on the host and deploy; the bootstrapper
 installs it on the next login (agent) or boot (daemon), and the vendor's updater
 keeps it current thereafter.  To force a clean reinstall, delete the app bundle
-and re-trigger the job (log out/in, reboot, or reload the job) — the
+and re-trigger the job (log out/in, reboot, or reload the job) -- the
 idempotent check will see it missing and fetch the current build.
 
 The trade-off versus Rapid Package Updates is deliberate: you give up
@@ -452,7 +452,7 @@ and interface configuration both derive from a single source of truth:
 silicon = {
   ipv4 = 9;                  # primary, private
   extraAddresses = {
-    silicon-external = 100;  # secondary, public — gets a DNS A record
+    silicon-external = 100;  # secondary, public -- gets a DNS A record
   };
   # ...
 };
@@ -464,12 +464,12 @@ inherits the address and certificate source automatically:
 
 #+begin_src nix :exports code
 services.https.domains = {
-  # Private services — all *.proton FQDNs listen on the LAN-only IP.
+  # Private services -- all *.proton FQDNs listen on the LAN-only IP.
   "proton" = {
     addr       = "192.168.254.9";
     certSource = "internal-ca";
   };
-  # Public services — all *.example.com FQDNs listen on the public IP.
+  # Public services -- all *.example.com FQDNs listen on the public IP.
   "example.com" = {
     addr       = "192.168.254.100";
     certSource = "acme";
@@ -518,7 +518,7 @@ Two external steps remain outside of NixOS configuration:
 
 1. Create a DNS A record at the registrar pointing ~myapp.example.com~ to the
    router's WAN IP address.
-2. Ensure the router forwards TCP 443 to ~192.168.254.100~ — either through the
+2. Ensure the router forwards TCP 443 to ~192.168.254.100~ -- either through the
    UPnP module above or by a static rule in the router's UI.
 
 ** Secrets
@@ -1927,7 +1927,7 @@ direnv allow
 8. Tap install again.
 9. Tap install yet again.
 10. Go to the root of the Settings app.
-11. Navigate to General → About → Certificate Trust Settings.  The last entry
+11. Navigate to General -> About -> Certificate Trust Settings.  The last entry
     will be at the bottom.
 12. Turn on the domain for the network (~proton~).
 13. Press Continue.
@@ -2004,7 +2004,7 @@ to the LDAP schema.
 | Matrix    | silicon | LDAP       | ✓            | Yes      | ldap3 incompatible with MAS [fn:matrix] |
 | Grafana   | nickel  | LDAP       | ✓            | Yes      | groups must be in ID token [fn:grafana] |
 | Nextcloud | copper  | LDAP       | Partial      | Neutral  | Admin group sync bug [fn:nextcloud] |
-| OpenHAB   | bromine | —          | via proxy    | Planned  | Forward-auth; currently disabled   |
+| OpenHAB   | bromine | -          | via proxy    | Planned  | Forward-auth; currently disabled   |
 | MeTube    | silicon | None       | via proxy    | N/A      | Forward-auth; mind /socket.io/     |
 
 *** Gitea migration notes
@@ -2035,7 +2035,7 @@ ID token.
 
 *** Nextcloud migration notes
 [fn:nextcloud] The ~user_oidc~ app can provision groups from the ~groups~
-claim, but the ~admin~ group cannot be managed this way — members get
+claim, but the ~admin~ group cannot be managed this way -- members get
 removed on sync (open upstream issue as of 2025).  A hybrid approach
 (LDAP for identity, OIDC for login) is the most practical path.  Full
 cut-over requires accepting manual admin management.  If Server-Side
@@ -2045,7 +2045,7 @@ cleartext passwords at login time).
 * Ollama
 
 LLM inference is available at =ollama.proton= but the endpoint is not a
-direct Ollama server — it's [[https://gitea.proton/logan/garage-queue][garage-queue]], a capability-aware work queue
+direct Ollama server -- it's [[https://gitea.proton/logan/garage-queue][garage-queue]], a capability-aware work queue
 that distributes inference requests across all hosts running Ollama.
 
 ** Architecture
@@ -2093,9 +2093,9 @@ This means:
 Each host that runs Ollama also runs a ~garage-queue-worker~.  The worker
 advertises:
 
-- *Tags* — the model names from ~services.ollama.loadModels~ (e.g.
+- *Tags* -- the model names from ~services.ollama.loadModels~ (e.g.
   ~llama3.1:8b~, ~qwen2.5:14b~).
-- *Scalars* — numeric capacities like ~vram_mb~ declared per-host.
+- *Scalars* -- numeric capacities like ~vram_mb~ declared per-host.
 
 When an inference request arrives, the server finds a worker whose
 advertised tags include the requested model and whose VRAM scalar meets
@@ -2156,7 +2156,7 @@ resolution are in
 ** Cellular tether breaking VPN-routed traffic on the Mac
 
 Symptom: an app on a tethered Mac times out connecting to a ~.proton~ LAN
-host (e.g. Moonlight → Sunshine on titanium reports "RTSP handshake
+host (e.g. Moonlight -> Sunshine on titanium reports "RTSP handshake
 failed") while ~ssh~ / ~ping~ to the same host work fine.
 
 Cause is macOS NAT64 synthesis on IPv6-only carrier tethers steering
@@ -2165,8 +2165,8 @@ tunnel.  Workaround is to disable IPv6 on the tethered Wi-Fi service.
 Full diagnosis, capture commands, and the exact ~networksetup~ command
 are in [[file:docs/cellular-tether-clat.org][docs/cellular-tether-clat.org]].
 
-A separate tether failure — Nix-built c-ares clients (curl, git,
-nix-daemon) unable to use the tether's scoped link-local nameserver — has a
+A separate tether failure -- Nix-built c-ares clients (curl, git,
+nix-daemon) unable to use the tether's scoped link-local nameserver -- has a
 durable resolver-layer fix: the ~services.dns-c-ares-scopeless-fix~
 darwin-module runs a local dnsmasq that all DNS routes through.  Design,
 failure taxonomy, and the deferred filter-AAAA reconciler are in
@@ -2246,7 +2246,7 @@ the file explaining why it was retired.  The format is:
 
 #+begin_src nix :exports code
 ################################################################################
-# TOMBSTONE — Short description of why this is no longer active.
+# TOMBSTONE -- Short description of why this is no longer active.
 #
 # What the service was and what it did.
 #

@@ -5,7 +5,7 @@
 # stomping on the other's config.
 #
 # Currently:
-#   logustus.com / CNAME/blog  →  loganbarnett.github.io
+#   logustus.com / CNAME/blog  ->  loganbarnett.github.io
 #     (points blog.logustus.com at the GitHub Pages site)
 ################################################################################
 { ... }:

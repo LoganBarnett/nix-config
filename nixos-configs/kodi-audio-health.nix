@@ -16,7 +16,7 @@
 #       for, which is the whole reason it is worth alerting on.
 #   kodi_audio_renderer_failures_total
 #       CActiveAE could not create a stream for a decoded track.  This is the
-#       terminal signature — audio is dead right now.
+#       terminal signature -- audio is dead right now.
 #   kodi_audio_xrandr_query_failures_total
 #       CXRandR::Query returned no connected output with a current mode, i.e.
 #       the display link dropped out from under Kodi.  This is the upstream
@@ -54,7 +54,7 @@ let
     LOG="${kodiLog}"
 
     # grep exits 1 when it matches nothing, which is a normal and expected
-    # result here — a healthy Kodi matches none of these.  Under `set -e` that
+    # result here -- a healthy Kodi matches none of these.  Under `set -e` that
     # would abort the script, so each count absorbs the non-match exit.
     count_matches() {
       if [[ -r "''${LOG}" ]]; then
@@ -81,7 +81,7 @@ let
 
     # Deliberately not a heredoc.  Prometheus rejects lines with leading
     # whitespace, and a heredoc body's indentation inside a Nix indented
-    # string is at the mercy of the formatter — nixfmt reindents this literal,
+    # string is at the mercy of the formatter -- nixfmt reindents this literal,
     # and the terminator then has to happen to land back at column zero once
     # Nix strips the common indent.  printf does not care how this file is
     # formatted.
@@ -141,7 +141,8 @@ in
     };
 
     systemd.timers.kodi-audio-health-metrics = {
-      description = "Periodically refresh Kodi audio health Prometheus metrics.";
+      description =
+        "Periodically refresh Kodi audio health Prometheus metrics.";
       wantedBy = [ "timers.target" ];
       timerConfig = {
         # The failure this watches for develops over days, so there is nothing

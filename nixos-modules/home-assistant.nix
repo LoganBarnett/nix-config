@@ -97,7 +97,8 @@ let
     if isDerivation config then
       [ ]
     else if isAttrs config then
-      optionals (config ? platform) [ config.platform ] ++ concatMap usedPlatforms (attrValues config)
+      optionals (config ? platform) [ config.platform ]
+      ++ concatMap usedPlatforms (attrValues config)
     else if isList config then
       concatMap usedPlatforms config
     else
@@ -113,7 +114,9 @@ let
     || useComponentPlatform component
     || useExplicitComponent component
     || builtins.elem component (
-      cfg.extraComponents ++ cfg.defaultIntegrations ++ map (getAttr "domain") cfg.customComponents
+      cfg.extraComponents
+      ++ cfg.defaultIntegrations
+      ++ map (getAttr "domain") cfg.customComponents
     );
 
   # Final list of components passed into the package to include required dependencies
@@ -128,7 +131,9 @@ let
         ps:
         (oldArgs.extraPackages or (_: [ ]) ps)
         ++ (cfg.extraPackages ps)
-        ++ (concatMap (component: component.propagatedBuildInputs or [ ]) cfg.customComponents);
+        ++ (concatMap (
+          component: component.propagatedBuildInputs or [ ]
+        ) cfg.customComponents);
     })
   );
 
@@ -141,7 +146,9 @@ let
   # Create parts of the lovelace config that reference lovelave modules as resources
   customLovelaceModulesResources = {
     lovelace.resources = map (card: {
-      url = "/local/nixos-lovelace-modules/${card.entrypoint or (card.pname + ".js")}?${card.version}";
+      url = "/local/nixos-lovelace-modules/${
+        card.entrypoint or (card.pname + ".js")
+      }?${card.version}";
       type = "module";
     }) cfg.customLovelaceModules;
   };
@@ -154,11 +161,14 @@ in
       "home-assistant"
       "applyDefaultConfig"
     ] "The default config was migrated into services.home-assistant.config")
-    (mkRemovedOptionModule [
-      "services"
-      "home-assistant"
-      "autoExtraComponents"
-    ] "Components are now parsed from services.home-assistant.config unconditionally")
+    (mkRemovedOptionModule
+      [
+        "services"
+        "home-assistant"
+        "autoExtraComponents"
+      ]
+      "Components are now parsed from services.home-assistant.config unconditionally"
+    )
     (mkRenamedOptionModule
       [ "services" "home-assistant" "port" ]
       [ "services" "home-assistant" "config" "http" "server_port" ]
@@ -173,7 +183,9 @@ in
   options.services.home-assistant = {
     # Running home-assistant on NixOS is considered an installation method that is unsupported by the upstream project.
     # https://github.com/home-assistant/architecture/blob/master/adr/0012-define-supported-installation-method.md#decision
-    enable = mkEnableOption "Home Assistant. Please note that this installation method is unsupported upstream";
+    enable =
+      mkEnableOption
+        "Home Assistant. Please note that this installation method is unsupported upstream";
 
     extraArgs = mkOption {
       type = types.listOf types.str;
@@ -187,7 +199,8 @@ in
     configDir = mkOption {
       default = "/var/lib/hass";
       type = types.path;
-      description = "The config directory, where your {file}`configuration.yaml` is located.";
+      description =
+        "The config directory, where your {file}`configuration.yaml` is located.";
     };
 
     defaultIntegrations = mkOption {
@@ -231,18 +244,17 @@ in
 
     extraComponents = mkOption {
       type = types.listOf (types.enum availableComponents);
-      default =
-        [
-          # List of components required to complete the onboarding
-          "default_config"
-          "met"
-          "esphome"
-        ]
-        ++ optionals pkgs.stdenv.hostPlatform.isAarch [
-          # Use the platform as an indicator that we might be running on a RaspberryPi and include
-          # relevant components
-          "rpi_power"
-        ];
+      default = [
+        # List of components required to complete the onboarding
+        "default_config"
+        "met"
+        "esphome"
+      ]
+      ++ optionals pkgs.stdenv.hostPlatform.isAarch [
+        # Use the platform as an indicator that we might be running on a RaspberryPi and include
+        # relevant components
+        "rpi_power"
+      ];
       example = literalExpression ''
         [
           "analytics"
@@ -395,7 +407,7 @@ in
                 '';
                 example = "Europe/Amsterdam";
                 description = ''
-                  Pick your time zone from the column TZ of Wikipedia’s [list of tz database time zones](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones).
+                  Pick your time zone from the column TZ of Wikipedia's [list of tz database time zones](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones).
                 '';
               };
             };
@@ -430,7 +442,8 @@ in
                   "yaml"
                   "storage"
                 ];
-                default = if cfg.lovelaceConfig != null then "yaml" else "storage";
+                default =
+                  if cfg.lovelaceConfig != null then "yaml" else "storage";
                 defaultText = literalExpression ''
                   if cfg.lovelaceConfig != null
                     then "yaml"
@@ -566,7 +579,9 @@ in
             description = ''
               List of ${domain}
               [blueprints](https://www.home-assistant.io/docs/blueprint/) to
-              install into {file}`''${config.services.home-assistant.configDir}/blueprints/${domain}`.
+              install into {file}`''${config.services.home-assistant.configDir}/blueprints/${
+                domain
+              }`.
             '';
             example =
               if domain == "automation" then
@@ -579,10 +594,13 @@ in
                   ]
                 ''
               else if domain == "template" then
-                literalExpression "[ \"\${pkgs.home-assistant.src}/homeassistant/components/template/blueprints/inverted_binary_sensor.yaml\" ]"
+                literalExpression
+                  "[ \"\${pkgs.home-assistant.src}/homeassistant/components/template/blueprints/inverted_binary_sensor.yaml\" ]"
               else
                 literalExpression "[ ./blueprint.yaml ]";
-            type = types.listOf (types.coercedTo types.path (x: "${x}") types.pathInStore);
+            type = types.listOf (
+              types.coercedTo types.path (x: "${x}") types.pathInStore
+            );
           };
         })
         # https://www.home-assistant.io/docs/blueprint/schema/#domain
@@ -628,7 +646,9 @@ in
       }
     ];
 
-    networking.firewall.allowedTCPPorts = mkIf cfg.openFirewall [ cfg.config.http.server_port ];
+    networking.firewall.allowedTCPPorts = mkIf cfg.openFirewall [
+      cfg.config.http.server_port
+    ];
 
     # symlink the configuration to /etc/home-assistant
     environment.etc = mkMerge [
@@ -660,22 +680,30 @@ in
           copyConfig =
             if cfg.configWritable then
               ''
-                cp --no-preserve=mode ${configFile} "${cfg.configDir}/configuration.yaml"
+                cp --no-preserve=mode ${configFile} "${
+                  cfg.configDir
+                }/configuration.yaml"
               ''
             else
               ''
                 rm -f "${cfg.configDir}/configuration.yaml"
-                ln -s /etc/home-assistant/configuration.yaml "${cfg.configDir}/configuration.yaml"
+                ln -s /etc/home-assistant/configuration.yaml "${
+                  cfg.configDir
+                }/configuration.yaml"
               '';
           copyLovelaceConfig =
             if cfg.lovelaceConfigWritable then
               ''
                 rm -f "${cfg.configDir}/ui-lovelace.yaml"
-                cp --no-preserve=mode ${lovelaceConfigFile} "${cfg.configDir}/ui-lovelace.yaml"
+                cp --no-preserve=mode ${lovelaceConfigFile} "${
+                  cfg.configDir
+                }/ui-lovelace.yaml"
               ''
             else
               ''
-                ln -fs /etc/home-assistant/ui-lovelace.yaml "${cfg.configDir}/ui-lovelace.yaml"
+                ln -fs /etc/home-assistant/ui-lovelace.yaml "${
+                  cfg.configDir
+                }/ui-lovelace.yaml"
               '';
           onboardingCompleteConfig =
             if cfg.onboardingComplete != null then
@@ -704,8 +732,8 @@ in
                   } \
                   "${cfg.configDir}/.storage/onboarding"
               ''
-            else ""
-          ;
+            else
+              "";
           staticUsersConfig =
             if cfg.staticUsers != null then
               ''
@@ -717,52 +745,55 @@ in
                   ${
                     pkgs.writeTextFile {
                       name = "home-assistant-users.json";
-                      text = builtins.toJSON (let
-                        # anonymous-user-id = "35646913-ae33-4de2-8918-366f2078097d";
-                        # I pulled this value from the example here so it will
-                        # probably work:
-                        # https://www.home-assistant.io/docs/authentication/providers/
-                        user-id = "acbbff56461748718f3650fb914b88c9";
-                      in {
-                        version = 1;
-                        key = "auth_provider.homeassistant";
-                        data = {
-                          refresh_tokens = [];
-                          credentials = [
-                            {
-                              auth_provider_type = "homeassistant";
-                              auth_provider_id = "homeassistant";
-                              data = {};
-                              id = user-id;
-                              user_id = user-id;
-                              is_new = false;
-                            }
-                          ];
-                          # Largely reverse engineered from:
-                          # https://github.com/home-assistant/core/blob/6b5b35feceee75c57ea29630819c7d00445b0819/homeassistant/auth/models.py#L71
-                          users = [
-                            {
-                              id = user-id;
-                              local_only = false;
-                              name = "anonymous";
-                              is_active = true;
-                              is_owner = true;
-                              groups = [];
-                              # mfa_modules = [];
-                              refresh_tokens = [];
-                              # Setting this to false is what allows the
-                              # anonymous login.
-                              system_generated = false;
-                            }
-                          ];
-                        };
-                      });
+                      text = builtins.toJSON (
+                        let
+                          # anonymous-user-id = "35646913-ae33-4de2-8918-366f2078097d";
+                          # I pulled this value from the example here so it will
+                          # probably work:
+                          # https://www.home-assistant.io/docs/authentication/providers/
+                          user-id = "acbbff56461748718f3650fb914b88c9";
+                        in
+                        {
+                          version = 1;
+                          key = "auth_provider.homeassistant";
+                          data = {
+                            refresh_tokens = [ ];
+                            credentials = [
+                              {
+                                auth_provider_type = "homeassistant";
+                                auth_provider_id = "homeassistant";
+                                data = { };
+                                id = user-id;
+                                user_id = user-id;
+                                is_new = false;
+                              }
+                            ];
+                            # Largely reverse engineered from:
+                            # https://github.com/home-assistant/core/blob/6b5b35feceee75c57ea29630819c7d00445b0819/homeassistant/auth/models.py#L71
+                            users = [
+                              {
+                                id = user-id;
+                                local_only = false;
+                                name = "anonymous";
+                                is_active = true;
+                                is_owner = true;
+                                groups = [ ];
+                                # mfa_modules = [];
+                                refresh_tokens = [ ];
+                                # Setting this to false is what allows the
+                                # anonymous login.
+                                system_generated = false;
+                              }
+                            ];
+                          };
+                        }
+                      );
                     }
                   } \
                   "${cfg.configDir}/.storage/auth"
               ''
-            else ""
-          ;
+            else
+              "";
           secretsFileConfig =
             if cfg.secretsFile != null then
               ''
@@ -774,13 +805,14 @@ in
                   "${cfg.configDir}/secrets.yaml"
               ''
             else
-              ""
-            ;
+              "";
           copyCustomLovelaceModules =
             if cfg.customLovelaceModules != [ ] then
               ''
                 mkdir -p "${cfg.configDir}/www"
-                ln -fns ${customLovelaceModulesDir} "${cfg.configDir}/www/nixos-lovelace-modules"
+                ln -fns ${customLovelaceModulesDir} "${
+                  cfg.configDir
+                }/www/nixos-lovelace-modules"
               ''
             else
               ''
@@ -790,9 +822,13 @@ in
             mkdir -p "${cfg.configDir}/custom_components"
 
             # remove components symlinked in from below the /nix/store
-            readarray -d "" components < <(find "${cfg.configDir}/custom_components" -maxdepth 1 -type l -print0)
+            readarray -d "" components < <(find "${
+              cfg.configDir
+            }/custom_components" -maxdepth 1 -type l -print0)
             for component in "''${components[@]}"; do
-              if [[ "$(readlink "$component")" =~ ^${escapeShellArg builtins.storeDir} ]]; then
+              if [[ "$(readlink "$component")" =~ ^${
+                escapeShellArg builtins.storeDir
+              } ]]; then
                 rm "$component"
               fi
             done
@@ -807,9 +843,13 @@ in
           '';
           removeBlueprints = ''
             # remove blueprints symlinked in from below the /nix/store
-            readarray -d "" blueprints < <(find "${cfg.configDir}/blueprints" -maxdepth 2 -type l -print0)
+            readarray -d "" blueprints < <(find "${
+              cfg.configDir
+            }/blueprints" -maxdepth 2 -type l -print0)
             for blueprint in "''${blueprints[@]}"; do
-              if [[ "$(readlink "$blueprint")" =~ ^${escapeShellArg builtins.storeDir} ]]; then
+              if [[ "$(readlink "$blueprint")" =~ ^${
+                escapeShellArg builtins.storeDir
+              } ]]; then
                 rm "$blueprint"
               fi
             done
@@ -818,20 +858,29 @@ in
             domain: blueprint:
             let
               filename =
-                if isStorePath blueprint then substring 33 (-1) (baseNameOf blueprint) else baseNameOf blueprint;
+                if isStorePath blueprint then
+                  substring 33 (-1) (baseNameOf blueprint)
+                else
+                  baseNameOf blueprint;
               path = "${cfg.configDir}/blueprints/${domain}";
             in
             ''
               mkdir -p ${escapeShellArg path}
-              ln -s ${escapeShellArg blueprint} ${escapeShellArg "${path}/${filename}"}
+              ln -s ${escapeShellArg blueprint} ${
+                escapeShellArg "${path}/${filename}"
+              }
             '';
           copyBlueprints = concatStrings (
-            flatten (mapAttrsToList (domain: map (copyBlueprint domain)) cfg.blueprints)
+            flatten (
+              mapAttrsToList (domain: map (copyBlueprint domain)) cfg.blueprints
+            )
           );
         in
         (optionalString (cfg.config != null) copyConfig)
         + (optionalString (cfg.lovelaceConfig != null) copyLovelaceConfig)
-        + (optionalString (cfg.onboardingComplete != null) onboardingCompleteConfig)
+        + (optionalString (
+          cfg.onboardingComplete != null
+        ) onboardingCompleteConfig)
         + (optionalString (cfg.secretsFile != null) secretsFileConfig)
         + staticUsersConfig
         + copyCustomLovelaceModules
@@ -1041,32 +1090,32 @@ in
               allowPaths = if isList value then value else singleton value;
             in
             [ "${cfg.configDir}" ] ++ allowPaths;
-          RestrictAddressFamilies =
-            [
-              "AF_INET"
-              "AF_INET6"
-              "AF_NETLINK"
-              "AF_UNIX"
-            ]
-            ++ optionals (any useComponent componentsUsingBluetooth) [
-              "AF_BLUETOOTH"
-            ];
+          RestrictAddressFamilies = [
+            "AF_INET"
+            "AF_INET6"
+            "AF_NETLINK"
+            "AF_UNIX"
+          ]
+          ++ optionals (any useComponent componentsUsingBluetooth) [
+            "AF_BLUETOOTH"
+          ];
           RestrictNamespaces = true;
           RestrictRealtime = true;
           RestrictSUIDSGID = true;
-          SupplementaryGroups = optionals (any useComponent componentsUsingSerialDevices) [
-            "dialout"
-          ];
+          SupplementaryGroups =
+            optionals (any useComponent componentsUsingSerialDevices)
+              [
+                "dialout"
+              ];
           SystemCallArchitectures = "native";
-          SystemCallFilter =
-            [
-              "@system-service"
-              "~@privileged"
-            ]
-            ++ optionals (any useComponent componentsUsingPing) [
-              "capset"
-              "setuid"
-            ];
+          SystemCallFilter = [
+            "@system-service"
+            "~@privileged"
+          ]
+          ++ optionals (any useComponent componentsUsingPing) [
+            "capset"
+            "setuid"
+          ];
           UMask = "0077";
         };
       path = [

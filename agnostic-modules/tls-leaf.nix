@@ -89,7 +89,7 @@ in
         map (leaf-config: {
           name = "tls-cert-expiry-${leaf-config.fqdn}";
           value = {
-            # openssl `x509 -checkend` is broken — it always exits 0 regardless
+            # openssl `x509 -checkend` is broken -- it always exits 0 regardless
             # of expiry (https://github.com/openssl/openssl/issues/11772, open
             # since 2020).  Compute the comparison ourselves: read notAfter,
             # convert to a unix timestamp, and check that it exceeds the warning
@@ -106,7 +106,9 @@ in
                 | ${pkgs.coreutils}/bin/cut --delimiter='=' --fields=2)
               end_ts=$(${pkgs.coreutils}/bin/date --date="$end" +%s)
               now_ts=$(${pkgs.coreutils}/bin/date +%s)
-              [ "$end_ts" -gt "$((now_ts + ${toString expiry-warning-seconds}))" ]
+              [ "$end_ts" -gt "$((now_ts + ${
+                toString expiry-warning-seconds
+              }))" ]
             '';
             "exit-status" = 0;
           };

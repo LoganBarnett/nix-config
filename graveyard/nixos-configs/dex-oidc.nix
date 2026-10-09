@@ -1,5 +1,5 @@
 ################################################################################
-# TOMBSTONE — Dex is no longer active.
+# TOMBSTONE -- Dex is no longer active.
 #
 # Dex was our original OIDC broker, using LDAP as its identity backend.  It
 # served Home Assistant as its only active client.  We migrated to Authelia
@@ -88,7 +88,9 @@ in
         {
           id = "home-assistant";
           redirectURIs = [
-            "https://home-assistant.${facts.network.domain}/auth/external/callback"
+            "https://home-assistant.${
+              facts.network.domain
+            }/auth/external/callback"
           ];
           secret = "$''${home-assistant-client-secret-field}";
           name = "Home Assistant";
@@ -134,11 +136,14 @@ in
     };
     # Check that the OIDC discovery endpoint works.  This is the standard
     # endpoint that OIDC clients use to discover provider configuration.
-    http."https://dex.${facts.network.domain}/.well-known/openid-configuration" = {
-      status = 200;
-      timeout = 3000;
-      headers = [ "Content-Type: application/json" ];
-    };
+    http."https://dex.${
+      facts.network.domain
+    }/.well-known/openid-configuration" =
+      {
+        status = 200;
+        timeout = 3000;
+        headers = [ "Content-Type: application/json" ];
+      };
     # Check that the internal dex port is listening.
     port."tcp:${toString dex-port}" = {
       listening = true;
@@ -150,7 +155,9 @@ in
     };
     # Confirm the reverse proxy is reachable from all interfaces, not
     # only on one specific address.
-    command."tcp:443-wildcard-binding" = pkgs.lib.custom.gossWildcardPortCheck 443;
+    command."tcp:443-wildcard-binding" =
+      pkgs.lib.custom.gossWildcardPortCheck
+        443;
     # Check that the dex service is running.
     service.dex = {
       enabled = true;

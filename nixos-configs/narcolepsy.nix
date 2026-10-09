@@ -36,7 +36,7 @@ in
       systemd.targets.hybrid-sleep.enable = false;
       # PCIe Active State Power Management is another way the system tries to
       # save power, by putting bus links into low-power D-states when idle.
-      # On at least one host (arsenic — AMD X570 Taichi + ath9k), the PCIe
+      # On at least one host (arsenic -- AMD X570 Taichi + ath9k), the PCIe
       # bridge fails the D3hot -> D0 transition under load, taking out the
       # wifi card and wired NIC, and ultimately hanging the cfg80211
       # workqueue in an ioread32 RCU stall (kernel taints, hard reset

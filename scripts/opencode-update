@@ -2,7 +2,7 @@
 
 ################################################################################
 # Updates static.nix with the new version, source hash, and node_modules hash
-# for opencode (a from-source build — see overlays/opencode.nix and
+# for opencode (a from-source build -- see overlays/opencode.nix and
 # derivations/opencode/default.nix).
 #
 # Unlike the prebuilt-binary updaters (e.g. claude-code-update), these hashes
@@ -20,8 +20,8 @@ set -euo pipefail
 
 repo_root="$PWD"
 
-# lib.fakeHash — a syntactically valid SRI that will never match, forcing nix to
-# report the real hash.
+# lib.fakeHash -- a syntactically valid SRI that will never match, forcing nix
+# to report the real hash.
 fake="sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 
 # Build opencode's node_modules attribute under the opencode overlay and echo

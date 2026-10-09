@@ -20,16 +20,17 @@ let
   inherit (lib) mkOption types;
   cfg = config.services.stalwart;
 
-  hasExtras = cfg.extraSpamFilterRules != { } || cfg.extraSpamFilterScores != { };
+  hasExtras =
+    cfg.extraSpamFilterRules != { } || cfg.extraSpamFilterScores != { };
 
   # The merge implementation is parked until we have a working approach.
   # The naive `builtins.fromTOML` path fails because the bundled
   # spam-filter.toml uses curly-brace inline-set syntax that no strict
-  # TOML parser accepts — see
+  # TOML parser accepts -- see
   # https://github.com/LoganBarnett/stalwart-spam-filter-toml-bug for
   # the reproducer.  The replacement will use a runCommand-based
   # text-merge (sed-fix the broken syntax, then cat the bundled file
-  # with our additions appended) — to be wired up once landed.
+  # with our additions appended) -- to be wired up once landed.
 in
 {
   options.services.stalwart = {
@@ -59,7 +60,7 @@ in
         `pkgs.stalwart.spam-filter`).  Rules declared in local TOML
         under `services.stalwart.settings.spam-filter.rule.<id>`
         do appear in the running configuration but are silently NOT
-        evaluated — the rule engine consults only the resource.  This
+        evaluated -- the rule engine consults only the resource.  This
         is a documented gap; the upstream maintainer's note at
         <https://github.com/stalwartlabs/stalwart/discussions/789>
         recommends "creat[ing] a local copy of the spam rules and

@@ -5,7 +5,7 @@
 # the full picture before using --execute.
 #
 # IMPORTANT: Never remount /nix/store read-write to work around stuck locks.
-# The read-only mount is a system integrity guarantee — a writable store
+# The read-only mount is a system integrity guarantee -- a writable store
 # allows any root process to corrupt the store silently.  Terminating the
 # lock-holding process (what this script does) is the correct repair
 # procedure.  See docs/nix-store-locks.org for rationale.
@@ -51,7 +51,7 @@ Terminates all in-progress Nix builds to return a lodged store to a
 buildable state.  The intent is unconditional: every lock holder and
 every active builder process is killed.  If a build finishes naturally
 before its signal is sent and its lock is already released, it is
-skipped as a happy coincidence — not as an attempt to preserve it.
+skipped as a happy coincidence -- not as an attempt to preserve it.
 
 Without --execute: show what would be killed (dry run).
 With    --execute: kill everything.
@@ -166,7 +166,7 @@ while IFS=' ' read -r status field1 field2; do
 
       # Re-verify the flock is still held immediately before signalling.
       # If it was released in the window between the diagnose scan and
-      # here, the build finished on its own — a happy coincidence.
+      # here, the build finished on its own -- a happy coincidence.
       # There is no longer a lock to dislodge, so skip it.
       if ! is_flock_held "$lock_path"; then
         printf '               Lock released before signal; nothing to dislodge.\n'

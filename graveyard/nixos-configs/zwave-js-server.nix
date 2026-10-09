@@ -1,5 +1,5 @@
 ################################################################################
-# TOMBSTONE — zwave-js-server is no longer hosted.
+# TOMBSTONE -- zwave-js-server is no longer hosted.
 #
 # Configures zwave-js-server (aka node-zwave-server) for managing a Z-Wave
 # controller.  It produces very verbose logs but has fallen out of active

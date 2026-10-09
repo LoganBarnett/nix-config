@@ -5,7 +5,7 @@
 # on are produced by every host that declares "goss" in networking.monitors;
 # nixos-modules/prometheus-server.nix scrapes /healthz on port 8080.
 #
-# Contributes a rule *file* via ruleFiles, not .rules — see the warning in
+# Contributes a rule *file* via ruleFiles, not .rules -- see the warning in
 # alertmanager-alerts.nix for why that distinction is load-bearing.
 #
 # goss exports exactly three labels: outcome, resource_id, and type.  There is
@@ -38,7 +38,7 @@ in
               #
               # The 10m window paired with a 15m hold suppresses deploy churn.
               # A service restarting during activation fails one or two scrapes,
-              # which keeps increase() positive for at most ten minutes — short
+              # which keeps increase() positive for at most ten minutes -- short
               # of the fifteen minutes the alert must hold before firing.  A
               # genuinely broken check keeps the window populated indefinitely
               # and fires.
@@ -61,7 +61,8 @@ in
                 severity = "warning";
               };
               annotations = {
-                summary = "{{ $labels.instance }}: goss check {{ $labels.resource_id }} ({{ $labels.type }}) is failing.";
+                summary =
+                  "{{ $labels.instance }}: goss check {{ $labels.resource_id }} ({{ $labels.type }}) is failing.";
                 description = ''
                   The {{ $labels.type }} check for {{ $labels.resource_id }} on
                   {{ $labels.instance }} has been failing for more than fifteen
@@ -99,11 +100,12 @@ in
                 severity = "warning";
               };
               annotations = {
-                summary = "{{ $labels.instance }}: certificate for {{ $labels.resource_id }} is near or past expiry.";
+                summary =
+                  "{{ $labels.instance }}: certificate for {{ $labels.resource_id }} is near or past expiry.";
                 description = ''
                   Regenerate the leaf with agenix, commit the new cert, and then
                   deploy every host that serves it.  Committing alone does not
-                  resolve this alert — the old cert stays on the wire until the
+                  resolve this alert -- the old cert stays on the wire until the
                   host picks up a generation carrying the new store path.
                 '';
               };
@@ -120,11 +122,12 @@ in
                 severity = "warning";
               };
               annotations = {
-                summary = "{{ $labels.instance }}: goss checks are not being scraped.";
+                summary =
+                  "{{ $labels.instance }}: goss checks are not being scraped.";
                 description = ''
                   Prometheus cannot reach the goss exporter on {{
                   $labels.instance }}, so no goss-backed alert can fire for that
-                  host — including certificate expiry.  Check the goss service
+                  host -- including certificate expiry.  Check the goss service
                   and that port 8080 is reachable from
                   prometheus.${facts.network.domain}.
                 '';

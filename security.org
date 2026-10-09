@@ -14,7 +14,7 @@ Current layers protecting Linux hosts:
 ** Wheel Account Without Password
 
 ~wheelNeedsPassword = false~ effectively collapses "has your password" into
-"has root" — no additional barriers to ~sudo~.  This is acceptable on hosts
+"has root" -- no additional barriers to ~sudo~.  This is acceptable on hosts
 where the password is never used as an authentication factor, but warrants
 revisiting as password management matures.
 
@@ -31,7 +31,7 @@ give accurate results.
 
 NixOS has a structural advantage over traditional distributions: the store is
 content-addressed and read-only.  A modified system binary breaks its store
-path hash.  ~nix store verify~ can detect this — but only if run from a
+path hash.  ~nix store verify~ can detect this -- but only if run from a
 trusted environment, not the potentially compromised host.
 
 ** External Observation
@@ -58,7 +58,7 @@ Nix store against a closure pushed from a trusted build machine.
 
 - Thumb drive provides a trusted execution environment (its own kernel,
   its own Nix daemon).
-- Host store is mounted read-only as a passive filesystem — the host's
+- Host store is mounted read-only as a passive filesystem -- the host's
   kernel is never entered, the host's ~nix-daemon~ is never contacted,
   and the host's store metadata (~nix/var/nix/db~) is not trusted.
 - Expected closure + hashes originate from the build machine, signed with
@@ -66,7 +66,7 @@ Nix store against a closure pushed from a trusted build machine.
 
 *** Verification approach
 
-1. Build machine produces a signed manifest: store path → NAR hash for the
+1. Build machine produces a signed manifest: store path -> NAR hash for the
    full system closure.
 2. Thumb drive boots, mounts host store read-only at e.g. ~/mnt/host~.
 3. Verification tool validates the manifest signature against the baked-in
@@ -77,10 +77,10 @@ Nix store against a closure pushed from a trusted build machine.
 
 *** Limitations
 
-- Only covers store paths — writable areas (~/var~, home directories) and
+- Only covers store paths -- writable areas (~/var~, home directories) and
   loaded kernel modules are out of scope.
 - Does not detect malicious content that was always there (compromised
-  upstream package or substituter) — but that affects all NixOS users
+  upstream package or substituter) -- but that affects all NixOS users
   equally.
 - A memory-only rootkit with no on-disk store presence would survive a
   clean verify; it would also vanish on reboot.
@@ -93,7 +93,7 @@ signing).
 
 * Investigations
 
-** RESOLVED Willnorn SoundPlus X (SOUNDPLUS_X_E0A8) — Chinese domain traffic :false_alarm:
+** RESOLVED Willnorn SoundPlus X (SOUNDPLUS_X_E0A8) -- Chinese domain traffic :false_alarm:
 
 - Status :: False alarm
 - Date investigated :: [2026-04-02 Thu]
@@ -123,7 +123,7 @@ seconds each:
 | ~www.sina.com.cn~ |      22,262 | Connectivity check (Chinese captive portal detection) |
 
 These are the Chinese equivalents of Apple's ~captive.apple.com~ or Android's
-~connectivitycheck.gstatic.com~ — they are used by the Linkplay firmware to
+~connectivitycheck.gstatic.com~ -- they are used by the Linkplay firmware to
 determine whether the device has internet access.
 
 Additionally, the device makes occasional calls to:
@@ -140,7 +140,7 @@ C2-like infrastructure, no data exfiltration patterns.
 
 *** Traffic volume
 
-~46,000 DNS queries per day (~0.5 queries/sec).  This is trivial for Blocky —
+~46,000 DNS queries per day (~0.5 queries/sec).  This is trivial for Blocky --
 almost all resolve from cache.  The device's DNS traffic was *not* the cause of
 the silicon CPU spike (see below).
 
@@ -155,16 +155,16 @@ Root cause: the ~blocky-lists-updater~ service stores IPC files (used by
 ~systemd-tmpfiles~ cleaned these stale ~/tmp~ entries while the service was
 still running.  When the IPC files disappeared, ~inotifywait~ returned
 immediately on every loop iteration, and the refresh loop spun without backoff
-— hammering Blocky's ~/api/lists/refresh~ endpoint every ~20 seconds.  Each
+-- hammering Blocky's ~/api/lists/refresh~ endpoint every ~20 seconds.  Each
 refresh forced Blocky to re-import ~2 million blocklist entries from remote
 URLs.
 
 This was confirmed via Prometheus: the CPU spike began at 15:38 and immediately
 dropped to baseline at 01:11 after the fix was deployed.  The
 ~dns-smart-block~ classification rate was negligible and unchanged throughout
-the spike — the IoT device's DNS traffic was a red herring.
+the spike -- the IoT device's DNS traffic was a red herring.
 
-Fix: commit ~c353bad8~ in dotfiles — IPC files now persist under
+Fix: commit ~c353bad8~ in dotfiles -- IPC files now persist under
 ~/var/lib/blocky-lists-updater/notify/~ (the ~StateDirectory~) instead of
 ~/tmp~.
 
@@ -177,7 +177,7 @@ network by over a decade.
 Cause: the SoundPlus X has no RTC battery.  Its NTP server is ~cn.ntp.org.cn~
 (a Chinese NTP pool that may not be reachable from this network).  When the
 device power-cycles and cannot sync time, it falls back to a firmware-epoch
-date — January 2013, consistent with the Linkplay chipset build date.  The
+date -- January 2013, consistent with the Linkplay chipset build date.  The
 ~dns-smart-block~ log processor recorded the device's clock rather than wall
 time for these entries.
 

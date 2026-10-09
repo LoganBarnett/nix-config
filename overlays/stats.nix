@@ -5,8 +5,8 @@
 # every few weeks and the stable nixpkgs branch this flake tracks never picks
 # those up, so the version is pinned here and bumped with scripts/stats-update.
 #
-# This is a direct binary download, which README.org §Rapid Package Updates
-# treats as an exception needing sign-off and an in-file justification.
+# This is a direct binary download, which README.org's "Rapid Package Updates"
+# section treats as an exception needing sign-off and an in-file justification.
 # Approved by Logan on 2026-09-10.  A from-source build is not practical:
 #
 # - Stats is an Xcode project with several Swift targets.  nixpkgs has no
@@ -35,7 +35,9 @@ else
     stats = prev.stats.overrideAttrs (_: {
       inherit version;
       src = final.fetchurl {
-        url = "https://github.com/exelban/stats/releases/download/v${version}/Stats.dmg";
+        url = "https://github.com/exelban/stats/releases/download/v${
+          version
+        }/Stats.dmg";
         name = "Stats.dmg";
         inherit hash;
       };

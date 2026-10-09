@@ -43,7 +43,7 @@ embedding the IPv4 address in the low 32 bits of the NAT64 prefix.  For
 #+end_example
 
 The application then ~connect()~-s to that IPv6 address.  The kernel
-routes IPv6 traffic out ~en0~ — the IPv4 route table that points
+routes IPv6 traffic out ~en0~ -- the IPv4 route table that points
 ~192.168.254.0/24~ at the Wireguard ~utun~ interface is /never consulted/.
 The packet hits the carrier's NAT64 gateway, which cannot route RFC1918
 destinations, and is silently dropped.
@@ -59,7 +59,7 @@ application-routing problem at the Mac, upstream of the tunnel.
 | ~ping 192.168.254.6~          | Raw ICMP, literal IPv4                     | Works   |
 | ~nc 192.168.254.6 48010~      | ~connect()~ with IPv4 sockaddr             | Works   |
 | ~curl http://192.168.254.6/~  | Literal IP, no ~getaddrinfo()~ synthesis   | Works   |
-| Moonlight (Qt) RTSP           | ~getaddrinfo()~ → NAT64 synthesis → IPv6   | Fails   |
+| Moonlight (Qt) RTSP           | ~getaddrinfo()~ -> NAT64 synthesis -> IPv6 | Fails   |
 
 If a tool bypasses ~getaddrinfo()~ synthesis (by feeding a struct
 ~sockaddr_in~ to ~connect()~ directly), it routes via the IPv4 table and
@@ -87,7 +87,7 @@ fine" can be true at the same time as "Moonlight times out".
    with no ~SYN-ACK~ coming back, that confirms synthesis is routing the
    application out the wrong path.  Decode the last 32 bits of the IPv6
    destination as hex to recover the IPv4 address it was synthesized from
-   (e.g. ~c0a8:fe06~ → ~192.168.254.6~).
+   (e.g. ~c0a8:fe06~ -> ~192.168.254.6~).
 
 * Workaround
 
@@ -104,7 +104,7 @@ synthesizing.  ~192.168.254.6~ resolves as IPv4, the route table picks
 Caveat: this changes ~en0~'s IPv4 address (e.g. from the IPv6-CLAT
 placeholder ~192.0.0.2~ to a real iPhone-hotspot lease like
 ~172.20.10.5~).  The WireGuard userspace daemon on macOS does not always
-follow this transition cleanly — the tunnel can be left in a
+follow this transition cleanly -- the tunnel can be left in a
 ~UP,RUNNING~ state with no working handshake.  Toggle the tunnel off and
 on in the WireGuard.app menu-bar UI after running ~setv6off~ to restore
 the data path.
@@ -125,7 +125,7 @@ When this issue presents, the following are red herrings:
   attempts can leave Sunshine refusing new launches, but this is a
   /downstream/ consequence of the CLAT routing failure, not the cause.
   Restarting Sunshine appears to help briefly only because it forces
-  ~/launch~ instead of ~/resume~ — the next attempt fails identically.
+  ~/launch~ instead of ~/resume~ -- the next attempt fails identically.
 - *Wireguard config (MTU, allowed-IPs, server-side firewall, NAT
   masquerade).*  The tunnel is healthy throughout.  ~ssh~ and ~ping~ via
   the tunnel will continue to work the entire time the application is
@@ -133,7 +133,7 @@ When this issue presents, the following are red herrings:
 
 The discriminating test is whether the application's traffic appears on
 ~utun*~ at all.  If it doesn't, the problem is on the Mac side of the
-tunnel — almost certainly NAT64 synthesis on a cellular tether.
+tunnel -- almost certainly NAT64 synthesis on a cellular tether.
 
 * Why we don't "just add IPv6 to the home LAN"
 

@@ -6,7 +6,7 @@
 # into a single file that replaces the old silicon-vlans.nix, silicon-nat.nix,
 # and silicon-vlan-firewall.nix.
 #
-# The VLAN plan itself (ids, subnets, roles) lives in facts.network.vlans —
+# The VLAN plan itself (ids, subnets, roles) lives in facts.network.vlans --
 # this module derives its interfaces, addressing, firewall, and DHCP from
 # that, so adding a VLAN to facts is enough to route and serve it here.  The
 # legacy VLAN carries the old mixed-trust 192.168.254.0/24 network unchanged;
@@ -27,19 +27,18 @@ let
   networkInterface = facts.network.hosts.${host-id}.networkInterface;
   vlans = facts.network.vlans;
   # Every VLAN this host routes and addresses by the ".1 is the gateway"
-  # convention — everything except legacy, which keeps this host's
+  # convention -- everything except legacy, which keeps this host's
   # historical addressing until the subnet drains and dies.
   routedVlans = lib.subtractLists [ "legacy" ] (lib.attrNames vlans);
   gatewayAddress = name: "${vlans.${name}.prefix}.1";
-  legacyAddress = "${vlans.legacy.prefix}.${
-    toString facts.network.hosts.${host-id}.ipv4
-  }";
+  legacyAddress =
+    "${vlans.legacy.prefix}.${toString facts.network.hosts.${host-id}.ipv4}";
 in
 {
   # 1. Declare this host as the gateway via DNS alias.
   networking.dnsAliases = [ "gateway" ];
 
-  # 2. VLAN sub-interfaces on the physical trunk — one per facts VLAN, plus
+  # 2. VLAN sub-interfaces on the physical trunk -- one per facts VLAN, plus
   #    the wan uplink (VLAN 100, no internal subnet, addressed by ISP DHCP).
   networking.vlans =
     lib.mapAttrs (_: vlan: {
@@ -53,7 +52,7 @@ in
       };
     };
 
-  # 3. IP addressing — the physical NIC has no IP, VLANs do.
+  # 3. IP addressing -- the physical NIC has no IP, VLANs do.
   networking.interfaces = lib.mkMerge [
     (lib.genAttrs routedVlans (name: {
       ipv4.addresses = [
@@ -81,12 +80,12 @@ in
     }
   ];
 
-  # 4. This host IS the gateway — default route from WAN DHCP.
+  # 4. This host IS the gateway -- default route from WAN DHCP.
   #    Remove static defaultGateway that points at the old consumer router.
   networking.defaultGateway = lib.mkForce null;
 
   # 5. NAT: masquerade the internet-worthy VLANs + WireGuard out through
-  #    wan.  Lobby and mgmt are deliberately absent — the lobby exists only
+  #    wan.  Lobby and mgmt are deliberately absent -- the lobby exists only
   #    to reach this host's enrollment services, and network gear has no
   #    business on the internet.
   #    externalInterface overrides wireguard's mkDefault, so iptables
@@ -109,7 +108,7 @@ in
         type filter hook forward priority filter; policy drop;
         ct state established,related accept
         # Trusted reaches everything.  Legacy keeps its historical full
-        # access while the admission flow drains it — tightening a
+        # access while the admission flow drains it -- tightening a
         # still-mixed network breaks the devices not yet migrated.
         iifname { "main", "legacy" } accept
         iifname "guest" oifname "wan" accept

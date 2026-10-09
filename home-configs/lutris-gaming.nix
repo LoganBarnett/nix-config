@@ -6,7 +6,7 @@
     # problems on Nix.  Providing packages here creates symlinks into
     # ~/.local/share/lutris/runners/ so Lutris detects them without
     # downloading anything.  Note: the download UI buttons remain visible but
-    # non-functional — there's no option to hide them.
+    # non-functional -- there's no option to hide them.
     winePackages = [
       # stagingFull is the most inclusive option: it combines all optional
       # features (gstreamer, GTK, VA-API, OpenCL, gecko, mono, etc.) with the

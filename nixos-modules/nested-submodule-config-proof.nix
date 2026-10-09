@@ -17,23 +17,34 @@
 { lib, config, ... }:
 let
   inherit (lib) mkOption types;
-in {
+in
+{
   options.llm-arguments.submodule-configs.items = mkOption {
-    type = types.attrsOf (types.submodule ({ name, config, lib, ... }: {
-      options = {
-        foo = mkOption {
-          type = types.str;
-          default = "unset";
-          description = "Value to prove submodule config access.";
-        };
-      };
+    type = types.attrsOf (
+      types.submodule (
+        {
+          name,
+          config,
+          lib,
+          ...
+        }:
+        {
+          options = {
+            foo = mkOption {
+              type = types.str;
+              default = "unset";
+              description = "Value to prove submodule config access.";
+            };
+          };
 
-      # PROOF: using `config.foo` inside the submodule’s own `config`
-      config = {
-        environment.etc."proof-${name}".text = "foo=${config.foo}\n";
-      };
-    }));
-    default = {};
+          # PROOF: using `config.foo` inside the submodule's own `config`
+          config = {
+            environment.etc."proof-${name}".text = "foo=${config.foo}\n";
+          };
+        }
+      )
+    );
+    default = { };
     description = "Attrset of proof items (submodules).";
   };
 }

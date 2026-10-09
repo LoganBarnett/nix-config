@@ -166,19 +166,20 @@ in
         # Microsoft Teams via the evergreen-install pattern: a boot LaunchDaemon
         # runs Microsoft's official installer once and lets Microsoft AutoUpdate
         # keep it current.  Replaces the homebrew `microsoft-teams` cask.  See
-        # darwin-modules/microsoft-teams.nix and README.org §Evergreen Packages.
+        # darwin-modules/microsoft-teams.nix and the "Evergreen Packages"
+        # section of README.org.
         programs.microsoft-teams.enable = true;
         # BlackHole 2ch virtual audio driver: a boot LaunchDaemon installs the
         # pinned, notarized .pkg.  Used to route app audio (e.g. Apple Music
         # mixed with the mic in OBS) into a virtual "microphone" Discord can
-        # select.  Pinned, not evergreen — see darwin-modules/blackhole.nix.
+        # select.  Pinned, not evergreen -- see darwin-modules/blackhole.nix.
         programs.blackhole.enable = true;
         environment.systemPackages =
           (import ../personal-packages.nix {
             inherit pkgs;
           })
           ++ [
-            # Alfred launcher — replaces the homebrew `alfred` cask.
+            # Alfred launcher -- replaces the homebrew `alfred` cask.
             (pkgs.callPackage ../derivations/alfred.nix { })
             # Use latest to benefit from work done here:
             # https://github.com/Aider-AI/aider/issues/2318
@@ -201,9 +202,10 @@ in
             # overlays/firefox-bin.nix).  Including pkgs.firefox-bin here as well
             # produces a duplicate /Applications/Nix Apps/Firefox.app alongside
             # the Home Manager trampoline at
-            # ~/Applications/Home Manager Trampolines/Firefox.app — both with the
-            # same bundle ID, which confuses Spotlight/Alfred.  The trampoline
-            # alone is what carries the home-manager profile (extensions, prefs).
+            # ~/Applications/Home Manager Trampolines/Firefox.app -- both with
+            # the same bundle ID, which confuses Spotlight/Alfred.  The
+            # trampoline alone is what carries the home-manager profile
+            # (extensions, prefs).
             # Open-source keystroke visualizer.  Moved from homebrew cask.
             pkgs.keycastr
             pkgs.moonlight-qt

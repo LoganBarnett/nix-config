@@ -8,7 +8,7 @@
 # RTC keeps counting while chrony's drift file modification time stays frozen
 # at the last write before shutdown, so at boot the RTC always reads later
 # than the drift file.  An RTC reading *earlier* than the drift file means it
-# lost state across the power cut — the battery is dead.  A real failure
+# lost state across the power cut -- the battery is dead.  A real failure
 # manifests as years (silicon's RTC reset to 2013), so the one-day margin
 # below is comfortably clear of ordinary drift.
 #
@@ -52,7 +52,7 @@ let
     # per-boot tmpfs, so this tests "has chronyd run at all this boot".  A
     # rerun after that point (a deploy restarting a changed unit, a manual
     # start) would read a freshly trimmed RTC and always conclude "healthy",
-    # falsely clearing the latched alert — so keep the boot verdict instead.
+    # falsely clearing the latched alert -- so keep the boot verdict instead.
     if [[ -e /run/chrony ]]; then
       exit 0
     fi
@@ -115,7 +115,7 @@ in
       Record the boot-time RTC battery verdict as Prometheus textfile metrics.
     '';
     # The comparison is only valid before chronyd touches the RTC and the
-    # drift file — see the header comment.
+    # drift file -- see the header comment.
     before = [ "chronyd.service" ];
     wantedBy = [ "multi-user.target" ];
     serviceConfig = {

@@ -1,5 +1,5 @@
 ################################################################################
-# FreeRADIUS — 802.1X / WPA-Enterprise authentication for the proton network.
+# FreeRADIUS -- 802.1X / WPA-Enterprise authentication for the proton network.
 #
 # Gives WiFi clients per-user logins (EAP-TTLS, inner PAP) verified against the
 # network LDAP directory, instead of a single shared WPA-Personal passphrase.
@@ -13,32 +13,33 @@
 # then verify it by BINDING to LDAP *as that user*.  Binding (not reading the
 # stored hash) is the only method compatible with the directory's argon2
 # userPassword hashes, which are one-way and cannot be read back for
-# comparison.  Consequently — unlike Authelia — the bind account needs no write
-# access to userPassword; it is used only for the authorize-phase lookup
+# comparison.  Consequently -- unlike Authelia -- the bind account needs no
+# write access to userPassword; it is used only for the authorize-phase lookup
 # (resolve the user DN, check group membership), an ordinary read.
 #
 # ACCOUNTING
 # ──────────
 # RADIUS accounting (session start/stop) is written to PostgreSQL via peer auth
-# over the Unix socket (same pattern as Authelia — no password exchanged).  The
-# radacct table is what a future Simultaneous-Use alert (Grafana → ntfy) reads
+# over the Unix socket (same pattern as Authelia -- no password exchanged).  The
+# radacct table is what a future Simultaneous-Use alert (Grafana -> ntfy) reads
 # to count active devices per user and warn on a device-budget overrun that
 # persists past a dwell window.  See nixos-configs/freeradius-facts.nix for the
 # per-user device registry and AP client list once that work lands.
 #
-# STATUS — UNVALIDATED UNTIL HARDWARE EXISTS
+# STATUS -- UNVALIDATED UNTIL HARDWARE EXISTS
 # ──────────────────────────────────────────
-# The NixOS freeradius module is deliberately thin — it only runs
+# The NixOS freeradius module is deliberately thin -- it only runs
 # `radiusd -d <configDir>`.  We build that configDir (the `raddb` derivation
 # below) by overlaying our six decision files (nixos-configs/freeradius/*) onto
 # the upstream example tree.  Those files are the canonical recipes for
 # LDAP-bind auth + TTLS + SQL accounting, but a FreeRADIUS config is only truly
-# landed by iterating with `radiusd -X` against a live authenticator — and
+# landed by iterating with `radiusd -X` against a live authenticator -- and
 # there is no access point to authenticate against until the AP hardware is
 # installed.  Treat the raddb as a reviewed starting point, not a proven
 # config.  Two prerequisites before this even builds/imports cleanly:
 #   1. Run agenix generate for this host so the EAP leaf cert
-#      (../secrets/tls-radius.proton.crt) exists — the raddb derivation reads it.
+#      (../secrets/tls-radius.proton.crt) exists -- the raddb derivation
+#      reads it.
 #   2. Load the radacct schema into the `radius` database once (the upstream
 #      schema ships in the raddb at mods-config/sql/main/postgresql/schema.sql).
 # Per-AP clients and per-user device limits live in freeradius-facts.nix.
@@ -59,7 +60,7 @@ let
   # The OS user the NixOS freeradius module runs radiusd as.  It must match the
   # PostgreSQL role below so accounting can use peer auth over the Unix socket
   # (same approach as Authelia).  CONFIRM against the nixpkgs freeradius module
-  # before first deploy — if upstream uses a different name, update both this
+  # before first deploy -- if upstream uses a different name, update both this
   # binding and services.postgresql.ensureUsers.
   radius-user = "radius";
 
@@ -83,22 +84,22 @@ let
   # freeradius build.
   freeradius-pkg = pkgs.freeradius.override { withPostgresql = true; };
 
-  # The assembled raddb.  The NixOS freeradius module is deliberately thin — it
-  # only runs `radiusd -d <configDir>` — so we build the config tree here by
+  # The assembled raddb.  The NixOS freeradius module is deliberately thin -- it
+  # only runs `radiusd -d <configDir>` -- so we build the config tree here by
   # overlaying our six decision files (./freeradius/*) onto the upstream example
   # tree.  Upstream provides the dictionary, policy.d, the SQL schema/queries,
   # and the inner-tunnel skeleton; we own only the files that encode our
   # choices (LDAP auth, TTLS, our CA cert, SQL accounting, clients).
   #
-  # The public EAP certificate and CA are copied into certs/ (store paths — safe
-  # to read); the private key is delivered separately via LoadCredential.  DH
-  # params are generated at build time so the EAP TLS config has a dh_file
+  # The public EAP certificate and CA are copied into certs/ (store paths --
+  # safe to read); the private key is delivered separately via LoadCredential.
+  # DH params are generated at build time so the EAP TLS config has a dh_file
   # without depending on the upstream certs/ bootstrap script.
   #
-  # NOTE: this evaluates only once the EAP leaf cert exists — run agenix
+  # NOTE: this evaluates only once the EAP leaf cert exists -- run agenix
   # generate for this host (which produces ../secrets/tls-${radius-fqdn}.crt)
   # before building.  And it is UNVALIDATED until landed with `radiusd -X`
-  # against a live authenticator — there is no AP to test against yet.
+  # against a live authenticator -- there is no AP to test against yet.
   raddb = pkgs.runCommandLocal "freeradius-raddb" { } ''
     cp -a ${freeradius-pkg}/etc/raddb $out
     chmod -R u+w $out
@@ -185,7 +186,7 @@ in
 
   # Deliver the EAP private key and the LDAP bind include to radiusd at runtime
   # without placing either in the Nix store.  The public certificate
-  # (tls-${radius-fqdn}.crt) and the CA cert are store paths — safe to read
+  # (tls-${radius-fqdn}.crt) and the CA cert are store paths -- safe to read
   # directly from the assembled raddb.
   systemd.services.freeradius = {
     serviceConfig.LoadCredential = [

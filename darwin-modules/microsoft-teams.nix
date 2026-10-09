@@ -1,13 +1,13 @@
 ################################################################################
-# programs.microsoft-teams (macOS) — installs Microsoft Teams (the "new" Teams,
+# programs.microsoft-teams (macOS) -- installs Microsoft Teams (the "new" Teams,
 # com.microsoft.teams2) and lets Microsoft's own updater keep it current.
 #
 # This is the same shape as darwin-modules/steam.nix: rather than pin Teams as
-# an immutable, hashed store package, we install it imperatively — once, via a
-# boot LaunchDaemon — and let the vendor manage updates from there.  Teams is a
-# good fit for this pattern (documented in README.org §Evergreen Packages)
-# because Microsoft serves a single rolling, *unversioned* installer URL
-# ("lkg" = last known good) with no stable hash to pin, and because the
+# an immutable, hashed store package, we install it imperatively -- once, via a
+# boot LaunchDaemon -- and let the vendor manage updates from there.  Teams is a
+# good fit for this pattern (documented in README.org's "Evergreen Packages"
+# section) because Microsoft serves a single rolling, *unversioned* installer
+# URL ("lkg" = last known good) with no stable hash to pin, and because the
 # installer bundles Microsoft AutoUpdate (MAU), which is Teams's update
 # mechanism on macOS.  Pinning the rolling URL by hash would mean every silent
 # upstream rotation breaks the Nix build; installing imperatively side-steps
@@ -16,7 +16,7 @@
 # Unlike Steam (a user-writable launcher stub, installed by a login LaunchAgent
 # with ditto), the Teams .pkg installs into root-owned /Applications and lays
 # down MAU and an audio-driver component, so it must run through Apple's
-# `installer` as root — hence a LaunchDaemon rather than a LaunchAgent.
+# `installer` as root -- hence a LaunchDaemon rather than a LaunchAgent.
 ################################################################################
 {
   config,
@@ -38,7 +38,7 @@ let
   installer = pkgs.writeShellScript "microsoft-teams-bootstrap" ''
     set -euo pipefail
 
-    # Already installed — Teams self-updates in place via Microsoft AutoUpdate,
+    # Already installed -- Teams self-updates in place via Microsoft AutoUpdate,
     # so there is nothing to do.  This fast path is what makes the daemon cheap
     # to run at every boot and self-healing if Teams is ever removed.  Exiting 0
     # here also tells launchd (KeepAlive.SuccessfulExit = false) to stop
@@ -73,7 +73,7 @@ let
 
     # Install via Apple's installer as root.  This lays down Teams.app in
     # /Applications, Microsoft AutoUpdate, and the Teams audio-driver component
-    # — i.e. the full vendor install, exactly as a user double-clicking the pkg
+    # -- i.e. the full vendor install, exactly as a user double-clicking the pkg
     # would get.  MAU then owns all subsequent updates.
     /usr/sbin/installer \
       -verbose \
@@ -86,8 +86,8 @@ in
     enable = mkEnableOption ''
       Microsoft Teams on macOS.  Runs Microsoft's official installer .pkg at
       boot (via a LaunchDaemon) when Teams is missing, then lets Microsoft
-      AutoUpdate keep it current — the evergreen-install pattern described in
-      README.org §Evergreen Packages'';
+      AutoUpdate keep it current -- the evergreen-install pattern described in
+      README.org's "Evergreen Packages" section'';
 
     appPath = mkOption {
       type = types.str;
@@ -101,7 +101,8 @@ in
 
     installerUrl = mkOption {
       type = types.str;
-      default = "https://statics.teams.cdn.office.net/production-osx/enterprise/webview2/lkg/MicrosoftTeams.pkg";
+      default =
+        "https://statics.teams.cdn.office.net/production-osx/enterprise/webview2/lkg/MicrosoftTeams.pkg";
       description = ''
         Microsoft's rolling, unversioned macOS installer .pkg ("lkg" = last
         known good).  No integrity hash is pinned because the URL always serves

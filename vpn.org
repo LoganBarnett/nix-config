@@ -17,7 +17,7 @@ as of commit =78e9d38e=) but cannot be easily extracted for reuse, are fragile
 (bash =set -e= gotchas, PATH shadowing), and lack type safety for the 13+
 state files they manage.
 
-The test harness is the most valuable piece — it enables tight debugging loops
+The test harness is the most valuable piece -- it enables tight debugging loops
 and good diagnostics.  Preserving and enhancing it is of great importance.
 
 ** Project Structure
@@ -44,7 +44,7 @@ gp-vpn/
   =vpn-test-harness=, =test-vpn-connectivity=, =vpn-test-harness-recover=,
   =dns-vpn-scoping-fix=, =dns-resolver-helper=.
 - *gp-vpn-vpnc-shim*: Minimal binary that reads =reason= env var and
-  dispatches to =gp-vpn-core=.  Lives in the Nix store at a stable path — no
+  dispatches to =gp-vpn-core=.  Lives in the Nix store at a stable path -- no
   runtime file generation needed.
 
 ** Script-to-Rust Mapping
@@ -58,7 +58,7 @@ gp-vpn/
 | =gp-connect-auto=          | =gp_vpn_cli::commands::connect=                     | =gp-vpn connect=          |
 | =dns-vpn-scoping-fix=      | =gp_vpn_core::network::dns=                         | =gp-vpn dns-fix=          |
 
-Python scripts (=gp-connect-pty=, =gp-auth-headless=) remain Python — Rust
+Python scripts (=gp-connect-pty=, =gp-auth-headless=) remain Python -- Rust
 spawns them just as the current shell does.
 
 ** Key Design Decisions
@@ -84,7 +84,7 @@ copy needed.
 
 *** Watchdog Processes
 
-Remain as spawned child processes (not async tasks) — they must outlive the
+Remain as spawned child processes (not async tasks) -- they must outlive the
 vpnc-script process.  Use =setsid()= in =pre_exec= for daemonization.
 PIDs stored in the unified state file.
 
@@ -126,7 +126,7 @@ replaces 1-2 scripts and can be deployed independently.
 
 Builds the =Platform= trait, =MacOsPlatform=, state management, DNS module,
 and recovery module.  Replaces =dns-resolver-helper= and
-=vpn-test-harness-recover=.  Simplest scripts — validates the platform
+=vpn-test-harness-recover=.  Simplest scripts -- validates the platform
 abstraction works.
 
 *** Phase 2: Connectivity Tests + DNS Fix
@@ -148,7 +148,7 @@ and =current.log= symlink for =tail -f=.
 
 *** Phase 5: Connect Orchestration
 
-Replaces =gp-connect-auto= (partially — Python auth scripts stay Python).
+Replaces =gp-connect-auto= (partially -- Python auth scripts stay Python).
 Pre-VPN state capture moves into Rust.
 
 *** Phase 6: Cleanup
@@ -206,16 +206,16 @@ nix = { version = "0.29", features = ["signal", "process"] }
 
 ** Critical Files to Modify
 
-- =darwin-modules/global-protect-persistent.nix= — sudoers + systemPackages
-- =derivations/gp-connect-auto.nix= — vpnc-script path changes
-- =flake.nix= — new =gp-vpn= input
-- =vpn.org= — archive old findings, document new project
+- =darwin-modules/global-protect-persistent.nix= -- sudoers + systemPackages
+- =derivations/gp-connect-auto.nix= -- vpnc-script path changes
+- =flake.nix= -- new =gp-vpn= input
+- =vpn.org= -- archive old findings, document new project
 
 ** Testing Strategy
 
 - *Unit tests*: =MockPlatform= verifies every system interaction sequence.
 - *Integration tests*: =RecordingPlatform= logs calls without executing.
-- *E2E*: =gp-vpn harness gp-vpn test= — the harness tests itself.  Gated
+- *E2E*: =gp-vpn harness gp-vpn test= -- the harness tests itself.  Gated
   behind =GP_VPN_E2E=1=.
 
 ** Scaffolding
@@ -307,7 +307,7 @@ bash scripts/with-vpn-reset 300 vpn-test-harness /run/current-system/sw/bin/test
 
 *** Findings
 
-**** 2026-03-27 — Okta password expired; DNS fix deployed but untested
+**** 2026-03-27 -- Okta password expired; DNS fix deployed but untested
 
 The =vpn-test-harness= drove through the full Okta/TOTP flow successfully,
 but landed on =/signin/password-expired= and stalled.  The VPN connection

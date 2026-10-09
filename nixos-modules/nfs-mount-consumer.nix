@@ -33,9 +33,13 @@ let
         s:
         # Strip a single trailing slash (except root) and the leading slash.
         let
-          noTrail = if s != "/" && lib.hasSuffix "/" s then lib.removeSuffix "/" else s;
+          noTrail =
+            if s != "/" && lib.hasSuffix "/" s then lib.removeSuffix "/" else s;
           noLead =
-            if lib.hasPrefix "/" noTrail then lib.removePrefix "/" noTrail else noTrail;
+            if lib.hasPrefix "/" noTrail then
+              lib.removePrefix "/" noTrail
+            else
+              noTrail;
         in
         noLead;
       norm = normalize p;
@@ -249,7 +253,7 @@ let
         # Do not add x-systemd.automount here.  Automount was previously
         # suggested as a solution to boot-ordering problems, but it does not
         # help: the x-systemd.requires/after directives below already handle
-        # ordering correctly.  Automount causes its own problems — idle
+        # ordering correctly.  Automount causes its own problems -- idle
         # timeouts unmount shares that should stay up, and
         # switch-to-configuration-ng unconditionally reloads .automount units
         # on any option change without checking X-RestartIfChanged, producing
@@ -279,7 +283,7 @@ let
     }
   ) { } mountsEnabled;
 
-  # ----- service merges (handle multi-mount → same service)
+  # ----- service merges (handle multi-mount -> same service)
   mergeSvc =
     svcOld: svcAdd:
     let
@@ -348,7 +352,9 @@ let
             wantedBy = [
               "multi-user.target"
             ]
-            ++ lib.optional (m.bindToService != null) "${m.bindToService}.service";
+            ++
+              lib.optional (m.bindToService != null)
+                "${m.bindToService}.service";
             serviceConfig.Type = "oneshot";
             script = ''
               stat "${m.mountPoint}/${m.preconditionFile}"
@@ -390,7 +396,9 @@ let
     }
   ) { } mountsEnabled;
 
-  healthCheckMounts = lib.filterAttrs (_: m: m.healthCheck.enable) mountsEnabled;
+  healthCheckMounts = lib.filterAttrs (
+    _: m: m.healthCheck.enable
+  ) mountsEnabled;
 
   timersHealthCheck = foldlAttrs (
     acc: name: m:
@@ -428,12 +436,14 @@ let
           TimeoutStartSec = "90s";
         };
         script = ''
-          # Probe — if the mount is healthy, exit early.
-          if timeout ${timeoutSec}s stat "${mp}/${m.preconditionFile}" >/dev/null 2>&1; then
+          # Probe -- if the mount is healthy, exit early.
+          if timeout ${timeoutSec}s stat "${mp}/${
+            m.preconditionFile
+          }" >/dev/null 2>&1; then
             echo "Mount ${mp} is healthy."
             exit 0
           fi
-          echo "Mount ${mp} is stale — starting recovery."
+          echo "Mount ${mp} is stale -- starting recovery."
 
           # Lazy unmount to detach immediately even with open handles.
           umount -l "${mp}" || true
@@ -451,7 +461,9 @@ let
           systemctl start "${mountUnit}"
 
           # Verify recovery succeeded.
-          if ! timeout ${timeoutSec}s stat "${mp}/${m.preconditionFile}" >/dev/null 2>&1; then
+          if ! timeout ${timeoutSec}s stat "${mp}/${
+            m.preconditionFile
+          }" >/dev/null 2>&1; then
             echo "Recovery FAILED for ${mp}."
             exit 1
           fi
@@ -506,7 +518,7 @@ in
     }) mountsEnabled;
     # The node exporter's filesystem collector calls statfs(2) on every
     # mounted filesystem.  Hard NFS mounts block that call indefinitely
-    # while the server computes its answer — even with no packet loss,
+    # while the server computes its answer -- even with no packet loss,
     # a slow btrfs statfs on the server side takes several seconds.  This
     # pushes the Prometheus scrape past its 10 s timeout and raises false
     # host-down alerts.  NFS capacity is better monitored server-side anyway.
@@ -545,7 +557,9 @@ in
         ];
       in
       [
-        "--collector.filesystem.fs-types-exclude=^(${lib.concatStringsSep "|" fsTypes})$"
+        "--collector.filesystem.fs-types-exclude=^(${
+          lib.concatStringsSep "|" fsTypes
+        })$"
         # Per-mount NFS operation stats including queue time and RTT.  Used to
         # alert on DELEGRETURN or STATFS queue buildup via Prometheus rules.
         "--collector.mountstats"

@@ -1,12 +1,12 @@
 ################################################################################
-# TOMBSTONE — Authentik is no longer active.
+# TOMBSTONE -- Authentik is no longer active.
 #
 # Authentik is a Python-based identity manager providing centralized
 # authentication similar to Keycloak.
 #
 # Authentik was abandoned because it silently fails to record users.  By
 # design, errors do not surface in the systemd journal, making it impossible
-# to know when user configuration is broken — an infrastructure-level trust
+# to know when user configuration is broken -- an infrastructure-level trust
 # failure.  We migrated to Authelia, which surfaces errors clearly and provides
 # password reset flows and richer access-control policies.
 #
@@ -171,7 +171,7 @@ let
                 is_superuser: false
                 ${
                   if data.type == "service" then
-                    ''password: !Env ${service-user-password-env-var name}''
+                    "password: !Env ${service-user-password-env-var name}"
                   else
                     ""
                 }
@@ -440,7 +440,8 @@ in
       };
     };
 
-  services.environment-file-secrets.services.authentik = environment-file-service;
+  services.environment-file-secrets.services.authentik =
+    environment-file-service;
   services.environment-file-secrets.services.authentik-migrate =
     environment-file-service;
   services.environment-file-secrets.services.authentik-worker =

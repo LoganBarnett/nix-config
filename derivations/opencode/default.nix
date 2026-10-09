@@ -3,9 +3,9 @@
 #   pkgs/by-name/op/opencode/package.nix
 #   @ nixpkgs commit 59cc759eee14 (2026-06-18, "opencode: 1.17.7 -> 1.17.8")
 #
-# Everything below this banner is byte-for-byte upstream — do NOT edit it.  Only
-# this header was added.  Re-sync by re-copying the file from a newer nixpkgs
-# master and updating the commit reference above.
+# Everything below this banner is byte-for-byte upstream -- do NOT edit it.
+# Only this header was added.  Re-sync by re-copying the file from a newer
+# nixpkgs master and updating the commit reference above.
 #
 # Why we vendor it instead of using pkgs.opencode directly:
 #   Our pinned nixpkgs ships opencode 1.15.10 and trails releases.  This master

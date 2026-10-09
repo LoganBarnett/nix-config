@@ -53,7 +53,7 @@ the unit's AP.  The well-known default password is:
 12345678
 #+end_example
 
-This is the same on every Gree-OEM unit out of the box — it's not a
+This is the same on every Gree-OEM unit out of the box -- it's not a
 per-device secret.  The host will get a DHCP lease in ~192.168.1.x~, with
 the unit itself reachable at ~192.168.1.1~.
 
@@ -71,7 +71,7 @@ WLAN configuration accepted: {'t': 'ret', 'r': 200, 'mac': '<device-mac>'}
 #+end_example
 
 The unit reboots onto the home network and the provisioning AP disappears.
-Note the ~mac~ field in the response — it's the device MAC, useful if you
+Note the ~mac~ field in the response -- it's the device MAC, useful if you
 need to drive ~bind~ directly later (e.g. across a VLAN where broadcast
 discovery doesn't reach).
 
@@ -91,7 +91,7 @@ gree-remote search -b 192.168.x.255
 
 Search broadcasts a scan, decrypts each response, and immediately invokes
 ~bind~ for every device found.  Our fork tries both ECB and GCM encryption
-on bind — V3+ firmware reports a GCM-capable version string but in practice
+on bind -- V3+ firmware reports a GCM-capable version string but in practice
 only accepts ECB-keyed bind requests, so the fallback matters.
 
 Capture four things from the output:
@@ -102,7 +102,7 @@ Capture four things from the output:
 - *the encryption mode that succeeded* (printed in the "Binding device:
   ... encryption: ECB|GCM" line)
 
-The encryption mode matters for every subsequent ~get~ / ~set~ — passing
+The encryption mode matters for every subsequent ~get~ / ~set~ -- passing
 the wrong ~-e~ flag silently times out the same way the wrong-mode bind
 did.  V3+ firmware in this network has been observed to bind in ECB; older
 units may bind in GCM.
@@ -116,7 +116,7 @@ If the unit has already been provisioned and you want to move it to a
 different SSID, *always reset the WiFi state on the unit before pushing
 new credentials*.  Skipping this step can leave the unit in a "stuck"
 state where it responds to ~search~ but refuses to bind or accept commands
-because of cached binding state — see upstream issue
+because of cached binding state -- see upstream issue
 [[https://github.com/tomikaa87/gree-remote/issues/54][tomikaa87/gree-remote#54]].
 
 To reset:
@@ -128,7 +128,7 @@ To reset:
 3. Then run the provisioning runbook above against the new SSID.
 
 For a unit that has *never* been provisioned (e.g. a fresh install), this
-reset step is unnecessary — pressing MODE+TURBO simply puts it into AP
+reset step is unnecessary -- pressing MODE+TURBO simply puts it into AP
 mode for the first time.
 
 ** Local control
@@ -145,7 +145,7 @@ gree-remote set -c <ip> -i <mac> -k <key> -e ECB SetTem=21
 Common parameter names include ~Pow~, ~Mod~, ~SetTem~, ~WdSpd~, ~TemSen~
 (see ~gree.py~ source for the full list).
 
-This is control plane only — outdoor-unit sensors (compressor current, IPM
+This is control plane only -- outdoor-unit sensors (compressor current, IPM
 temperature, discharge temperature) are not exposed over the LAN protocol;
 for those, the IDU's hidden self-check mode on the remote is the path.
 

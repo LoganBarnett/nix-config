@@ -5,7 +5,7 @@
 # rycee/nur-expressions addon collection.
 #
 # The prefers-color-scheme override ensures websites correctly receive the
-# dark mode signal — without it, Firefox on macOS does not propagate the OS
+# dark mode signal -- without it, Firefox on macOS does not propagate the OS
 # dark mode preference to websites via the prefers-color-scheme media query,
 # even when the OS and browser are both set to dark mode.
 #
@@ -26,13 +26,13 @@
 # .xpi files into Profiles/default/extensions/.  Firefox treats anything
 # discovered through the filesystem (rather than installed via about:addons
 # or AMO) as a "foreign install" and, since Firefox 73, marks them
-# userDisabled=true on first discovery — even when signedState=2 (signed by
+# userDisabled=true on first discovery -- even when signedState=2 (signed by
 # Mozilla).  The extensions.autoDisableScopes pref is a bitfield of install
 # scopes whose foreign installs should be auto-disabled (default 15 = all:
 # profile|user|system|application).  Setting it to 0 lets all scopes through.
 # This pref only applies when the addon is *first discovered*; if Firefox
 # has already cached an extension as disabled in extensions.json /
-# addonStartup.json.lz4, the pref change alone won't re-enable it — those
+# addonStartup.json.lz4, the pref change alone won't re-enable it -- those
 # state files must be deleted so Firefox rescans the .xpi files and applies
 # the new pref to the fresh discovery.
 ################################################################################
@@ -82,13 +82,14 @@ in
             pname = "abovevtt";
             version = "1.55";
             addonId = "{52e126d4-d2d7-483a-a0a1-6e8aace23253}";
-            url = "https://addons.mozilla.org/firefox/downloads/file/4840085/abovevtt-1.55.xpi";
+            url =
+              "https://addons.mozilla.org/firefox/downloads/file/4840085/abovevtt-1.55.xpi";
             sha256 = "sha256-lmVDzIrlVbcB1mlHVl4JwMGw+6UrRKWmRX6SHe8wBZg=";
             meta = { };
           })
         ];
       settings = {
-        # 0 = dark, 1 = light, 2 = follow OS (broken on macOS — OS reports
+        # 0 = dark, 1 = light, 2 = follow OS (broken on macOS -- OS reports
         # light despite being in dark mode).
         "layout.css.prefers-color-scheme.content-override" = 0;
         # Disable the in-browser multi-profile feature (Firefox 138+); it
@@ -111,7 +112,7 @@ in
         "browser.migration.version" = 2;
         # Disable the post-first-run "later run" onboarding experience.
         "browser.laterrun.enabled" = false;
-        # Disable Pocket entirely — controls the "Popular Today" stories
+        # Disable Pocket entirely -- controls the "Popular Today" stories
         # section on the new-tab page.  The activity-stream prefs below are
         # also set but Pocket must be disabled at the extension level too.
         "extensions.pocket.enabled" = false;
@@ -131,16 +132,16 @@ in
         # browser.profiles.enabled = false set above also suppresses the
         # profile-picker dialog; this pref targets the in-browser banner.
         "browser.profiles.createdByDevEdition" = false;
-        # Allow filesystem-discovered (foreignInstall=true) extensions —
+        # Allow filesystem-discovered (foreignInstall=true) extensions --
         # i.e. the .xpi files home-manager symlinks into the profile's
-        # extensions/ directory — to be active by default instead of being
+        # extensions/ directory -- to be active by default instead of being
         # auto-disabled.  See banner comment above for the full rationale.
         # 0 = no scopes auto-disable; default is 15 (all scopes).
         "extensions.autoDisableScopes" = 0;
         # Scan all install scopes at startup so home-manager-symlinked
         # extensions are picked up after every nix-darwin switch (the symlink
         # target inside the Nix store changes with each generation).  Default
-        # is 15 (all scopes) — set explicitly to make intent clear.
+        # is 15 (all scopes) -- set explicitly to make intent clear.
         "extensions.startupScanScopes" = 15;
       };
     };

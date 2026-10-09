@@ -4,8 +4,8 @@
 # options available; declaring values activates them.
 #
 # For every enabled user the module auto-emits two agenix secrets:
-#   <name>-ldap-password         — plaintext passphrase
-#   <name>-ldap-password-hashed  — slapd-ready hash derived from the above
+#   <name>-ldap-password         -- plaintext passphrase
+#   <name>-ldap-password-hashed  -- slapd-ready hash derived from the above
 #
 # nix-hapi on silicon aggregates these from all hosts in the cluster via
 # specialArgs.nodes and populates the live directory accordingly.
@@ -50,7 +50,7 @@ in
                       type = bool;
                       default = true;
                       description = ''
-                        Whether this user participates in email — both inbound (LDAP
+                        Whether this user participates in email -- both inbound (LDAP
                         `mail` attribute emission) and the home-manager email
                         wiring (when an email-facts module is imported).  Disable
                         to omit `mail` from the LDAP entry entirely.
@@ -59,7 +59,9 @@ in
                     username = mkOption {
                       type = str;
                       default = name;
-                      defaultText = lib.literalExpression "the attribute key (e.g. user uid)";
+                      defaultText =
+                        lib.literalExpression
+                          "the attribute key (e.g. user uid)";
                       description = ''
                         Local part of this user's primary email address on the
                         internal network domain.  Defaults to the user's uid;
@@ -86,7 +88,8 @@ in
               description = mkOption {
                 type = str;
                 default = "";
-                description = "Optional description.  Empty string omits the attribute.";
+                description =
+                  "Optional description.  Empty string omits the attribute.";
               };
               type = mkOption {
                 type = enum [
@@ -99,7 +102,8 @@ in
               group = mkOption {
                 type = str;
                 default = "root";
-                description = "Unix group that owns the generated secret files.";
+                description =
+                  "Unix group that owns the generated secret files.";
               };
               managed = mkOption {
                 type = bool;
@@ -107,7 +111,7 @@ in
                 description = ''
                   When true the reconciler keeps the password in sync on every run.
                   When false it sets the password only on creation, then leaves it
-                  alone — appropriate for human accounts whose passwords change
+                  alone -- appropriate for human accounts whose passwords change
                   interactively.
                 '';
               };

@@ -1,5 +1,5 @@
 ################################################################################
-# Right-click ▸ Scripts ▸ "Add to Lutris" for Windows .exe files in Nautilus.
+# Right-click > Scripts > "Add to Lutris" for Windows .exe files in Nautilus.
 #
 # Installs a shell wrapper (scripts/add-to-lutris) and exposes it as a Nautilus
 # Scripts entry.  Selecting it generates a Lutris installer YAML pre-filled with
@@ -27,7 +27,7 @@ in
 {
   home.packages = [ add-to-lutris ];
 
-  # Any executable dropped here appears under Nautilus' right-click ▸ Scripts
+  # Any executable dropped here appears under Nautilus' right-click > Scripts
   # submenu.  Nautilus sets the working directory to the browsed folder and
   # passes selected paths via $NAUTILUS_SCRIPT_SELECTED_FILE_PATHS.  The file
   # name is the label shown in the menu.

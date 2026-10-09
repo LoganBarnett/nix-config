@@ -47,7 +47,9 @@ in
         else if fqdn-cfg.socket != null then
           "http://unix:${fqdn-cfg.socket}:"
         else
-          "http://unix:/run/${fqdn-cfg.serviceNameForSocket}/${fqdn-cfg.serviceNameForSocket}.sock:";
+          "http://unix:/run/${fqdn-cfg.serviceNameForSocket}/${
+            fqdn-cfg.serviceNameForSocket
+          }.sock:";
 
       # True when at least one domain policy has been declared.
       hasDomains = cfg.domains != { };
@@ -87,7 +89,9 @@ in
           || fqdn-cfg.internalPort != null
           || fqdn-cfg.socket != null
           || fqdn-cfg.serviceNameForSocket != null;
-        message = "https: ${fqdn-cfg.fqdn} has proxy = true but no upstream is configured; set internalPort, socket, or serviceNameForSocket";
+        message = "https: ${
+          fqdn-cfg.fqdn
+        } has proxy = true but no upstream is configured; set internalPort, socket, or serviceNameForSocket";
       }) fqdns;
 
       # Declare the shared group that grants nginx read access to explicit
@@ -141,8 +145,8 @@ in
 
       # For serviceNameForSocket fqdns, configure the upstream service so the
       # socket is created with group-writable permissions:
-      # - UMask 0007 → socket mode 0770 (group can connect)
-      # - RuntimeDirectoryMode 0750 → nginx can traverse /run/<name>/
+      # - UMask 0007 -> socket mode 0770 (group can connect)
+      # - RuntimeDirectoryMode 0750 -> nginx can traverse /run/<name>/
       systemd.services = mkMerge (
         map (fqdn-cfg: {
           "${fqdn-cfg.serviceNameForSocket}" = {
@@ -159,10 +163,17 @@ in
       # generated.
       services.goss.checks = mkMerge (
         map (addr: {
-          command."tcp:443-bound-${builtins.replaceStrings [ "." ] [ "-" ] addr}" = {
-            exec = "${pkgs.iproute2}/bin/ss --tcp --listening --numeric --no-header | ${pkgs.gnugrep}/bin/grep --quiet --fixed-strings '${addr}:443'";
-            "exit-status" = 0;
-          };
+          command."tcp:443-bound-${
+            builtins.replaceStrings [ "." ] [ "-" ] addr
+          }" =
+            {
+              exec = "${
+                pkgs.iproute2
+              }/bin/ss --tcp --listening --numeric --no-header | ${
+                pkgs.gnugrep
+              }/bin/grep --quiet --fixed-strings '${addr}:443'";
+              "exit-status" = 0;
+            };
         }) uniqueAddrs
       );
 
@@ -206,7 +217,8 @@ in
             fqdn-cfg:
             let
               policy = domainPolicyFor fqdn-cfg;
-              useInternalCa = policy == null || policy.certSource == "internal-ca";
+              useInternalCa =
+                policy == null || policy.certSource == "internal-ca";
             in
             {
               "${fqdn-cfg.fqdn}" = {
@@ -218,7 +230,7 @@ in
                 # Both the SSL entry and the plain-HTTP entry are required.
                 # forceSSL = true splits this virtual host into two nginx
                 # server blocks: one for HTTPS (uses ssl = true entries) and
-                # one for the HTTP → HTTPS redirect (uses ssl = false entries).
+                # one for the HTTP -> HTTPS redirect (uses ssl = false entries).
                 # Omitting the plain-HTTP entry leaves the redirect block with
                 # no listen directive; nginx then defaults to port 8000 for
                 # non-root workers, causing a conflict with other services.
@@ -262,7 +274,8 @@ in
               // (
                 if useInternalCa then
                   {
-                    sslCertificateKey = config.age.secrets."tls-${fqdn-cfg.fqdn}.key".path;
+                    sslCertificateKey =
+                      config.age.secrets."tls-${fqdn-cfg.fqdn}.key".path;
                     sslCertificate = ../secrets/tls-${fqdn-cfg.fqdn}.crt;
                   }
                 else

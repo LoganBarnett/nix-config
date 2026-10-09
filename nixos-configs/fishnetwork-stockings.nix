@@ -24,7 +24,7 @@ let
   };
   # The SSIDs this host joins, in priority order (higher = preferred).
   # Both the wpa_supplicant network list and the dhcpcd carrier-flap
-  # hardening below derive from this — change here and both follow.
+  # hardening below derive from this -- change here and both follow.
   ssids = [
     {
       name = "fishnetwork-stockings-5g";
@@ -68,8 +68,8 @@ in
   };
   # WiFi roams between APs trigger dhcpcd's carrier-loss handler, which
   # tears down the address and routes.  If the rebind on reassociation
-  # doesn't confirm the lease within ~5s — common when the new AP's
-  # bridge is still learning MACs or running STP — dhcpcd falls back to
+  # doesn't confirm the lease within ~5s -- common when the new AP's
+  # bridge is still learning MACs or running STP -- dhcpcd falls back to
   # IPv4LL (169.254.x) and the host is stranded until something else
   # provokes a fresh DHCP cycle.  These per-SSID overrides keep dhcpcd
   # patient on the WiFi path; an Ethernet interface on the same host
@@ -99,7 +99,9 @@ in
       # rely on the fact that this service must run as root to operate, and simply
       # point it at the agenix-located secret directly.
       serviceConfig.LoadCredential = [
-        "${psk-name}:${config.age.secrets.fishnetwork-stockings-5g-password.path}"
+        "${psk-name}:${
+          config.age.secrets.fishnetwork-stockings-5g-password.path
+        }"
       ];
     };
 }

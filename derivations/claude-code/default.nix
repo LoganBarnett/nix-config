@@ -4,9 +4,9 @@
 #   @ nixpkgs commit a96171f71f0a (2026-08-31, "claude-code: fetch
 #   zstd-compressed distribution")
 #
-# Everything below this banner is byte-for-byte upstream — do NOT edit it.  Only
-# this header was added.  manifest.zst.json and update.sh alongside are that
-# commit's copies too, kept so the directory mirrors upstream and the
+# Everything below this banner is byte-for-byte upstream -- do NOT edit it.
+# Only this header was added.  manifest.zst.json and update.sh alongside are
+# that commit's copies too, kept so the directory mirrors upstream and the
 # derivation's defaults stay valid.  Re-sync by re-copying the directory from a
 # newer nixpkgs master and updating the commit reference above.
 #

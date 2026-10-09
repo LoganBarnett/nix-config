@@ -25,7 +25,7 @@ play_alarm() {
 
 trap 'echo; echo "Alert stopped."; exit 0' INT TERM
 
-echo "Alerting every ${INTERVAL}s — Ctrl-C to stop."
+echo "Alerting every ${INTERVAL}s -- Ctrl-C to stop."
 
 while true; do
     play_alarm

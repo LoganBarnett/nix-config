@@ -23,8 +23,8 @@ let
 in
 {
   # Honest rename.  The upstream nixpkgs module uses `settings` for
-  # environment variables — the name RFC 42 reserves for the application's
-  # real configuration file — which forced the real settings.json option here
+  # environment variables -- the name RFC 42 reserves for the application's
+  # real configuration file -- which forced the real settings.json option here
   # to be born as `settings2` (renamed outright to declarativeSettings; it
   # was never upstream's, so no compatibility path is owed).  The shim below
   # keeps upstream's `settings` evaluating with a deprecation warning.
@@ -96,10 +96,10 @@ in
     # The application's real configuration: this generates settings.json,
     # which the ExecStartPre below imposes wholesale at every service start.
     # The previous file's contents contribute nothing to the merge, so
-    # removing a key here genuinely removes it — no upsert drift.  Runtime
+    # removing a key here genuinely removes it -- no upsert drift.  Runtime
     # edits made in the UI survive only until the next restart, by design;
     # anything worth keeping must be promoted into this option, or into
-    # secretsConfigFile for values that are generated rather than derived —
+    # secretsConfigFile for values that are generated rather than derived --
     # security keys above all, since a generated-then-wiped key permanently
     # orphans every S2 node bootstrapped with it.
     declarativeSettings = mkOption {

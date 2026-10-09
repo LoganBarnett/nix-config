@@ -4,8 +4,8 @@
 # Nix.
 #
 # Why ntfy: docs/notifications.org.
-# iOS notification-tier ceiling: docs/notifications.org § "iOS notification
-# tier ceiling".
+# iOS notification-tier ceiling: the "iOS notification tier ceiling" section
+# of docs/notifications.org.
 #
 # Auth is deny-all.  The reconciler is the only mechanism that creates
 # users; there is no out-of-band bootstrap.  If the reconciler is broken,
@@ -94,11 +94,15 @@ in
       };
       users.admin = {
         role = "admin";
-        password = mkManagedFromPath "${service-credentials}/ntfy-admin-password";
+        password =
+          mkManagedFromPath
+            "${service-credentials}/ntfy-admin-password";
       };
       users.alertmanager = {
         role = "user";
-        password = mkManagedFromPath "${service-credentials}/ntfy-alertmanager-password";
+        password =
+          mkManagedFromPath
+            "${service-credentials}/ntfy-alertmanager-password";
       };
       accesses.alertmanager-page = {
         user = "alertmanager";
@@ -118,7 +122,9 @@ in
   # values resolve at run time.
   systemd.services.nix-hapi-ntfy.serviceConfig.LoadCredential = [
     "ntfy-admin-password:${config.age.secrets.ntfy-admin-password.path}"
-    "ntfy-alertmanager-password:${config.age.secrets.ntfy-alertmanager-password.path}"
+    "ntfy-alertmanager-password:${
+      config.age.secrets.ntfy-alertmanager-password.path
+    }"
   ];
 
   # Goss health checks: external HTTPS reachability, loopback listener,
@@ -142,7 +148,7 @@ in
     };
     service.nix-hapi-ntfy = {
       enabled = true;
-      # Oneshot — `running = false` once it's exited cleanly.
+      # Oneshot -- `running = false` once it's exited cleanly.
     };
   };
 }

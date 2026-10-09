@@ -28,7 +28,7 @@ in
 
   age.secrets = {
     # Cookie signing secret for oauth2-proxy sessions on openhab.${domain}.
-    # 16 bytes → 32 hex chars = 32 raw ASCII bytes, satisfying oauth2-proxy's
+    # 16 bytes -> 32 hex chars = 32 raw ASCII bytes, satisfying oauth2-proxy's
     # requirement of exactly 16, 24, or 32 bytes for AES cookie encryption.
     openhab-oauth2-proxy-cookie-secret = {
       generator.script = "hex";
@@ -92,7 +92,7 @@ in
     serviceConfig = {
       # If OIDC discovery still fails despite the gate (e.g. transient DNS
       # hiccup), space out restarts so we don't hit the default start-limit
-      # (5 failures in 10 s → permanently failed).
+      # (5 failures in 10 s -> permanently failed).
       RestartSec = lib.mkDefault 3;
       StartLimitIntervalSec = lib.mkDefault 120;
       StartLimitBurst = lib.mkDefault 20;
@@ -248,7 +248,8 @@ in
     # Accept-Encoding is cleared so nginx receives uncompressed JSON and
     # sub_filter can rewrite it before forwarding to the browser.
     locations."/rest/" = {
-      proxyPass = "http://127.0.0.1:${toString config.services.openhab.ports.http}";
+      proxyPass =
+        "http://127.0.0.1:${toString config.services.openhab.ports.http}";
       extraConfig = ''
         include /run/nginx-openhab/auth.conf;
         proxy_set_header Accept-Encoding "";

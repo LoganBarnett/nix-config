@@ -9,8 +9,8 @@
 #
 # NOTE: the radacct schema must be loaded into the `radius` database before this
 # works.  The schema ships at
-# ${modconfdir}/sql/main/postgresql/schema.sql in this raddb — load it once as a
-# bootstrap (see the TODO in freeradius.nix).
+# ${modconfdir}/sql/main/postgresql/schema.sql in this raddb -- load it once as
+# a bootstrap (see the TODO in freeradius.nix).
 #
 # UNVALIDATED: needs `radiusd -X` iteration.
 sql {
@@ -38,7 +38,7 @@ sql {
 	usergroup_table  = "radusergroup"
 	group_attribute  = "SQL-Group"
 
-	# Clients come from clients.conf / freeradius-facts.nix, not SQL — but the
+	# Clients come from clients.conf / freeradius-facts.nix, not SQL -- but the
 	# table name must still be defined for queries.conf to parse.
 	read_clients = no
 	client_table = "nas"

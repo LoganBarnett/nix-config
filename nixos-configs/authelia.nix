@@ -5,7 +5,7 @@
 # declared in facts.network.services.  It authenticates against the network
 # LDAP directory and issues tokens to registered clients.
 #
-# Storage lives in PostgreSQL (peer auth, Unix socket — no password exchange).
+# Storage lives in PostgreSQL (peer auth, Unix socket -- no password exchange).
 # All secrets are delivered via systemd LoadCredential.
 ################################################################################
 {
@@ -46,7 +46,7 @@ let
   ) services;
 
   # Produce the YAML block for a single OIDC client.  All lines are at
-  # 0–4 spaces so that after indentLines 6 the layout aligns under
+  # 0-4 spaces so that after indentLines 6 the layout aligns under
   # `clients:` (which sits at 4 spaces in the header block):
   #
   #       - client_id: ...          (6 spaces = 0 + 6)
@@ -88,7 +88,7 @@ let
     + "  require_pkce: ${lib.boolToString (!hasConfidential)}\n"
     + (
       if hasConfidential then
-        # 2-space prefix → 8 spaces after indentLines 6, aligning with the
+        # 2-space prefix -> 8 spaces after indentLines 6, aligning with the
         # other mapping keys (client_name, redirect_uris, etc.).
         "  client_secret: %${credName name}%\n"
         + "  token_endpoint_auth_method: ${
@@ -102,7 +102,7 @@ let
   # Includes the JWKS with the private key embedded as a YAML double-quoted
   # string.  The generator writes the PEM with literal \n sequences; after
   # template substitution the YAML double-quoted string `key: "...\n..."` is
-  # parsed by the YAML library into a real multi-line PEM — the only form
+  # parsed by the YAML library into a real multi-line PEM -- the only form
   # Authelia accepts (no file-path syntax or _FILE env var for this field).
   clientYaml = ''
     identity_providers:
@@ -165,7 +165,7 @@ in
   #
   # Workaround: store the PEM with literal \n sequences (two chars: backslash
   # then n) instead of real newlines, then embed it in a YAML double-quoted
-  # string in clientYaml.  The YAML parser converts \n → newline, giving
+  # string in clientYaml.  The YAML parser converts \n -> newline, giving
   # Authelia a valid PEM.
   age.generators.rsa-private-key =
     { pkgs, ... }:
@@ -200,7 +200,9 @@ in
         dependencies = [
           config.age.secrets."${host-id}-authelia-oidc-private-key"
         ]
-        ++ mapAttrsToList (name: _: config.age.secrets."${credName name}") oidcServices;
+        ++ mapAttrsToList (
+          name: _: config.age.secrets."${credName name}"
+        ) oidcServices;
       };
       settings.template = clientYaml;
     };
@@ -214,9 +216,11 @@ in
   services.authelia.instances.authelia = {
     enable = true;
     secrets = {
-      storageEncryptionKeyFile = "/run/credentials/${service-name}.service/storage-encryption-key";
+      storageEncryptionKeyFile =
+        "/run/credentials/${service-name}.service/storage-encryption-key";
       jwtSecretFile = "/run/credentials/${service-name}.service/jwt-secret";
-      sessionSecretFile = "/run/credentials/${service-name}.service/session-secret";
+      sessionSecretFile =
+        "/run/credentials/${service-name}.service/session-secret";
     };
     settingsFiles = [
       "/run/credentials/${service-name}.service/authelia-oidc-secrets-config"
@@ -233,7 +237,8 @@ in
           additional_users_dn = "ou=users";
           additional_groups_dn = "ou=groups";
           # Allow login by either uid (username) or mail address.
-          users_filter = "(&(objectClass=inetOrgPerson)(|({username_attribute}={input})({mail_attribute}={input})))";
+          users_filter =
+            "(&(objectClass=inetOrgPerson)(|({username_attribute}={input})({mail_attribute}={input})))";
           # Forward lookup: find all groupOfNames entries that list the
           # user's DN in their member attribute.  Does not require the
           # memberOf overlay.
@@ -259,12 +264,13 @@ in
       };
       notifier = {
         smtp = {
-          # Connect via loopback — both services are on the same host.
+          # Connect via loopback -- both services are on the same host.
           # Using the DNS name would route through the LAN IP, which
           # Stalwart rate-limits independently.
           address = "submission://localhost:587";
           username = "${host-id}-authelia-service";
-          sender = "Authelia <${host-id}-authelia-service@${facts.network.domain}>";
+          sender =
+            "Authelia <${host-id}-authelia-service@${facts.network.domain}>";
           tls = {
             server_name = "mail.${facts.network.domain}";
             # Both services run on the same host; the internal CA cert is not
@@ -281,7 +287,8 @@ in
         cookies = [
           {
             authelia_url = "https://authelia.${facts.network.domain}/login/";
-            default_redirection_url = "https://authelia.${facts.network.domain}";
+            default_redirection_url =
+              "https://authelia.${facts.network.domain}";
             # "proton" is on the public suffix list so a wildcard cookie
             # domain is not possible.  The session cookie lives on
             # authelia.proton; OIDC flows redirect through here so other
@@ -291,7 +298,7 @@ in
         ];
       };
       storage = {
-        # Peer auth via Unix socket — PostgreSQL accepts the connection
+        # Peer auth via Unix socket -- PostgreSQL accepts the connection
         # because the OS user "authelia" matches the database user.  No
         # password exchange occurs; the empty string is a no-op.
         # `address` replaces the deprecated host/port pair as of 4.38.0.
@@ -304,7 +311,7 @@ in
         };
       };
 
-      # ── Role claim for Immich (commented out — see paper trail below) ──
+      # ── Role claim for Immich (commented out -- see paper trail below) ──
       #
       # WHAT WE WANT
       # ─────────────
@@ -317,7 +324,7 @@ in
       # WHY IT IS NOT WIRED UP
       # ───────────────────────
       # Authelia's `claims_policies` can only copy a static LDAP attribute
-      # value into a claim — it has no expression engine to COMPUTE "if
+      # value into a claim -- it has no expression engine to COMPUTE "if
       # user is in group X, emit 'admin'; otherwise emit 'user'".
       # There is no Authelia-side way to map group membership to an
       # arbitrary string claim value as of 4.39.x.
@@ -344,8 +351,8 @@ in
       # ────────────────────────────
       # 1. Extend the LDAP schema with an auxiliary object class that adds
       #    an `immichRole` attribute (DirectoryString, single-valued).
-      # 2. Reconcile `immichRole` for every user in facts (admins → "admin",
-      #    others → "user").
+      # 2. Reconcile `immichRole` for every user in facts (admins -> "admin",
+      #    others -> "user").
       # 3. Uncomment the identity_providers block below.
       # 4. Add `"claims_policy": "immich-role-policy"` to the Immich entry
       #    in mkClientYaml (or the clientYaml settingsFile template).
@@ -412,11 +419,13 @@ in
       RemainAfterExit = true;
       # Poll the internal listener directly (no DNS or TLS dependency).
       ExecStart = pkgs.writeShellScript "wait-for-authelia" ''
-        until ${pkgs.curl}/bin/curl -sf http://127.0.0.1:${toString port}/api/health >/dev/null 2>&1; do
+        until ${pkgs.curl}/bin/curl -sf http://127.0.0.1:${
+          toString port
+        }/api/health >/dev/null 2>&1; do
           sleep 1
         done
       '';
-      # Give Authelia a generous window — DB migrations on first boot can be
+      # Give Authelia a generous window -- DB migrations on first boot can be
       # slow.  If this fires, something is genuinely broken.
       TimeoutStartSec = 120;
     };
@@ -455,8 +464,10 @@ in
         # The NixOS authelia module has no ldapAdminPasswordFile option.
         # Deliver the LDAP bind password via LoadCredential and point
         # Authelia to the credential path via this env var.
-        AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PASSWORD_FILE = "/run/credentials/${service-name}.service/ldap-password";
-        AUTHELIA_NOTIFIER_SMTP_PASSWORD_FILE = "/run/credentials/${service-name}.service/ldap-password";
+        AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PASSWORD_FILE =
+          "/run/credentials/${service-name}.service/ldap-password";
+        AUTHELIA_NOTIFIER_SMTP_PASSWORD_FILE =
+          "/run/credentials/${service-name}.service/ldap-password";
       };
       serviceConfig = {
         LoadCredential =
@@ -470,10 +481,16 @@ in
             "storage-encryption-key:${
               config.age.secrets."${host-id}-authelia-storage-key".path
             }"
-            "jwt-secret:${config.age.secrets."${host-id}-authelia-jwt-secret".path}"
-            "session-secret:${config.age.secrets."${host-id}-authelia-session-secret".path}"
+            "jwt-secret:${
+              config.age.secrets."${host-id}-authelia-jwt-secret".path
+            }"
+            "session-secret:${
+              config.age.secrets."${host-id}-authelia-session-secret".path
+            }"
             "authelia-oidc-secrets-config:${
-              config.age.secrets."${host-id}-authelia-oidc-secrets-config.yaml".path
+              config.age.secrets."${
+                host-id
+              }-authelia-oidc-secrets-config.yaml".path
             }"
             "ldap-password:${config.age.secrets.${ldapCredName}.path}"
           ];

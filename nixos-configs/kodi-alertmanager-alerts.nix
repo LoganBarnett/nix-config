@@ -28,7 +28,7 @@
                 # OnLostDisplay teardown deadline, which historically ran for
                 # about two days before the audio engine deadlocked outright.
                 # Nothing is broken for the viewer yet, so this is deliberately
-                # not a page — it is the window in which a restart is cheap and
+                # not a page -- it is the window in which a restart is cheap and
                 # can be taken at a civilised hour.
                 #
                 # A one hour window rather than five minutes because the
@@ -36,13 +36,15 @@
                 # window would sit at zero between flaps and flap the alert along
                 # with it.
                 alert = "kodi_audio_engine_degraded";
-                expr = ''increase(kodi_audio_display_loss_timeouts_total[1h]) > 0'';
+                expr =
+                  "increase(kodi_audio_display_loss_timeouts_total[1h]) > 0";
                 for = "10m";
                 labels = {
                   severity = "warning";
                 };
                 annotations = {
-                  summary = "{{ $labels.instance }}: Kodi audio engine is degrading.";
+                  summary =
+                    "{{ $labels.instance }}: Kodi audio engine is degrading.";
                   description = ''
                     CActiveAE on {{ $labels.instance }} is failing to acknowledge
                     display-loss teardowns within its deadline.  Audio still
@@ -58,7 +60,7 @@
                 # for a track it is decoding, which means someone is sitting in
                 # front of a silent film right now.  Fires fast and pages.
                 alert = "kodi_audio_engine_wedged";
-                expr = ''increase(kodi_audio_renderer_failures_total[10m]) > 0'';
+                expr = "increase(kodi_audio_renderer_failures_total[10m]) > 0";
                 for = "0m";
                 labels = {
                   severity = "page";
@@ -76,18 +78,19 @@
               }
               {
                 # Guards the two alerts above.  Both are derived from Kodi's log
-                # file, so if that log stops being readable — renamed on a Kodi
-                # upgrade, home directory moved, metrics unit broken — they would
+                # file, so if that log stops being readable -- renamed on a Kodi
+                # upgrade, home directory moved, metrics unit broken -- they would
                 # report zero forever and read as healthy.  This is the "is the
                 # smoke detector still plugged in" check.
                 alert = "kodi_audio_health_blind";
-                expr = ''kodi_audio_log_present == 0'';
+                expr = "kodi_audio_log_present == 0";
                 for = "15m";
                 labels = {
                   severity = "warning";
                 };
                 annotations = {
-                  summary = "{{ $labels.instance }}: Kodi audio health checks are blind.";
+                  summary =
+                    "{{ $labels.instance }}: Kodi audio health checks are blind.";
                   description = ''
                     The kodi-audio-health-metrics unit on {{ $labels.instance }}
                     cannot read Kodi's log, so kodi_audio_engine_degraded and

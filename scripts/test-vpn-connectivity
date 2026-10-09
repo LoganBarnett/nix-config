@@ -57,7 +57,7 @@ fi
 echo ""
 
 # Test 4: DNS resolver files
-# Count all per-domain resolver files we create, not just *.pvt — the set
+# Count all per-domain resolver files we create, not just *.pvt -- the set
 # of corporate suffixes is configured by
 # services.globalprotect-monitor.corpDomainSuffixes on the consuming host.
 echo "[4/7] Checking DNS resolver files..."
@@ -81,7 +81,7 @@ else
 fi
 echo ""
 
-# Test 5b: Public DNS and routing diagnostics (informational — always runs,
+# Test 5b: Public DNS and routing diagnostics (informational -- always runs,
 # failures are noted but do not set OVERALL_FAIL independently since test 6
 # below covers the end-to-end check).
 echo "[5b] Public DNS/routing diagnostics..."
@@ -126,7 +126,7 @@ echo "[7/7] Testing VPN endpoint: https://$STASH_HOST"
 STASH_IP=$(dig +short +timeout=3 +tries=1 @10.198.51.37 "$STASH_HOST" A 2>/dev/null \
   | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -1) || true
 if [ -n "$STASH_IP" ]; then
-  echo "  [7a] DNS resolution: $STASH_HOST → $STASH_IP  ✓"
+  echo "  [7a] DNS resolution: $STASH_HOST -> $STASH_IP  ✓"
 else
   echo "  [7a] DNS resolution via VPN DNS (10.198.51.37): FAILED"
   # Also try system resolver for comparison.
@@ -138,14 +138,14 @@ else
 fi
 
 if [ -n "$STASH_IP" ]; then
-  # 7b: Route check — which interface handles this IP?
+  # 7b: Route check -- which interface handles this IP?
   STASH_ROUTE_IF=$(route -n get "$STASH_IP" 2>/dev/null | awk '/interface:/ {print $2}') || true
   STASH_ROUTE_GW=$(route -n get "$STASH_IP" 2>/dev/null | awk '/gateway:/ {print $2}') || true
   echo "  [7b] Route for $STASH_IP: interface=${STASH_ROUTE_IF:-none} gateway=${STASH_ROUTE_GW:-none}"
   if [[ "${STASH_ROUTE_IF:-}" == utun* ]]; then
-    echo "       → routed through VPN tunnel  ✓"
+    echo "       -> routed through VPN tunnel  ✓"
   elif [ -n "$STASH_ROUTE_IF" ]; then
-    echo "       → routed through $STASH_ROUTE_IF (NOT VPN tunnel)  ✗"
+    echo "       -> routed through $STASH_ROUTE_IF (NOT VPN tunnel)  ✗"
   fi
 
   # 7c: TCP connectivity to port 443.
@@ -190,9 +190,9 @@ if [ -n "$STASH_IP" ]; then
   STASH_IP_SYS=$(dig +short +timeout=3 +tries=1 "$STASH_HOST" A 2>/dev/null \
     | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -1) || true
   if [ -n "$STASH_IP_SYS" ]; then
-    echo "  [7e] System resolver DNS: $STASH_HOST → $STASH_IP_SYS  ✓"
+    echo "  [7e] System resolver DNS: $STASH_HOST -> $STASH_IP_SYS  ✓"
   else
-    echo "  [7e] System resolver DNS: $STASH_HOST → FAILED"
+    echo "  [7e] System resolver DNS: $STASH_HOST -> FAILED"
     echo "       /etc/resolv.conf-based resolution broken for VPN domains"
     OVERALL_FAIL=1
   fi
@@ -210,7 +210,7 @@ if [ -n "$STASH_IP" ]; then
     OVERALL_FAIL=1
   fi
 else
-  echo "  (skipping routing and connectivity tests — DNS failed)"
+  echo "  (skipping routing and connectivity tests -- DNS failed)"
 fi
 fi  # end: STASH_HOST configured
 echo ""
@@ -236,9 +236,9 @@ echo ""
 
 echo "============================================================"
 if [ "$OVERALL_FAIL" -eq 0 ]; then
-  echo "Test Complete — all tests passed"
+  echo "Test Complete -- all tests passed"
 else
-  echo "Test Complete — one or more tests FAILED"
+  echo "Test Complete -- one or more tests FAILED"
 fi
 echo "============================================================"
 

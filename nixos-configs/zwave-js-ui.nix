@@ -41,7 +41,9 @@
     requires = [ "run-agenix.d.mount" ];
     serviceConfig = {
       LoadCredential = [
-        "zwave-js-secret:${config.age.secrets.aeotec-z-stick-7-zwave-js-ui-security-file.path}"
+        "zwave-js-secret:${
+          config.age.secrets.aeotec-z-stick-7-zwave-js-ui-security-file.path
+        }"
       ];
     };
   };
@@ -67,8 +69,8 @@
         # winston transports to options.logConfig at driver start
         # (api/lib/ZwaveClient.ts: `zwaveOptions.logConfig.transports =
         # [logTransport]`).  Those transports make the in-memory settings
-        # object circular, so GET /api/settings — the UI's first bootstrap
-        # request — crashes in res.json() with "Converting circular structure
+        # object circular, so GET /api/settings -- the UI's first bootstrap
+        # request -- crashes in res.json() with "Converting circular structure
         # to JSON".  The crash is an unhandled rejection that never answers
         # the request, nginx 504s after 60 seconds, and the UI hangs forever
         # on its loading screen.  The root-level keys below are instead copied
@@ -77,7 +79,7 @@
         # reachable from the settings.
         #
         # https://github.com/zwave-js/zwave-js-ui/discussions/2166#discussioncomment-1948873
-        # suggests the opposite — declaring all logging under options — but
+        # suggests the opposite -- declaring all logging under options -- but
         # following that advice is precisely what produced the serialization
         # failure it warns about.
         logEnabled = true;
@@ -88,7 +90,7 @@
         # Force driver logs to stdout so journald captures them.  Upstream
         # only forces console logging under Docker (stdout is not a TTY under
         # systemd, so nothing would be logged otherwise).  This key is added
-        # by our patch in ../overlays/zwave-js-ui.nix — a candidate for
+        # by our patch in ../overlays/zwave-js-ui.nix -- a candidate for
         # upstreaming; without the patch the key is ignored.
         forceConsole = true;
       };

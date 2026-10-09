@@ -126,16 +126,16 @@ dns_test_host() {
 # This host resolves corporate names by three different routes, configured by
 # three different mechanisms, which fail independently:
 #
-#   1. mDNSResponder     — what ping, curl, and macOS applications use.
+#   1. mDNSResponder    -- what ping, curl, and macOS applications use.
 #                          Configured by /etc/resolver/<domain> files and the
 #                          synthetic scutil services vpnc-script-macos creates.
-#   2. dnsmasq           — /etc/resolv.conf points at 127.0.0.1, so anything
+#   2. dnsmasq          -- /etc/resolv.conf points at 127.0.0.1, so anything
 #                          reading resolv.conf directly instead of going
 #                          through getaddrinfo lands here.  That is most
 #                          Nix-built tooling: dig, curl built against c-ares,
 #                          and similar.  Configured by
 #                          /var/run/dnsmasq-vpn-servers.conf plus a SIGHUP.
-#   3. The VPN nameserver itself — the upstream both of the above forward to.
+#   3. The VPN nameserver itself -- the upstream both of the above forward to.
 #
 # Probing only one of these reports healthy while a whole class of program is
 # broken.  A cached NXDOMAIN in mDNSResponder once survived ~19 hours behind a
@@ -144,7 +144,7 @@ dns_test_host() {
 # macOS applications resolve fine.
 #
 # The three probes exist to tell those apart, because they need different
-# remedies — see the escalation ladder in the monitor loop.
+# remedies -- see the escalation ladder in the monitor loop.
 ################################################################################
 
 # Path 2: through /etc/resolv.conf -> 127.0.0.1 -> dnsmasq.  Note this is NOT
@@ -217,7 +217,7 @@ is_dns_working() {
   local test_domain
   test_domain=$(dns_test_host)
   if [ -z "$test_domain" ]; then
-    echo "is_dns_working: no testHost configured — skipping probe" >&2
+    echo "is_dns_working: no testHost configured -- skipping probe" >&2
     return 1
   fi
   if forwarder_path_ok "$test_domain" \
@@ -230,7 +230,7 @@ is_dns_working() {
 # Flush the system DNS cache and restart mDNSResponder.
 #
 # $GP_MONITOR_LOG is owned by the user running gp-monitor; the redirect
-# lands in that user's file, not root's — sudo affecting only the inner
+# lands in that user's file, not root's -- sudo affecting only the inner
 # command is correct here.
 flush_dns_cache() {
   # shellcheck disable=SC2024
@@ -259,12 +259,12 @@ fi
 # mDNSResponder well past the zone's negative TTL.
 #
 # The symptom probe in the monitor loop only covers testHost, but any name
-# can be the one that got poisoned — so watch for the rekey itself and flush
+# can be the one that got poisoned -- so watch for the rekey itself and flush
 # regardless of which name was in flight.
 rekey_detected() {
   local size new
   size=$(wc --bytes < "$GP_MONITOR_LOG" | tr --delete ' ') || return 1
-  # Rotated or truncated out from under us — resync and skip a round.
+  # Rotated or truncated out from under us -- resync and skip a round.
   if [ "$size" -lt "$GP_LOG_OFFSET" ]; then
     GP_LOG_OFFSET="$size"
     return 1
@@ -361,7 +361,7 @@ connect() {
       #      no-servers exit as informational.
       #
       #   2. Restart mDNSResponder.  vpnc-script-macos deferred this on
-      #      purpose — the tunnel data plane wasn't ready while it ran, so
+      #      purpose -- the tunnel data plane wasn't ready while it ran, so
       #      restarting mDNSResponder then would have evaluated VPN DNS
       #      reachability with a dead tunnel and marked the servers down.
       #      The data plane is now confirmed up (is_connected returned
@@ -381,7 +381,7 @@ connect() {
         sleep 1
       done
       if [ "$SCOPING_TRIES" -ge "$SCOPING_MAX" ]; then
-        log "DNS scoping fix found no VPN DNS in scutil — vpnc-script-macos already configured /etc/resolver, continuing"
+        log "DNS scoping fix found no VPN DNS in scutil -- vpnc-script-macos already configured /etc/resolver, continuing"
       fi
       log "Flushing DNS cache and HUPing mDNSResponder..."
       flush_dns_cache || true
@@ -454,7 +454,7 @@ while true; do
     # resolves.  Flush rather than tearing down a working VPN.
     if [ "$FORWARDER_OK" = true ] && [ "$SYSRES_OK" = false ]; then
       log "Forwarder resolves $TEST_HOST but the macOS system resolver does" \
-        "not — flushing stale DNS cache..."
+        "not -- flushing stale DNS cache..."
       flush_dns_cache || true
       sleep 2
       if system_resolver_path_ok "$TEST_HOST"; then
@@ -466,12 +466,12 @@ while true; do
 
     # The macOS side resolves but the dnsmasq side does not, so the tunnel is
     # fine and only Nix-built tooling is broken.  If the VPN nameserver still
-    # answers directly, dnsmasq is the faulty link — reload it before
+    # answers directly, dnsmasq is the faulty link -- reload it before
     # considering anything as disruptive as a reconnect.
     if [ "$FORWARDER_OK" = false ] && [ "$SYSRES_OK" = true ]; then
       if upstream_nameserver_ok "$TEST_HOST"; then
         log "VPN nameserver answers directly but the dnsmasq forwarder does" \
-          "not — reloading dnsmasq..."
+          "not -- reloading dnsmasq..."
         if sudo --non-interactive killall -HUP dnsmasq 2>/dev/null; then
           sleep 2
           if forwarder_path_ok "$TEST_HOST"; then
@@ -481,7 +481,7 @@ while true; do
         fi
         # A reload cannot fix a servers-file whose contents are stale; only
         # re-running vpnc-script-macos rewrites it, which means a reconnect.
-        log "dnsmasq still failing after reload — servers-file is likely" \
+        log "dnsmasq still failing after reload -- servers-file is likely" \
           "stale, escalating..."
       else
         log "Neither the dnsmasq forwarder nor the VPN nameserver answers" \

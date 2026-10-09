@@ -1,5 +1,5 @@
 ################################################################################
-# Ruckus ICX 7150-48ZP switch — silicon-side pieces.
+# Ruckus ICX 7150-48ZP switch -- silicon-side pieces.
 #
 # The switch itself is configured imperatively over its console or SSH until a
 # FastIron nix-hapi provider exists.  This module owns what silicon needs to

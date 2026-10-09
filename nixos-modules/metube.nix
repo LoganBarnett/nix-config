@@ -27,54 +27,56 @@ let
   # service below (for backfill on existing files).  Reads the original URL
   # from the yt-dlp info.json sidecar.  Handles two concerns:
   #
-  #   1. Thumbnail — downloads if no jpg/webp/png companion exists.
+  #   1. Thumbnail -- downloads if no jpg/webp/png companion exists.
   #      Future downloads already have thumbnails written by YTDL_OPTIONS
   #      writethumbnail, so this is mainly a backfill path.
   #
-  #   2. H.264+AAC MP4 compat copy — downloads if .compat.mp4 is absent.
-  compatDownloadExecScript = pkgs.writeShellScript "metube-compat-download-exec" ''
-    set -euo pipefail
-    input="$1"
-    # Skip files already in a Safari-compatible container, and non-video
-    # sidecars (thumbnails, info JSON, subtitles, in-progress temp files).
-    case "$input" in
-      *.mp4) exit 0 ;;
-      *.json|*.jpg|*.jpeg|*.webp|*.png|*.vtt|*.srt|*.part|*.ytdl) exit 0 ;;
-    esac
-    stem="''${input%.*}"
-    info_json="$stem.info.json"
-    [[ -f "$info_json" ]] || exit 0
-    url=$(${pkgs.jq}/bin/jq -r '.webpage_url // empty' "$info_json")
-    if [[ -z "$url" ]]; then
-      echo "No webpage_url in $info_json; skipping." >&2
-      exit 0
-    fi
+  #   2. H.264+AAC MP4 compat copy -- downloads if .compat.mp4 is absent.
+  compatDownloadExecScript =
+    pkgs.writeShellScript "metube-compat-download-exec"
+      ''
+        set -euo pipefail
+        input="$1"
+        # Skip files already in a Safari-compatible container, and non-video
+        # sidecars (thumbnails, info JSON, subtitles, in-progress temp files).
+        case "$input" in
+          *.mp4) exit 0 ;;
+          *.json|*.jpg|*.jpeg|*.webp|*.png|*.vtt|*.srt|*.part|*.ytdl) exit 0 ;;
+        esac
+        stem="''${input%.*}"
+        info_json="$stem.info.json"
+        [[ -f "$info_json" ]] || exit 0
+        url=$(${pkgs.jq}/bin/jq -r '.webpage_url // empty' "$info_json")
+        if [[ -z "$url" ]]; then
+          echo "No webpage_url in $info_json; skipping." >&2
+          exit 0
+        fi
 
-    # Download thumbnail if none of the expected extensions are present.
-    if [[ ! -f "$stem.jpg" ]] && [[ ! -f "$stem.webp" ]] && [[ ! -f "$stem.png" ]]; then
-      ${pkgs.yt-dlp}/bin/yt-dlp \
-        --write-thumbnail \
-        --skip-download \
-        --no-write-info-json \
-        --no-playlist \
-        -o "$stem.%(ext)s" \
-        "$url" \
-        || echo "Thumbnail download failed for $input; continuing." >&2
-    fi
+        # Download thumbnail if none of the expected extensions are present.
+        if [[ ! -f "$stem.jpg" ]] && [[ ! -f "$stem.webp" ]] && [[ ! -f "$stem.png" ]]; then
+          ${pkgs.yt-dlp}/bin/yt-dlp \
+            --write-thumbnail \
+            --skip-download \
+            --no-write-info-json \
+            --no-playlist \
+            -o "$stem.%(ext)s" \
+            "$url" \
+            || echo "Thumbnail download failed for $input; continuing." >&2
+        fi
 
-    # Download H.264+AAC MP4 compat copy if absent.
-    compat_base="$stem.compat"
-    if [[ ! -f "$compat_base.mp4" ]]; then
-      ${pkgs.yt-dlp}/bin/yt-dlp \
-        --format "bestvideo[vcodec^=avc1]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" \
-        --merge-output-format mp4 \
-        --no-write-info-json \
-        --no-write-thumbnail \
-        --no-playlist \
-        -o "$compat_base.%(ext)s" \
-        "$url"
-    fi
-  '';
+        # Download H.264+AAC MP4 compat copy if absent.
+        compat_base="$stem.compat"
+        if [[ ! -f "$compat_base.mp4" ]]; then
+          ${pkgs.yt-dlp}/bin/yt-dlp \
+            --format "bestvideo[vcodec^=avc1]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" \
+            --merge-output-format mp4 \
+            --no-write-info-json \
+            --no-write-thumbnail \
+            --no-playlist \
+            -o "$compat_base.%(ext)s" \
+            "$url"
+        fi
+      '';
   # Scans the entire download directory and calls compatDownloadExecScript for
   # each non-MP4 video file that is missing a companion compat copy.  Errors
   # for individual files are logged but do not abort the scan.
@@ -153,7 +155,8 @@ in
 
     bgutil = {
       enable =
-        mkEnableOption "bgutil PO token provider sidecar for YouTube bot-check bypass"
+        mkEnableOption
+          "bgutil PO token provider sidecar for YouTube bot-check bypass"
         // {
           default = true;
         };
@@ -266,7 +269,8 @@ in
     systemd.services.metube-compat-download =
       mkIf cfg.includeHighCompatibilityCopy
         {
-          description = "Download H.264+AAC MP4 compat copies for metube WebM files";
+          description =
+            "Download H.264+AAC MP4 compat copies for metube WebM files";
           wantedBy = [ "multi-user.target" ];
           after = [ "network.target" ] ++ cfg.mountDependencies;
           requires = cfg.mountDependencies;
@@ -284,18 +288,21 @@ in
     # Watches the download directory and re-triggers the download service
     # whenever files change (i.e. after each completed download), as a safety
     # net for any files the exec hook may have missed.
-    systemd.paths.metube-compat-download = mkIf cfg.includeHighCompatibilityCopy {
-      description = "Watch for new metube downloads to fetch compat copies for";
-      wantedBy = [ "multi-user.target" ];
-      # Require only the mounts in mountDependencies.  Waiting on a service
-      # causes cyclical ordering.  This is because systemd starts path units
-      # before basic.target and services after it.
-      after = mountUnits;
-      requires = mountUnits;
-      pathConfig = {
-        PathModified = cfg.downloadDir;
-        Unit = "metube-compat-download.service";
-      };
-    };
+    systemd.paths.metube-compat-download =
+      mkIf cfg.includeHighCompatibilityCopy
+        {
+          description =
+            "Watch for new metube downloads to fetch compat copies for";
+          wantedBy = [ "multi-user.target" ];
+          # Require only the mounts in mountDependencies.  Waiting on a service
+          # causes cyclical ordering.  This is because systemd starts path units
+          # before basic.target and services after it.
+          after = mountUnits;
+          requires = mountUnits;
+          pathConfig = {
+            PathModified = cfg.downloadDir;
+            Unit = "metube-compat-download.service";
+          };
+        };
   };
 }

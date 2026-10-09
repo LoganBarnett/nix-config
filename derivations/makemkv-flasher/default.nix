@@ -1,5 +1,5 @@
 ################################################################################
-# MakeMKV 1.17.7 — binary-only package for firmware flashing.
+# MakeMKV 1.17.7 -- binary-only package for firmware flashing.
 #
 # MakeMKV 1.18.x has a bug where `makemkvcon f` (the firmware tool) spins at
 # 100 % CPU and never actually flashes.  This derivation extracts just the
@@ -39,7 +39,7 @@ stdenv.mkDerivation {
   nativeBuildInputs = [ autoPatchelfHook ];
 
   # The prebuilt makemkvcon links against libmakemkv and libdriveio.  We
-  # satisfy those from the current MakeMKV package — the firmware tool ABI has
+  # satisfy those from the current MakeMKV package -- the firmware tool ABI has
   # been stable across minor versions.
   buildInputs = [
     makemkv
@@ -58,7 +58,9 @@ stdenv.mkDerivation {
   '';
 
   meta = {
-    description = "MakeMKV ${version} firmware flash tool (workaround for 1.18.x flashing bug)";
+    description = "MakeMKV ${
+      version
+    } firmware flash tool (workaround for 1.18.x flashing bug)";
     homepage = "https://www.makemkv.com";
     platforms = [ "x86_64-linux" ];
     license = lib.licenses.unfree;

@@ -18,7 +18,8 @@
 
   services.nix-hapi-aruba-cx = {
     enable = true;
-    package = flake-inputs.nix-hapi-provider-aruba-cx.packages.${system}.default;
+    package =
+      flake-inputs.nix-hapi-provider-aruba-cx.packages.${system}.default;
 
     scopes."core-switch" = {
       provider = {
@@ -91,7 +92,7 @@
         };
       };
 
-      # Ignore VLAN 1 (default) — always present on the switch.
+      # Ignore VLAN 1 (default) -- always present on the switch.
       ignore = [
         ''.key | startswith("1/")''
       ];

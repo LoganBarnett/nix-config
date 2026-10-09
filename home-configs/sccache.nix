@@ -1,5 +1,5 @@
 ################################################################################
-# sccache — shared Rust compilation cache and centralised build directory.
+# sccache -- shared Rust compilation cache and centralised build directory.
 #
 # Sits transparently in front of rustc via RUSTC_WRAPPER.  Artifacts are
 # shared across all projects that use the same crate version, so dependencies
@@ -65,9 +65,15 @@ in
     target-dir = "${cargo-target-dir}"
 
     [env]
-    CARGO_TARGET_DIR   = { value = "${cargo-target-dir}",                             force = true }
-    RUSTC_WRAPPER      = { value = "${pkgs.sccache}/bin/sccache",                      force = true }
-    SCCACHE_DIR        = { value = "${config.home.homeDirectory}/.cache/sccache",      force = true }
+    CARGO_TARGET_DIR   = { value = "${
+      cargo-target-dir
+    }",                             force = true }
+    RUSTC_WRAPPER      = { value = "${
+      pkgs.sccache
+    }/bin/sccache",                      force = true }
+    SCCACHE_DIR        = { value = "${
+      config.home.homeDirectory
+    }/.cache/sccache",      force = true }
     SCCACHE_CACHE_SIZE = { value = "20G",                                              force = true }
   '';
 
@@ -105,8 +111,10 @@ in
           Minute = 30;
         }
       ];
-      StandardOutPath = "${config.home.homeDirectory}/Library/Logs/cargo-sweep.log";
-      StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/cargo-sweep.log";
+      StandardOutPath =
+        "${config.home.homeDirectory}/Library/Logs/cargo-sweep.log";
+      StandardErrorPath =
+        "${config.home.homeDirectory}/Library/Logs/cargo-sweep.log";
     };
   };
 }

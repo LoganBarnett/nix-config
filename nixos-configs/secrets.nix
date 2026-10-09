@@ -35,7 +35,8 @@ in
   # TODO: Help document pre-existing generators listed here:
   # https://github.com/oddlama/agenix-rekey/blob/85df729446fca1b9f22097b03e0ae2427c3246e2/modules/agenix-rekey.nix#L557
   age.generators.long-passphrase =
-    { pkgs, ... }: "${pkgs.xkcdpass}/bin/xkcdpass --numwords=10 --delimiter=' '";
+    { pkgs, ... }:
+    "${pkgs.xkcdpass}/bin/xkcdpass --numwords=10 --delimiter=' '";
   age.generators.long-passphrase-hashed =
     {
       decrypt,
@@ -178,7 +179,7 @@ in
     # agenix-rekey now sets _class on its modules, so we must select the
     # correct one for the platform to avoid a class mismatch error.  We use
     # `system` rather than `pkgs.stdenv.isDarwin` because `pkgs` is not fully
-    # resolved during `imports` evaluation — using it here risks infinite
+    # resolved during `imports` evaluation -- using it here risks infinite
     # recursion since `pkgs` is shaped by the modules being imported.
     (
       if lib.strings.hasSuffix "-darwin" system then

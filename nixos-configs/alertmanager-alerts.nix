@@ -9,7 +9,7 @@
 # Subsystem files must contribute via services.prometheus.ruleFiles, not
 # services.prometheus.rules.  The NixOS module joins every .rules entry into one
 # file with concatStringsSep "\n", so two entries put two JSON documents in a
-# single file and Prometheus quietly loads only one of them — promtool checks
+# single file and Prometheus quietly loads only one of them -- promtool checks
 # each document separately and passes, so nothing catches it until you notice
 # alerts missing from /api/v1/rules.  Each .ruleFiles entry gets its own
 # rule_files line instead.

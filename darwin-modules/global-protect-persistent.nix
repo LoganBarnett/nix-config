@@ -27,7 +27,9 @@ let
 
     # Configuration from Nix options - these match what gp-connect-auto expects
     export GP_SERVER="${cfg.server}"
-    ${optionalString (cfg.gateway != null) ''export GP_GATEWAY="${cfg.gateway}"''}
+    ${optionalString (cfg.gateway != null)
+      ''export GP_GATEWAY="${cfg.gateway}"''
+    }
     export GP_USERNAME="${cfg.username}"
     export ORG_NAME="${cfg.orgName}"
     export GP_CHECK_INTERVAL="${toString cfg.checkInterval}"
@@ -90,7 +92,8 @@ in
       enable = mkOption {
         type = types.bool;
         default = false;
-        description = "Whether to enable the GlobalProtect VPN monitor service.";
+        description =
+          "Whether to enable the GlobalProtect VPN monitor service.";
       };
 
       server = mkOption {
@@ -190,7 +193,7 @@ in
           (sudo strips env by default, so the wrapper has to re-export
           it for gpclient and the vpnc-script-macos it spawns).  Each
           export uses `${"$"}{GP_AUTO_CONFIG:=...}` so an explicit
-          override survives if one is present.  Must be under /etc/ —
+          override survives if one is present.  Must be under /etc/ --
           the file itself is written via `environment.etc`, which
           prefixes everything with /etc/.
         '';
@@ -327,7 +330,10 @@ in
     assertions = [
       {
         assertion = lib.hasPrefix "/etc/" cfg.configFile;
-        message = "services.globalprotect-monitor.configFile must start with /etc/ (got: ${cfg.configFile}).";
+        message =
+          "services.globalprotect-monitor.configFile must start with /etc/ (got: ${
+            cfg.configFile
+          }).";
       }
     ];
 
@@ -375,26 +381,58 @@ in
     # 3. cleanup-vpn: TEMPORARY for development - TODO: REMOVE BEFORE MERGE
     # 4. vpn-test-harness-recover: restores default gateway after VPN tunnel collapse
     security.sudo.extraConfig = ''
-      ${cfg.primaryUser} ALL=(root) NOPASSWD: ${pkgs.dns-resolver-helper}/bin/dns-resolver-helper *
-      ${cfg.primaryUser} ALL=(root) NOPASSWD: SETENV: ${gpConnectAuto}/bin/gp-connect-auto
-      ${cfg.primaryUser} ALL=(root) NOPASSWD: ${pkgs.cleanup-vpn}/bin/cleanup-vpn
-      ${cfg.primaryUser} ALL=(root) NOPASSWD: SETENV: ${pkgs.vpn-test-harness-recover}/bin/vpn-test-harness-recover
+      ${cfg.primaryUser} ALL=(root) NOPASSWD: ${
+        pkgs.dns-resolver-helper
+      }/bin/dns-resolver-helper *
+      ${cfg.primaryUser} ALL=(root) NOPASSWD: SETENV: ${
+        gpConnectAuto
+      }/bin/gp-connect-auto
+      ${cfg.primaryUser} ALL=(root) NOPASSWD: ${
+        pkgs.cleanup-vpn
+      }/bin/cleanup-vpn
+      ${cfg.primaryUser} ALL=(root) NOPASSWD: SETENV: ${
+        pkgs.vpn-test-harness-recover
+      }/bin/vpn-test-harness-recover
       # Allow manual DHCP renewal and network reset for post-VPN-disconnect recovery.
       ${cfg.primaryUser} ALL=(root) NOPASSWD: /usr/sbin/ipconfig set * DHCP
       ${cfg.primaryUser} ALL=(root) NOPASSWD: /usr/sbin/networksetup -setdhcp *
-      ${cfg.primaryUser} ALL=(root) NOPASSWD: /usr/sbin/networksetup -setdnsservers * Empty
-      ${cfg.primaryUser} ALL=(root) NOPASSWD: /usr/sbin/networksetup -setdnsservers * 127.0.0.1
-      ${cfg.primaryUser} ALL=(root) NOPASSWD: /usr/sbin/networksetup -setsearchdomains * Empty
-      ${cfg.primaryUser} ALL=(root) NOPASSWD: /usr/sbin/networksetup -setwebproxystate * Off
-      ${cfg.primaryUser} ALL=(root) NOPASSWD: /usr/sbin/networksetup -setsecurewebproxystate * Off
-      ${cfg.primaryUser} ALL=(root) NOPASSWD: /usr/sbin/networksetup -setv6automatic *
-      ${cfg.primaryUser} ALL=(root) NOPASSWD: /usr/sbin/networksetup -setproxybypassdomains * Empty
-      ${cfg.primaryUser} ALL=(root) NOPASSWD: /usr/sbin/networksetup -setnetworkserviceenabled * Off
-      ${cfg.primaryUser} ALL=(root) NOPASSWD: /usr/sbin/networksetup -setnetworkserviceenabled * On
+      ${
+        cfg.primaryUser
+      } ALL=(root) NOPASSWD: /usr/sbin/networksetup -setdnsservers * Empty
+      ${
+        cfg.primaryUser
+      } ALL=(root) NOPASSWD: /usr/sbin/networksetup -setdnsservers * 127.0.0.1
+      ${
+        cfg.primaryUser
+      } ALL=(root) NOPASSWD: /usr/sbin/networksetup -setsearchdomains * Empty
+      ${
+        cfg.primaryUser
+      } ALL=(root) NOPASSWD: /usr/sbin/networksetup -setwebproxystate * Off
+      ${
+        cfg.primaryUser
+      } ALL=(root) NOPASSWD: /usr/sbin/networksetup -setsecurewebproxystate * Off
+      ${
+        cfg.primaryUser
+      } ALL=(root) NOPASSWD: /usr/sbin/networksetup -setv6automatic *
+      ${
+        cfg.primaryUser
+      } ALL=(root) NOPASSWD: /usr/sbin/networksetup -setproxybypassdomains * Empty
+      ${
+        cfg.primaryUser
+      } ALL=(root) NOPASSWD: /usr/sbin/networksetup -setnetworkserviceenabled * Off
+      ${
+        cfg.primaryUser
+      } ALL=(root) NOPASSWD: /usr/sbin/networksetup -setnetworkserviceenabled * On
       ${cfg.primaryUser} ALL=(root) NOPASSWD: /usr/bin/dscacheutil -flushcache
-      ${cfg.primaryUser} ALL=(root) NOPASSWD: ${pkgs.killall}/bin/killall -HUP mDNSResponder
-      ${cfg.primaryUser} ALL=(root) NOPASSWD: ${pkgs.killall}/bin/killall -HUP dnsmasq
-      ${cfg.primaryUser} ALL=(root) NOPASSWD: SETENV: ${vpnTestHarness}/bin/vpn-test-harness *
+      ${cfg.primaryUser} ALL=(root) NOPASSWD: ${
+        pkgs.killall
+      }/bin/killall -HUP mDNSResponder
+      ${cfg.primaryUser} ALL=(root) NOPASSWD: ${
+        pkgs.killall
+      }/bin/killall -HUP dnsmasq
+      ${cfg.primaryUser} ALL=(root) NOPASSWD: SETENV: ${
+        vpnTestHarness
+      }/bin/vpn-test-harness *
     '';
 
     # Ensure dnsmasq data files exist before dnsmasq starts, and point
@@ -428,17 +466,19 @@ in
         done
       '';
 
-    # dnsmasq local DNS forwarder — always active when the module is
+    # dnsmasq local DNS forwarder -- always active when the module is
     # imported.  VPN DNS resolution is inseparable from the VPN service.
     #
     # These daemons use `command` rather than raw ProgramArguments so
-    # nix-darwin wraps them in `/bin/wait4path /nix/store && exec …`.
+    # nix-darwin wraps them in `/bin/wait4path /nix/store && exec ...`.
     # Without the guard, launchd can attempt the first spawn before the
     # Nix store volume mounts at boot, fail with EX_CONFIG, and wedge on
     # an executable-appeared watch that never fires for the synthetic
     # /nix mount.
     launchd.daemons.dnsmasq = {
-      command = "${pkgs.dnsmasq}/bin/dnsmasq --keep-in-foreground --conf-file=${dnsmasqConf}";
+      command = "${pkgs.dnsmasq}/bin/dnsmasq --keep-in-foreground --conf-file=${
+        dnsmasqConf
+      }";
       serviceConfig = {
         KeepAlive = true;
         RunAtLoad = true;

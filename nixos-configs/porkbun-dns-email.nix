@@ -3,16 +3,16 @@
 # logustus.com via the typed nix-hapi-porkbun module.
 #
 # Records managed here (per domain):
-#   MX/@                    — inbound mail server
-#   TXT/@                   — SPF policy
-#   TXT/default._domainkey  — DKIM public key (Ed25519, from generated .pub)
-#   TXT/_dmarc              — DMARC policy
+#   MX/@                    -- inbound mail server
+#   TXT/@                   -- SPF policy
+#   TXT/default._domainkey  -- DKIM public key (Ed25519, from generated .pub)
+#   TXT/_dmarc              -- DMARC policy
 #
 # Records excluded via ignore expressions (jq, keyed on TYPE/name):
-#   TXT/_acme-challenge*  — Let's Encrypt DNS-01 (managed by security.acme)
-#   A/*                   — wildcard A (managed by dns-dynamic-ip-home/dness)
-#   A/vpn                 — VPN A record (managed by dness, logustus.com only)
-#   NS/*                  — apex NS records (managed by the registrar)
+#   TXT/_acme-challenge*  -- Let's Encrypt DNS-01 (managed by security.acme)
+#   A/*                   -- wildcard A (managed by dns-dynamic-ip-home/dness)
+#   A/vpn                 -- VPN A record (managed by dness, logustus.com only)
+#   NS/*                  -- apex NS records (managed by the registrar)
 #
 # Other Porkbun-managed records (e.g. blog CNAMEs) live in sibling files
 # that contribute to the same `services.nix-hapi-porkbun.scopes`; per-key
@@ -43,14 +43,17 @@ let
   # `__nixhapi.providerKey[0].name` is the relative (sub-)name; `.name`
   # is the absolute FQDN.  We match against `.type` and the relative
   # name so the predicates read like the records they target.
-  ignore-acme = ''(.type == "TXT") and (.__nixhapi.providerKey[0].name | startswith("_acme-challenge"))'';
-  ignore-wildcard-a = ''(.type == "A") and (.__nixhapi.providerKey[0].name == "*")'';
-  ignore-vpn-a = ''(.type == "A") and (.__nixhapi.providerKey[0].name == "vpn")'';
+  ignore-acme =
+    ''(.type == "TXT") and (.__nixhapi.providerKey[0].name | startswith("_acme-challenge"))'';
+  ignore-wildcard-a =
+    ''(.type == "A") and (.__nixhapi.providerKey[0].name == "*")'';
+  ignore-vpn-a =
+    ''(.type == "A") and (.__nixhapi.providerKey[0].name == "vpn")'';
   # NS records at the apex are managed by the registrar; never delete them.
   ignore-ns = ''.type == "NS"'';
 
   # Email DNS records common to any externally-hosted domain.  The outer
-  # attribute names (`apex-mx`, `apex-spf`, …) are user-chosen labels;
+  # attribute names (`apex-mx`, `apex-spf`, ...) are user-chosen labels;
   # record identity is the (type, name, content) triple via the default
   # providerKey.
   emailRecords = domain: dkimPub: {
@@ -98,9 +101,9 @@ in
     # Use the consumer's flake-inputs view of the package so that
     # nix-config-private's `overridePkg` (which substitutes the patched
     # build with rewritten Cargo git deps for the gitea-only environment)
-    # is what actually runs.  The module's own `self.packages.…` default
+    # is what actually runs.  The module's own `self.packages....` default
     # would resolve to the un-patched build, whose Cargo.lock points
-    # nix-hapi-lib at GitHub — unreachable from the nix-daemon here.
+    # nix-hapi-lib at GitHub -- unreachable from the nix-daemon here.
     package = flake-inputs.nix-hapi-provider-porkbun.packages.${system}.default;
 
     scopes."meshward.com" = {

@@ -87,13 +87,15 @@
         domain = "conjuguemos.com";
         classificationType = "all";
         isMatchingSite = false;
-        reasoning = "This is a Spanish edutainment site endorsed by the school district.";
+        reasoning =
+          "This is a Spanish edutainment site endorsed by the school district.";
       }
       {
         domain = "codeload.github.com";
         classificationType = "all";
         isMatchingSite = false;
-        reasoning = "GitHub code download CDN — never a gaming or streaming site.";
+        reasoning =
+          "GitHub code download CDN -- never a gaming or streaming site.";
       }
       {
         domain = "dndbeyond.com";
@@ -123,13 +125,15 @@
         domain = "github.com";
         classificationType = "gaming";
         isMatchingSite = false;
-        reasoning = "GitHub is a software development platform, not a gaming site.";
+        reasoning =
+          "GitHub is a software development platform, not a gaming site.";
       }
       {
         domain = "registry.ollama.ai";
         classificationType = "all";
         isMatchingSite = false;
-        reasoning = "Ollama model registry — AI infrastructure, not a gaming or streaming site.";
+        reasoning =
+          "Ollama model registry -- AI infrastructure, not a gaming or streaming site.";
       }
     ];
 
@@ -153,7 +157,8 @@
   # TLS termination for admin interface.
   services.https.fqdns."dns-smart-block.${facts.network.domain}" = {
     enable = true;
-    internalPort = config.services.dns-smart-block.blocklistServer.adminBindPort;
+    internalPort =
+      config.services.dns-smart-block.blocklistServer.adminBindPort;
   };
 
   # Nginx proxy configuration for admin interface with HTTP Basic Auth.

@@ -14,7 +14,7 @@ holds a generic stub; the private wrapper supplies the rest via
 ~extendModules~.
 
 ~nix-config~ exposes a helper, ~lib.mkPrivateWrapper~, which handles the
-wiring — every wrapper needs the same plumbing and there's no good reason
+wiring -- every wrapper needs the same plumbing and there's no good reason
 each one should re-implement it.  See [[file:../lib/private-wrapper.nix]] for
 the implementation.
 
@@ -47,7 +47,7 @@ A private wrapper's ~flake.nix~ is essentially a one-liner.  Declare
 The helper returns ~nix-config~'s outputs unchanged except for
 ~darwinConfigurations~ and ~nixosConfigurations~, which get the wrapper's
 host extensions merged in.  ~devShells~, ~packages~, ~agenix-rekey~,
-etc., flow through untouched — so ~nix flake check~, ~darwin-rebuild~,
+etc., flow through untouched -- so ~nix flake check~, ~darwin-rebuild~,
 ~nix develop~, all the usual commands keep working from the private
 checkout.
 
@@ -55,7 +55,7 @@ checkout.
 
 For every host you want to extend, drop ~./hosts/<hostname>.nix~ in the
 wrapper.  The filename's stem (everything before ~.nix~) must match a host
-that's already declared in ~nix-config~ — in either
+that's already declared in ~nix-config~ -- in either
 ~darwinConfigurations~ or ~nixosConfigurations~.  Any unmatched filename
 throws at evaluation time; silent drops are too easy to miss after a
 rename or typo.
@@ -108,7 +108,7 @@ The helper preserves the same ~specialArgs~ that public's ~darwin-host~ /
 | ~config~       | the host's evaluated config                                |
 
 Home-manager modules in the same extension receive the same set via
-~extraSpecialArgs~ — the helper re-derives that internally because
+~extraSpecialArgs~ -- the helper re-derives that internally because
 public's host-host functions capture ~flake-inputs~ at let-binding time
 and ~extendModules~'s ~specialArgs~ override would not otherwise reach
 home-manager.  Practically: ~flake-inputs.nix-config~ is available
@@ -142,7 +142,7 @@ import or read files from the public tree:
 #+end_src
 
 The flake input is realised as a store path, so interpolation with
-~${flake-inputs.nix-config}~ resolves to ~/nix/store/<hash>-source~ —
+~${flake-inputs.nix-config}~ resolves to ~/nix/store/<hash>-source~ --
 everything in the public tree is reachable from there.
 
 * Where the public host file goes
@@ -163,4 +163,4 @@ readers know where to find the rest.
 3. In the wrapper, add ~hosts/<hostname>.nix~ with the private extension.
 4. ~nix flake update nix-config~ in the wrapper, then deploy from there.
 
-That's it — no flake.nix edits in the wrapper, no plumbing per host.
+That's it -- no flake.nix edits in the wrapper, no plumbing per host.

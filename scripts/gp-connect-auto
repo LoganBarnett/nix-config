@@ -130,7 +130,7 @@ echo ""
 # mode through this flow.
 #
 # When GP_GATEWAY is empty we fall back to the legacy portal flow that
-# wraps gpclient in a PTY and drives the prompts inline — kept in case any
+# wraps gpclient in a PTY and drives the prompts inline -- kept in case any
 # portal still routes correctly.
 USE_AS_GATEWAY=false
 if [ -n "$GP_GATEWAY" ]; then
@@ -255,7 +255,7 @@ if [ "$USE_AS_GATEWAY" = true ]; then
   set -e
 
   if [ "$COOKIE_EXIT" -ne 0 ]; then
-    echo "gp-auth-cookie failed (exit $COOKIE_EXIT) — gpclient exit was $GPCLIENT_EXIT"
+    echo "gp-auth-cookie failed (exit $COOKIE_EXIT) -- gpclient exit was $GPCLIENT_EXIT"
     # Surface the cookie-capture failure rather than gpclient's
     # downstream-broken-pipe exit so the log makes the root cause obvious.
     GPCLIENT_EXIT=$COOKIE_EXIT

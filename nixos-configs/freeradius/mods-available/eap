@@ -26,13 +26,13 @@ eap {
 		fragment_size    = 1024
 	}
 
-	# EAP-TLS (client certificates) — reserved for the per-device IoT tier we
+	# EAP-TLS (client certificates) -- reserved for the per-device IoT tier we
 	# will add later.  Defined so the type exists; nothing selects it yet.
 	tls {
 		tls = tls-common
 	}
 
-	# EAP-TTLS — the password tier.  The inner PAP exchange is delegated to the
+	# EAP-TTLS -- the password tier.  The inner PAP exchange is delegated to the
 	# inner-tunnel virtual server, which verifies the password by binding to
 	# LDAP as the user.
 	ttls {

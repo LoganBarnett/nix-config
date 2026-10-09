@@ -39,18 +39,18 @@ surfaced during this debugging is written up in
 ** Root cause (working theory)
 
 CEC is a *single shared bus* across all the TV's HDMI ports.  When one device
-faults — the Roku was simultaneously throwing HDCP errors — it appears to wedge
-the bus so the TV cannot complete physical-address / device-name registration
-for *any* device, and it falls back to generic port labels.  The TV only
-forwards remote keys to a *registered, active-source* device, so with
+faults -- the Roku was simultaneously throwing HDCP errors -- it appears to
+wedge the bus so the TV cannot complete physical-address / device-name
+registration for *any* device, and it falls back to generic port labels.  The
+TV only forwards remote keys to a *registered, active-source* device, so with
 registration broken, no device gets the remote.
 
 This is why the symptom hits *every* device at once (both Roku and Kodi), not
-just Kodi — the common element is the bus, not any one source.
+just Kodi -- the common element is the bus, not any one source.
 
 ** Known-good fix
 
-1. Power-cycle / reboot the *faulted* device — the one showing the HDCP error
+1. Power-cycle / reboot the *faulted* device -- the one showing the HDCP error
    (the Roku), not Kodi.
 2. Disconnect *all* source devices from the TV.
 3. Reconnect them *one at a time*, letting each re-handshake.  Expect to press
@@ -67,8 +67,8 @@ the thing that fixed it.
 ** Possible shortcut (unverified)
 
 It is plausible that simply rebooting the faulted device, or re-handshaking only
-=krypton= (unplug/replug its HDMI and press power twice), is enough — the active
-ingredient seems to be clearing the faulted device and re-running the bus
+=krypton= (unplug/replug its HDMI and press power twice), is enough -- the
+active ingredient seems to be clearing the faulted device and re-running the bus
 handshake.  Only the full disconnect-all / reconnect-one-after-reboot procedure
 above is *confirmed* to work; treat the shortcuts as worth-a-try, not proven.
 
@@ -127,7 +127,7 @@ setting; restart Kodi to capture a fresh CEC init):
 curl -s -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","method":"Settings.SetSettingValue","params":{"setting":"debug.showloginfo","value":true},"id":1}' \
   http://localhost:18080/jsonrpc
-# disable (value:false) when done — it is noisy
+# disable (value:false) when done -- it is noisy
 #+end_src
 
 The port is =services.kodi-standalone.webserverPort=.  The module itself
@@ -151,7 +151,7 @@ first (Kodi holds the port whenever it is running).
 sudo -u kodi XDG_RUNTIME_DIR=/run/user/1001 systemctl --user stop kodi.service
 #+end_src
 
-*** Scan the bus — who is on it, and at what address
+*** Scan the bus -- who is on it, and at what address
 
 #+begin_src sh
 echo scan | sudo cec-client -s -d 8 /dev/ttyACM0
@@ -181,10 +181,10 @@ adapter knows its port and can announce itself correctly.
   device; =-p 3= = HDMI port 3.
 - While it runs, press TV-remote buttons and watch for incoming
   =>> ..:44= frames (CEC opcode 0x44 = User Control Pressed).
-- Frames arrive ⇒ the TV *is* forwarding keys.  Zero frames ⇒ the TV is *not*
-  forwarding — an active-source / registration / TV-side problem, not Kodi.
+- Frames arrive => the TV *is* forwarding keys.  Zero frames => the TV is *not*
+  forwarding -- an active-source / registration / TV-side problem, not Kodi.
 
-*** Restart Kodi — ALWAYS do this afterward
+*** Restart Kodi -- ALWAYS do this afterward
 
 #+begin_src sh
 sudo -u kodi XDG_RUNTIME_DIR=/run/user/1001 systemctl --user start kodi.service
@@ -192,14 +192,14 @@ sudo -u kodi XDG_RUNTIME_DIR=/run/user/1001 systemctl --user start kodi.service
 
 ** Gotchas
 
-- *Permission denied* opening =/dev/ttyACM0= from cec-client ⇒ you forgot
+- *Permission denied* opening =/dev/ttyACM0= from cec-client => you forgot
   =sudo= (or the running user is not in =dialout=).  Not an adapter fault.
 - A *stray cec-client* can keep holding the port after a session and block Kodi
   from reopening it.  Kill it with the *exact-name* matcher:
   #+begin_src sh
   sudo pkill -x cec-client     # -x = exact process name
   #+end_src
-  Never =pkill -f cec-client= over SSH — =-f= matches the full command line,
+  Never =pkill -f cec-client= over SSH -- =-f= matches the full command line,
   which includes your *own* ssh invocation, and kills your session.
 - If stopping Kodi leaves the unit *failed*:
   #+begin_src sh
@@ -211,14 +211,14 @@ sudo -u kodi XDG_RUNTIME_DIR=/run/user/1001 systemctl --user start kodi.service
   =>> X.:83= = give physical address; =..:44= = User Control Pressed.
 - *Device type* can matter: =-t r= = Recording (libCEC default), =-t p= =
   Playback.  Some TVs only forward keys to one type.  On this TV neither type
-  helped — the real fault was the wedged bus (see the symptom section above),
+  helped -- the real fault was the wedged bus (see the symptom section above),
   not the device type.
 
 * Reference: setup facts
 
 - Host: =krypton= (Mac Mini 7,1), NixOS, Kodi standalone, living-room Philips
   Android TV.
-- CEC adapter: Pulse-Eight USB-CEC, =2548:1002=, firmware v12 → =/dev/ttyACM0=,
+- CEC adapter: Pulse-Eight USB-CEC, =2548:1002=, firmware v12 -> =/dev/ttyACM0=,
   TV HDMI port 3, physical address 3.0.0.0.
 - libCEC 7.1.1 (system =cec-client= and Kodi-bundled =peripheral.cec= match);
   Kodi 21.3 (Omega).

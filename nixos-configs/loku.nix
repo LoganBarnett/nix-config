@@ -11,7 +11,7 @@
   services.loku-server = {
     enable = true;
     # Attribute names become URL segments (/browse/<name>), and the first in
-    # lexicographic order is the default landing library — "downloads" sorts
+    # lexicographic order is the default landing library -- "downloads" sorts
     # before "movies", keeping the yt-dlp tree as the landing page.
     libraries = {
       downloads = {
@@ -27,9 +27,9 @@
 
   # Compat copies are derived and reproducible from the masters, and for
   # Blu-rays they are near master-size (the video stream is remuxed, not
-  # re-encoded) — backing them up would roughly double the disc library's backup
-  # footprint for zero recovery value.  Thumbnails stay backed up: they are
-  # small, and restoring them avoids a regeneration pass.
+  # re-encoded) -- backing them up would roughly double the disc library's
+  # backup footprint for zero recovery value.  Thumbnails stay backed up: they
+  # are small, and restoring them avoids a regeneration pass.
   services.restic.backups.nfsProvider.exclude = [ "*.compat.mp4" ];
 
   services.https.fqdns."loku.${facts.network.domain}" = {

@@ -113,7 +113,7 @@ in
         {
           # Linux and darwin node exporters name memory metrics differently, so
           # union both forms; each host emits exactly one of them.  Darwin has
-          # no MemAvailable analogue — free + inactive + purgeable is the
+          # no MemAvailable analogue -- free + inactive + purgeable is the
           # closest equivalent of reclaimable memory.
           expr = without-socket-port ''
             (

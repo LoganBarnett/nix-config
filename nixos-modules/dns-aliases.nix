@@ -2,7 +2,7 @@
 {
   # networking.dns is already defined as `list of string` (DNS server
   # addresses) by the nix-darwin networking module, so a nested
-  # networking.dns.aliases sub-option is not possible — the module system
+  # networking.dns.aliases sub-option is not possible -- the module system
   # requires the parent to be an attrset option.  We use flat camelCase
   # instead.
   options.networking.dnsAliases = lib.mkOption {

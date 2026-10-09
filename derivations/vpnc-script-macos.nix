@@ -6,7 +6,7 @@
 # break under the default errexit/nounset/pipefail.
 #
 # The script reads its JSON config path from $GP_AUTO_CONFIG, which is
-# exported by gp-connect-auto (and inherited through gpclient) — see
+# exported by gp-connect-auto (and inherited through gpclient) -- see
 # services.globalprotect-monitor in darwin-modules/global-protect-
 # persistent.nix.
 {

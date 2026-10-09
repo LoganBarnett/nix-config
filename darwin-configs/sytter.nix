@@ -32,7 +32,7 @@ in
   # vpn-reconcile on PATH so it can be run by hand.
   environment.systemPackages = [ vpn-reconcile ];
   # Scoped passwordless privilege; sytter's user agent runs as `logan`.  The
-  # rule blesses the exact store path — see docs/nix-sudo-store-paths.org for
+  # rule blesses the exact store path -- see docs/nix-sudo-store-paths.org for
   # why store paths over the /run/current-system/sw/bin symlink.
   security.sudo.extraConfig = ''
     logan ALL=(root) NOPASSWD: ${vpn-reconcile}/bin/vpn-reconcile

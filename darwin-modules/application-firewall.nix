@@ -4,7 +4,7 @@
 # implements `--setblockall off` as "set global state to 1".  Upstream
 # emits setglobalstate first and setblockall second, so a configuration
 # that declares the firewall off while also managing blockAllIncoming has
-# its "off" clobbered milliseconds later — every activation force-enables
+# its "off" clobbered milliseconds later -- every activation force-enables
 # the firewall.  Verified in the unified log: two consecutive
 # socketfilterfw PIDs write GlobalState = 0 then GlobalState = 1, 24ms
 # apart, during darwin-rebuild activation.
@@ -50,14 +50,16 @@ in
       type = lib.types.nullOr lib.types.bool;
       default = null;
       example = true;
-      description = "Whether to allow built-in software to receive incoming connections.";
+      description =
+        "Whether to allow built-in software to receive incoming connections.";
     };
 
     allowSignedApp = lib.mkOption {
       type = lib.types.nullOr lib.types.bool;
       default = null;
       example = true;
-      description = "Whether to allow downloaded signed software to receive incoming connections.";
+      description =
+        "Whether to allow downloaded signed software to receive incoming connections.";
     };
 
     enableStealthMode = lib.mkOption {
@@ -75,9 +77,9 @@ in
       ${lib.optionalString (cfg.enable != null) (
         socketfilterfw "setglobalstate" cfg.enable
       )}
-      ${lib.optionalString (cfg.blockAllIncoming != null && cfg.enable != false) (
-        socketfilterfw "setblockall" cfg.blockAllIncoming
-      )}
+      ${lib.optionalString (
+        cfg.blockAllIncoming != null && cfg.enable != false
+      ) (socketfilterfw "setblockall" cfg.blockAllIncoming)}
       ${lib.optionalString (cfg.allowSigned != null) (
         socketfilterfw "setallowsigned" cfg.allowSigned
       )}

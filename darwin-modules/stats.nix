@@ -1,5 +1,5 @@
 ################################################################################
-# programs.stats (macOS) — Stats (exelban/stats), the menu bar system monitor,
+# programs.stats (macOS) -- Stats (exelban/stats), the menu bar system monitor,
 # with its preferences declared as typed options.
 #
 # Stats keeps its settings in the eu.exelban.Stats defaults domain, so the
@@ -52,7 +52,9 @@ let
     mkOption {
       type = types.nullOr type;
       default = null;
-      description = "${description}  Stats' own default is ${statsDefault}; null leaves the preference unwritten.";
+      description = "${description}  Stats' own default is ${
+        statsDefault
+      }; null leaves the preference unwritten.";
     };
 
   # Stats' SColor keys minus the two separator placeholders it uses in its
@@ -117,7 +119,9 @@ let
       box = opt types.bool "true" "Draw the chart inside a box.";
       frame = opt types.bool "false" "Draw a frame around the chart.";
       color = opt colorType "\"system\"" "Chart colour.";
-      historyCount = opt historyCountType "60" "Number of reads kept in the chart.";
+      historyCount =
+        opt historyCountType "60"
+          "Number of reads kept in the chart.";
       label = opt types.bool "false" "Show the module label beside the chart.";
       scale = opt (types.enum [
         "none"
@@ -142,7 +146,9 @@ let
     };
     networkChart = {
       frame = opt types.bool "false" "Draw a frame around the chart.";
-      historyCount = opt historyCountType "60" "Number of reads kept in the chart.";
+      historyCount =
+        opt historyCountType "60"
+          "Number of reads kept in the chart.";
     };
     speed = {
       icon = opt (types.enum [
@@ -194,7 +200,7 @@ let
     };
   };
 
-  # Widget raw value → Swift enum case name, as used by the ordering keys.
+  # Widget raw value -> Swift enum case name, as used by the ordering keys.
   widgetCase = {
     label = "label";
     mini = "mini";
@@ -212,7 +218,7 @@ let
     text = "text";
   };
 
-  # Cosmetic set → widget raw value used in its setting keys.
+  # Cosmetic set -> widget raw value used in its setting keys.
   widgetRaw = {
     lineChart = "line_chart";
     barChart = "bar_chart";
@@ -424,10 +430,14 @@ let
           "Whether the ${spec.name} module is active.";
       widgets =
         opt (types.listOf (types.enum spec.widgets)) "per module"
-          "Widgets shown in the menu bar for ${spec.name}.  An empty list shows none.";
+          "Widgets shown in the menu bar for ${
+            spec.name
+          }.  An empty list shows none.";
       widgetOrder =
         opt (types.listOf (types.enum spec.widgets)) "unordered"
-          "Left-to-right order of ${spec.name}'s widgets in the menu bar; list every widget the module offers.";
+          "Left-to-right order of ${
+            spec.name
+          }'s widgets in the menu bar; list every widget the module offers.";
       oneView =
         opt types.bool "false"
           "Merge ${spec.name}'s widgets into one menu bar item.";
@@ -521,11 +531,13 @@ let
         };
         format = mkOption {
           type = types.str;
-          description = "DateFormatter pattern for the clock text, such as \"HH:mm\".";
+          description =
+            "DateFormatter pattern for the clock text, such as \"HH:mm\".";
         };
         tz = mkOption {
           type = types.str;
-          description = "Time zone: \"local\", a zone identifier such as \"Europe/Kyiv\", or a UTC offset such as \"0\" or \"-4:30\".";
+          description =
+            "Time zone: \"local\", a zone identifier such as \"Europe/Kyiv\", or a UTC offset such as \"0\" or \"-4:30\".";
         };
         calendar = mkOption {
           type = types.str;
@@ -535,7 +547,8 @@ let
         id = mkOption {
           type = types.str;
           default = clockId config.name;
-          description = "Identifier Stats uses to track the clock across edits.  Derived from the name unless set; keep the existing id when adopting a clock that was created in the UI.";
+          description =
+            "Identifier Stats uses to track the clock across edits.  Derived from the name unless set; keep the existing id when adopting a clock that was created in the UI.";
         };
       };
     }
@@ -568,7 +581,9 @@ let
   # counterpart, hence the absolute paths.
   asUser =
     cmd:
-    ''/bin/launchctl asuser "$(${pkgs.coreutils}/bin/id --user -- ${escapeShellArg user})" /usr/bin/sudo --user=${escapeShellArg user} -- ${cmd}'';
+    ''/bin/launchctl asuser "$(${pkgs.coreutils}/bin/id --user -- ${
+      escapeShellArg user
+    })" /usr/bin/sudo --user=${escapeShellArg user} -- ${cmd}'';
 in
 {
   options.programs.stats = {
@@ -642,10 +657,16 @@ in
         # -data` takes as a hex string.
         stats_clocks_hex=$(
           printf '%s' ${escapeShellArg clocksJson} \
-            | ${pkgs.coreutils}/bin/od --address-radix=n --format=x1 --output-duplicates \
+            | ${
+              pkgs.coreutils
+            }/bin/od --address-radix=n --format=x1 --output-duplicates \
             | ${pkgs.coreutils}/bin/tr --delete ' \n'
         )
-        ${asUser ''/usr/bin/defaults write ${domain} Clock_list -data "$stats_clocks_hex"''}
+        ${asUser
+          ''/usr/bin/defaults write ${
+            domain
+          } Clock_list -data "$stats_clocks_hex"''
+        }
       ''}
       ${optionalString cfg.restartOnChange ''
         # A missing marker (first activation) also makes cmp exit non-zero,
@@ -663,7 +684,10 @@ in
             echo "Relaunching Stats to pick up its new preferences..." >&2
             # osascript -e: run the script text given as the argument (no long
             # form exists).
-            ${asUser "/usr/bin/osascript -e 'tell application \"Stats\" to quit'"} || true
+            ${
+              asUser
+                "/usr/bin/osascript -e 'tell application \"Stats\" to quit'"
+            } || true
             # Quit is asynchronous; wait for the process to go away before
             # relaunching so the relaunch is not swallowed by the shutdown.
             for _ in $(${pkgs.coreutils}/bin/seq 1 10); do

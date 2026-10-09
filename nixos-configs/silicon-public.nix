@@ -3,7 +3,7 @@
 #
 # Private services (*.proton) listen on 192.168.254.9, which the router never
 # forwards externally.  Public services (future real TLDs) will listen on
-# 192.168.254.100, which the router port-forwards TCP 443 → .100.
+# 192.168.254.100, which the router port-forwards TCP 443 -> .100.
 #
 # The nftables rule below provides defense-in-depth: even if the router is
 # misconfigured to forward traffic to .9, non-RFC-1918 source addresses are
@@ -40,7 +40,7 @@
     };
   };
 
-  # UPnP port-forwarding is disabled — the router's UPnP service has been
+  # UPnP port-forwarding is disabled -- the router's UPnP service has been
   # unreliable and the mapping can be configured statically on the router
   # instead.
   # services.upnp-portforward = {

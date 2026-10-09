@@ -247,7 +247,7 @@ in
   # Rename the Intel quad NIC port cabled to the provisioning switch.
   #
   # Kernel names like enp4s0f0 encode PCI bus/slot topology, so they are stable
-  # only while the card stays in the slot it is in — reseat it, or move it from
+  # only while the card stays in the slot it is in -- reseat it, or move it from
   # the x4 to the x16, and the bus number changes and every name with it.  The
   # MAC is stamped on the card and does not move, so match on that instead and
   # give the port a name that says what it is for.
@@ -260,7 +260,7 @@ in
   #   00:15:17:74:2f:d0     00:15:17:74:2f:d2
   #   00:15:17:74:2f:d1     00:15:17:74:2f:d3
   #
-  # To re-identify, `ip link set <iface> up` on all four first — carrier reads
+  # To re-identify, `ip link set <iface> up` on all four first -- carrier reads
   # EINVAL on an admin-down interface, which looks exactly like a dead cable
   # and will send you chasing the wrong thing.
   systemd.network.links."10-provision0" = {
@@ -275,7 +275,7 @@ in
   # release's published sha256sums; the u-boot ones are from the
   # openwrt-cryptid README.  That repo is pinned to a branch rather than a
   # commit, so a force-push upstream would trip the checksum and fail the fetch
-  # loudly — which is the intended behaviour, not a gap.
+  # loudly -- which is the intended behaviour, not a gap.
   services.meraki-provisioning = {
     enable = true;
     interface = "provision0";
@@ -297,8 +297,8 @@ in
       };
       # Deliberately clayface's build rather than a current OpenWrt release,
       # and this is load-bearing.  The 25.12.5 initramfs transferred completely
-      # and was ACKed block for block — silicon's counters showed the full
-      # 11125524 bytes out with a matching ACK count — and then simply never
+      # and was ACKed block for block -- silicon's counters showed the full
+      # 11125524 bytes out with a matching ACK count -- and then simply never
       # booted.  u-boot's `bootbk` is a vendor command with a fixed load
       # address and a FIT layout expectation, and a 2026-built image is
       # evidently not what it wants.  The device fell through to
@@ -309,7 +309,7 @@ in
       # against, and the repo already publishes it under exactly the
       # unversioned name u-boot's `fit_uimage_initramfs` asks for.
       #
-      # The initramfs is only a vehicle to reach a shell — the release that
+      # The initramfs is only a vehicle to reach a shell -- the release that
       # ends up installed comes from the sysupgrade image below, so the two
       # deliberately do not match.
       "openwrt-ipq806x-generic-meraki_mr42-initramfs-fit-uImage.itb" = {
@@ -434,7 +434,7 @@ in
     group = "root";
   };
 
-  # Terminal kiosk on tty1 — shows btop on a dedicated monitor.
+  # Terminal kiosk on tty1 -- shows btop on a dedicated monitor.
   services.terminal-kiosk = {
     enable = true;
     programs = [

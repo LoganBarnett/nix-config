@@ -231,8 +231,8 @@ def authenticate(auth_url, username, password, totp_code):
 
             # Wait for callback to complete
             log("Waiting for authentication callback to complete...")
-            # After TOTP, Okta may interrupt with an interstitial — e.g. the
-            # "password expiring soon" warning at /signin/password-expired —
+            # After TOTP, Okta may interrupt with an interstitial -- e.g. the
+            # "password expiring soon" warning at /signin/password-expired --
             # that has no callback URL.  When present, that page exposes a
             # deferral control marked with data-se="skip-link" regardless of
             # rendered label.  The post-TOTP navigation to that page can take
@@ -295,7 +295,7 @@ def authenticate(auth_url, username, password, totp_code):
                         continue
                     elif 'password-expired' in current_url and not dumped_expired:
                         # On the right page but the attribute selector matched
-                        # nothing anywhere — dump page state once so we can
+                        # nothing anywhere -- dump page state once so we can
                         # diagnose offline.
                         try:
                             page.screenshot(path="/tmp/gp-auth-expired-full.png", full_page=True)

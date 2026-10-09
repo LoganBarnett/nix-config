@@ -7,7 +7,7 @@
 #
 #  - services.goss.prometheusContentTypeFixProxy: optional nginx reverse proxy
 #    that rewrites the Content-Type header from the non-standard value goss
-#    ≤ 0.4.9 emits ("application/vnd.goss-prometheus") to the value Prometheus
+#    <= 0.4.9 emits ("application/vnd.goss-prometheus") to the value Prometheus
 #    3.x requires ("text/plain; version=0.0.4").  Enable this until nixpkgs
 #    carries a goss release that includes the fix from
 #    https://github.com/goss-org/goss/pull/1022.
@@ -63,7 +63,7 @@ in
     prometheusContentTypeFixProxy = {
       enable = mkEnableOption ''
         nginx reverse proxy that rewrites the Content-Type header emitted by
-        goss ≤ 0.4.9 to the value Prometheus 3.x requires.  Goss binds to
+        goss <= 0.4.9 to the value Prometheus 3.x requires.  Goss binds to
         port + 1 internally; nginx listens on port and rewrites the header on
         /healthz responses
       '';

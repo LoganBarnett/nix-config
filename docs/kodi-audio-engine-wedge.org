@@ -3,7 +3,7 @@
 
 * Symptom
 
-Video plays, Kodi is responsive, the systemd unit is =active (running)= — and
+Video plays, Kodi is responsive, the systemd unit is =active (running)= -- and
 there is no sound.  Restarting Kodi fixes it, and it comes back days later.
 
 Everything you would normally suspect looks healthy, which is what makes this
@@ -42,7 +42,7 @@ is wedged *right now*.
 
 A chain, ending in a deadlock:
 
-1. The Philips TV drops the HDMI link periodically — roughly hourly while idle,
+1. The Philips TV drops the HDMI link periodically -- roughly hourly while idle,
    and again whenever it is powered off or switched to another input.  Xorg
    re-reads the EDID and fires =RRScreenChangeNotify=.  =/var/log/X.0.log=
    grows to several MB of nothing but repeated EDID modeline dumps.
@@ -79,7 +79,7 @@ Note =systemctl --user --machine=kodi@= does *not* work from an SSH session
 denied").  Set =XDG_RUNTIME_DIR= explicitly instead, as above.  The kodi user
 is uid 1001.
 
-Before restarting, preserve the evidence — Kodi rotates =kodi.log= to
+Before restarting, preserve the evidence -- Kodi rotates =kodi.log= to
 =kodi.old.log= on startup, so a restart plus any later restart loses it:
 
 #+begin_src sh
@@ -108,8 +108,8 @@ event.
 Both params are needed.  Forcing the connector on *without* a firmware EDID is
 arguably worse than leaving it alone: with the TV off the EDID read fails, the
 probe finds no modes, and the helper falls back to =drm_add_modes_noedid()='s
-≤1024x768 list — so Kodi sees the mode list churn instead of a disconnect.  The
-blob in =hardware/edid/krypton-philips-ftv.bin= was read straight off the
+<=1024x768 list -- so Kodi sees the mode list churn instead of a disconnect.
+The blob in =hardware/edid/krypton-philips-ftv.bin= was read straight off the
 connector while the TV was on:
 
 #+begin_src sh
@@ -118,7 +118,7 @@ sudo cat /sys/class/drm/card1-HDMI-A-2/edid > krypton-philips-ftv.bin
 
 i915 is loaded from the initrd on krypton, so its first probe may run before
 the firmware is reachable and fall back to reading the real EDID off the wire.
-That is harmless — =request_firmware= is retried on later probes and X does not
+That is harmless -- =request_firmware= is retried on later probes and X does not
 start until stage 2.  Verify after a reboot with
 =journalctl --boot | grep --ignore-case edid=.
 
@@ -148,7 +148,7 @@ release/reacquire cycle left to deadlock.
 
 It also sets =snd_hda_intel power_save=0=.  The default of 10 powers the HDMI
 codec down ten seconds after the sink goes idle, and on Haswell the codec's
-resume path is coupled to i915 display power through the audio component —
+resume path is coupled to i915 display power through the audio component --
 "codec suspended" and "display link just dropped" is a bad pair of states to be
 in simultaneously.
 
@@ -156,7 +156,7 @@ in simultaneously.
 home-manager file.  =services.kodi-standalone.guiSettings= drives the same
 values through JSON-RPC =Settings.SetSettingValue= at startup instead, and Kodi
 persists them normally.  Enum-valued settings take the integer the setting
-definition assigns, not the label — query a running instance rather than
+definition assigns, not the label -- query a running instance rather than
 guessing:
 
 #+begin_src sh
@@ -177,21 +177,21 @@ Three mechanisms, and picking the wrong one fails silently:
 - *advancedsettings.xml* (=advancedSettings=) is read at startup.  Beyond the
   keys =AdvancedSettings.cpp= parses by hand, it ends with
   =CSettings::LoadHidden(pRootElement)=, which applies =<section><key>= pairs
-  generically against real setting ids — so =<services><webserverport>= sets
+  generically against real setting ids -- so =<services><webserverport>= sets
   =services.webserverport=.  Only *real* setting ids work: an invented one is
   silently dropped, which is exactly how a =<audio><volumeamplification>= entry
   sat here for ages doing nothing.
 - *guisettings.xml* (=guiSettings=) is rewritten by Kodi, so it is driven over
   JSON-RPC after startup.
-- Anything needed *before* the web server binds — the web server's own port,
-  most obviously — must go in advancedsettings.xml.  guiSettings cannot set it:
+- Anything needed *before* the web server binds -- the web server's own port,
+  most obviously -- must go in advancedsettings.xml.  guiSettings cannot set it:
   reaching the setting that decides the port requires already knowing the port.
 
 ** Not blanking the TV on restart
 
 Kodi's CEC defaults treat "Kodi is exiting" as "the viewer is done for the
-night".  With =Restart=always= on the unit — and with an operator restarting it
-to clear this very fault — that means every restart powers the TV off.
+night".  With =Restart=always= on the unit -- and with an operator restarting it
+to clear this very fault -- that means every restart powers the TV off.
 =nixos-configs/cec-adapter.nix= now sets =standby_devices= to =231= ("None"),
 =send_inactive_source= to =0=, and =standby_pc_on_tv_standby= to =36028=
 ("Ignore", replacing a default of =13011=, "Suspend", which would have

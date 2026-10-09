@@ -6,8 +6,8 @@
 Two scripts live in ~scripts/~ for diagnosing and repairing stuck Nix store
 build locks:
 
-- ~nix-store-diagnose~ — pure diagnostic; safe to run at any time.
-- ~nix-store-dislodge~ — action layer; delegates detection to
+- ~nix-store-diagnose~ -- pure diagnostic; safe to run at any time.
+- ~nix-store-dislodge~ -- action layer; delegates detection to
   ~nix-store-diagnose~ and terminates lock holders on request.
 
 Both scripts require root.
@@ -18,8 +18,8 @@ Both scripts require root.
 
 Nix uses filesystem immutability as a correctness guarantee: once a store path
 is built, nothing except the garbage collector should ever change its contents.
-The ~ro~ bind mount enforces this for every process on the host — including
-those running as root — without requiring them to know anything about Nix.
+The ~ro~ bind mount enforces this for every process on the host -- including
+those running as root -- without requiring them to know anything about Nix.
 
 Making the store writable, even temporarily, breaks this guarantee.  Any root
 process can then silently overwrite or corrupt store paths.  The damage may not
@@ -62,7 +62,7 @@ The script exits 1 if any ~[held]~ lock is found.
 ** Dislodging stuck locks
 
 #+begin_src sh :exports code
-# Dry run — shows what would be killed without taking action.
+# Dry run -- shows what would be killed without taking action.
 sudo nix-store-dislodge
 
 # Kill all lock holders and stuck builder processes.
@@ -88,7 +88,7 @@ between the ~nix-store-diagnose~ scan and the kill are skipped automatically.
 On Linux, ~/proc/locks~ is the authoritative source for which process holds an
 exclusive BSD flock.  The script cross-references the inode of each ~*.lock~
 file against ~/proc/locks~ entries of type ~FLOCK WRITE~.  This approach is
-correct even when ~/nix/store~ is mounted read-only — the older ~flock -n~
+correct even when ~/nix/store~ is mounted read-only -- the older ~flock -n~
 test-and-release technique silently fails on read-only mounts, producing false
 positives.
 
@@ -102,7 +102,7 @@ may still be running even after their lock files have been removed.
 
 This catches the common scenario where a client-side deploy is cancelled
 (~Ctrl-C~ on ~proton-deploy switch~) but the daemon-side build worker continues
-running and holding — or having already released — its flocks.
+running and holding -- or having already released -- its flocks.
 
 * Monitoring
 

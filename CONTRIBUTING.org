@@ -6,14 +6,14 @@
 #+file_tags:
 #+tags:
 
-Conventions for adding to this repository.  Keep this short — link out
+Conventions for adding to this repository.  Keep this short -- link out
 to the specific doc or section that explains a topic in depth.
 
 * Documentation discoverability
 
 Every document in this repository must be reachable by following links
-from ~README.org~.  Transitively is fine: ~README.org~ → some focused
-doc → a deeper reference is a valid trail.  What is /not/ acceptable is
+from ~README.org~.  Transitively is fine: ~README.org~ -> some focused
+doc -> a deeper reference is a valid trail.  What is /not/ acceptable is
 an orphan doc that exists on disk but nothing points to it.
 
 The reason is operational: when something breaks at 2am, the person
@@ -23,15 +23,15 @@ no one links to don't exist.
 
 ** Where new docs go
 
-- *Focused operational/runbook content* — one topic per file, narrow
+- *Focused operational/runbook content* -- one topic per file, narrow
   scope (a single failure mode, a single service quirk).  Put these in
   ~docs/~.  Existing examples: ~docs/dns-dhcp.org~,
   ~docs/notifications.org~, ~docs/cellular-tether-clat.org~.
 - *Cross-cutting reference material* (architecture overviews, policy,
-  meta-conventions) — root of the repo as a ~.org~ file alongside
+  meta-conventions) -- root of the repo as a ~.org~ file alongside
   ~README.org~.  Examples: ~troubleshooting-methods.org~,
   ~secrets.org~, ~security.org~.
-- *Diagrams and assets* — ~docs/~.
+- *Diagrams and assets* -- ~docs/~.
 
 When in doubt, prefer ~docs/~ over the root.
 
@@ -74,4 +74,4 @@ doesn't exist.
    ~/run/current-system/sw/bin~ symlink.  See [[file:docs/nix-sudo-store-paths.org][docs/nix-sudo-store-paths.org]].
 4. Rapid package updaters are used to provide packages whose versions are
    updating far more rapidly than ~nixpkgs~ (et. al.) releases.  See [[file:README.org::*Rapid Package Updates][README.org
-   → Rapid Package Updates]].
+   -> Rapid Package Updates]].

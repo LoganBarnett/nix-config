@@ -4,9 +4,9 @@
 # Three separate federation identities, each with its own PostgreSQL database,
 # Redis server, and set of systemd units:
 #
-#   proton    — mastodon.proton       (private, internal CA)
-#   logustus  — mastodon.logustus.com (public, ACME)
-#   meshward  — mastodon.meshward.com (public, ACME)
+#   proton    -- mastodon.proton       (private, internal CA)
+#   logustus  -- mastodon.logustus.com (public, ACME)
+#   meshward  -- mastodon.meshward.com (public, ACME)
 #
 # All three use Authelia on authelia.proton as their OIDC provider.
 # OMNIAUTH_ONLY disables password login; accounts are auto-provisioned on first
@@ -36,7 +36,8 @@ let
     OIDC_SCOPE = "openid,profile,email";
     OIDC_UID_FIELD = "preferred_username";
     OIDC_CLIENT_ID = clientId;
-    OIDC_REDIRECT_URI = "https://${redirectFqdn}/auth/auth/openid_connect/callback";
+    OIDC_REDIRECT_URI =
+      "https://${redirectFqdn}/auth/auth/openid_connect/callback";
     OIDC_SECURITY_ASSUME_EMAIL_IS_VERIFIED = "true";
     OMNIAUTH_ONLY = "true";
   };
@@ -48,7 +49,8 @@ let
       script = "template-file";
       dependencies = [ config.age.secrets."${serviceName}-oidc-client-secret" ];
     };
-    settings.template = "OIDC_CLIENT_SECRET=%${serviceName}-oidc-client-secret%\n";
+    settings.template =
+      "OIDC_CLIENT_SECRET=%${serviceName}-oidc-client-secret%\n";
   };
 
   # Produce an env-file agenix secret that exposes SMTP_LOGIN and SMTP_PASSWORD
@@ -59,7 +61,9 @@ let
       script = "template-file";
       dependencies = [ config.age.secrets."${serviceName}-ldap-password" ];
     };
-    settings.template = "SMTP_LOGIN=${serviceName}\nSMTP_PASSWORD=%${serviceName}-ldap-password%\n";
+    settings.template = "SMTP_LOGIN=${serviceName}\nSMTP_PASSWORD=%${
+      serviceName
+    }-ldap-password%\n";
   };
 in
 {
@@ -114,13 +118,21 @@ in
 
   # ── OIDC env-file secrets ──────────────────────────────────────────────────
   age.secrets."mastodon-proton-oidc-env" = mkOidcEnvSecret "mastodon-proton";
-  age.secrets."mastodon-logustus-oidc-env" = mkOidcEnvSecret "mastodon-logustus";
-  age.secrets."mastodon-meshward-oidc-env" = mkOidcEnvSecret "mastodon-meshward";
+  age.secrets."mastodon-logustus-oidc-env" =
+    mkOidcEnvSecret
+      "mastodon-logustus";
+  age.secrets."mastodon-meshward-oidc-env" =
+    mkOidcEnvSecret
+      "mastodon-meshward";
 
   # ── SMTP env-file secrets ───────────────────────────────────────────────────
   age.secrets."mastodon-proton-smtp-env" = mkSmtpEnvSecret "mastodon-proton";
-  age.secrets."mastodon-logustus-smtp-env" = mkSmtpEnvSecret "mastodon-logustus";
-  age.secrets."mastodon-meshward-smtp-env" = mkSmtpEnvSecret "mastodon-meshward";
+  age.secrets."mastodon-logustus-smtp-env" =
+    mkSmtpEnvSecret
+      "mastodon-logustus";
+  age.secrets."mastodon-meshward-smtp-env" =
+    mkSmtpEnvSecret
+      "mastodon-meshward";
 
   # ── Internal-CA TLS leaf for the .proton instance ─────────────────────────
   # The https module auto-generates this for FQDNs declared in
@@ -168,9 +180,11 @@ in
         port = 587;
         fromAddress = "mastodon@logustus.com";
       };
-      extraConfig = mkOidcConfig "mastodon-logustus" "mastodon.logustus.com" // {
-        SMTP_ENABLE_STARTTLS = "always";
-      };
+      extraConfig =
+        mkOidcConfig "mastodon-logustus" "mastodon.logustus.com"
+        // {
+          SMTP_ENABLE_STARTTLS = "always";
+        };
       extraEnvFiles = [
         config.age.secrets."mastodon-logustus-oidc-env".path
         config.age.secrets."mastodon-logustus-smtp-env".path
@@ -188,9 +202,11 @@ in
         port = 587;
         fromAddress = "mastodon@meshward.com";
       };
-      extraConfig = mkOidcConfig "mastodon-meshward" "mastodon.meshward.com" // {
-        SMTP_ENABLE_STARTTLS = "always";
-      };
+      extraConfig =
+        mkOidcConfig "mastodon-meshward" "mastodon.meshward.com"
+        // {
+          SMTP_ENABLE_STARTTLS = "always";
+        };
       extraEnvFiles = [
         config.age.secrets."mastodon-meshward-oidc-env".path
         config.age.secrets."mastodon-meshward-smtp-env".path

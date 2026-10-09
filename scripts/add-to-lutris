@@ -7,16 +7,16 @@ set -euo pipefail
 # to Lutris' installer GUI (`lutris --install`), with the executable, working
 # directory, shared Wine prefix, and a guessed title pre-filled.
 #
-# Invoked from a Nautilus Scripts entry (right-click a .exe ▸ Scripts ▸ Add to
-# Lutris) — Nautilus passes the selected paths via
-# $NAUTILUS_SCRIPT_SELECTED_FILE_PATHS — or directly with one or more .exe paths
-# as arguments.
+# Invoked from a Nautilus Scripts entry (right-click a .exe > Scripts > Add to
+# Lutris) -- Nautilus passes the selected paths via
+# $NAUTILUS_SCRIPT_SELECTED_FILE_PATHS -- or directly with one or more .exe
+# paths as arguments.
 #
 # Wine runtime: intentionally left unspecified in the generated script, so
 # Lutris uses its configured default runner, which on this host is
 # wineWowPackages.stagingFull (see home-configs/lutris-gaming.nix).  `lutris`
-# itself is resolved from PATH — the programs.lutris FHS-wrapped binary that
-# knows about the Nix-provided Wine runners — not a bare pkgs.lutris.
+# itself is resolved from PATH -- the programs.lutris FHS-wrapped binary that
+# knows about the Nix-provided Wine runners -- not a bare pkgs.lutris.
 ################################################################################
 
 # The single Wine prefix every auto-added game shares.  win64 (WoW64) so it can
@@ -41,7 +41,7 @@ slugify() {
 }
 
 # Guess a human title from the exe path.  Generic launcher names (game.exe,
-# launcher.exe, …) carry no signal, so fall back to the parent directory name,
+# launcher.exe, ...) carry no signal, so fall back to the parent directory name,
 # which is usually the game folder.
 guess_title() {
   local exe="$1" stem parent lc_stem
@@ -78,7 +78,7 @@ add_one() {
 
   tmp="$(mktemp --suffix=.yml "${TMPDIR:-/tmp}/add-to-lutris-${slug}.XXXXXX")"
   # Absolute paths throughout, so nothing depends on the installer's $GAMEDIR
-  # destination prompt.  No `wine:` block — Lutris falls back to the default
+  # destination prompt.  No `wine:` block -- Lutris falls back to the default
   # runner (stagingFull here).
   {
     printf 'name: "%s"\n' "$title"

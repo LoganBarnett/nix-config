@@ -5,8 +5,8 @@
 # an isolated, unrouted segment that exists only for that purpose.
 #
 # Deliberately Meraki-specific rather than a generic AP provisioning module.
-# Everything load-bearing here — the 192.168.1.250 server address, the
-# unversioned initramfs filename, the u-boot-over-TFTP sequence — comes from
+# Everything load-bearing here -- the 192.168.1.250 server address, the
+# unversioned initramfs filename, the u-boot-over-TFTP sequence -- comes from
 # the replacement u-boot that Meraki hardware gets flashed with.  Another
 # vendor's AP will not use this mechanism, and pretending otherwise would
 # invite someone to generalise a module whose constants are not general.
@@ -40,7 +40,7 @@
 # ──────────────────────
 # TFTP is mandatory: u-boot speaks nothing else, and it is what fetches
 # mr42_u-boot.mbn and the initramfs.  HTTP is a convenience for the second
-# half — once the initramfs has booted, pulling the sysupgrade image with wget
+# half -- once the initramfs has booted, pulling the sysupgrade image with wget
 # beats scp'ing it in.
 #
 # WHY PLAIN HTTP AND NOT TLS
@@ -48,12 +48,12 @@
 # TLS is actively counterproductive here, for four independent reasons:
 #
 #   1. The AP has no clock.  It boots at the epoch or at its build date, so
-#      certificate validity windows fail — the same class of failure that took
+#      certificate validity windows fail -- the same class of failure that took
 #      silicon's DNS down when its CMOS battery died.
 #   2. The AP has no resolver on this segment, so it connects by IP.  That is a
 #      name mismatch unless the certificate carries an IP SAN.
 #   3. The stock OpenWrt initramfs may lack ca-bundle and libustream-ssl, and
-#      installing them needs working network access — which is circular.
+#      installing them needs working network access -- which is circular.
 #   4. The segment is unrouted and holds exactly one device at a time.
 #
 # Integrity is enforced where it actually belongs: the fetch unit below
@@ -65,7 +65,7 @@
 # ───────────────────────────────────────────────────────────────────
 # A fetchurl in the store would make every `nixos-rebuild` on this host depend
 # on GitHub and downloads.openwrt.org being reachable.  That is an unacceptable
-# coupling for a rarely-used provisioning path — a firmware mirror outage must
+# coupling for a rarely-used provisioning path -- a firmware mirror outage must
 # never be able to block an unrelated deploy.
 #
 # So: hashes live in the Nix store, bytes live on disk.  The manifest is
@@ -133,7 +133,7 @@ let
 
       # One function called per file, rather than inlining a block per file.
       # The generated calls sit at top level, so an inlined block could not use
-      # `continue` to skip a failure — there is no enclosing loop — and under
+      # `continue` to skip a failure -- there is no enclosing loop -- and under
       # writeShellApplication's `set -e` that would abort the whole run on the
       # first bad mirror instead of trying the rest.
       fetch_one() {
@@ -188,14 +188,16 @@ let
 in
 {
   options.services.meraki-provisioning = {
-    enable = mkEnableOption "the Cisco Meraki AP provisioning network and file server";
+    enable =
+      mkEnableOption
+        "the Cisco Meraki AP provisioning network and file server";
 
     interface = mkOption {
       type = types.str;
       example = "enp4s0f0";
       description = ''
         Physical interface carrying the provisioning segment.  This must be a
-        plain untagged link — u-boot does not speak 802.1Q, so the AP's switch
+        plain untagged link -- u-boot does not speak 802.1Q, so the AP's switch
         port has to be an access port and this end cannot be a VLAN
         sub-interface.
       '';
@@ -266,7 +268,7 @@ in
     # This module makes nginx listen on a specific address that only exists
     # while a particular NIC is present.  nginx performs the bind during its
     # ExecStartPre config test, so a failed bind does not merely disable this
-    # one virtual host — it prevents nginx from starting *at all*, taking down
+    # one virtual host -- it prevents nginx from starting *at all*, taking down
     # every other site on the host with it.  That is not hypothetical; it
     # happened on the deploy that introduced this module, before the interface
     # had been renamed.
@@ -275,7 +277,7 @@ in
     # .device unit and runs Before network.target, while nginx is After it), so
     # the normal path is fine.  The exposure is hardware: pull the card, swap
     # it, or change its MAC so the .link no longer matches, and the address is
-    # never assigned — and then a provisioning module for an access point takes
+    # never assigned -- and then a provisioning module for an access point takes
     # authelia, nextcloud, gitea, and mastodon down on the next boot.
     #
     # ip_nonlocal_bind is the standard remedy (it is what HA setups use to bind
@@ -290,7 +292,7 @@ in
     ];
 
     # Deliberately not wantedBy any target.  The timer owns this, so a mirror
-    # outage cannot leave the host permanently degraded — the next run clears
+    # outage cannot leave the host permanently degraded -- the next run clears
     # it.
     systemd.services.meraki-provisioning-fetch = {
       description = "Fetch and verify access point firmware images";
@@ -324,7 +326,7 @@ in
 
     # HTTP for the sysupgrade fetch from the booted initramfs.  Declared as the
     # default server on this address rather than by name, because the AP has no
-    # resolver here and connects by IP — there is no useful Host header to
+    # resolver here and connects by IP -- there is no useful Host header to
     # match on.  autoindex is on so you can eyeball what is actually available
     # from the AP's shell before committing to a sysupgrade.
     services.nginx = {

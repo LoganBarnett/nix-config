@@ -51,7 +51,9 @@ let
   dnsflush = pkgs.dnsflush;
   get-ip = pkgs.callPackage ./derivations/get-ip.nix { };
   heic2png = pkgs.callPackage ./derivations/heic2png.nix { };
-  macos-keyboard-remap = pkgs.callPackage ./packages/macos-keyboard-remap.nix { };
+  macos-keyboard-remap =
+    pkgs.callPackage ./packages/macos-keyboard-remap.nix
+      { };
   macos-service-id-for-iface =
     pkgs.callPackage ./derivations/macos-service-id-for-iface.nix
       { };
@@ -207,8 +209,12 @@ in
   security.pam.services.sudo_local.touchIdAuth = true;
   security.pki.keychain.trustNixTlsCertificates = true;
   security.sudo.extraConfig = ''
-    ${config.system.primaryUser} ALL=(root) NOPASSWD: /run/current-system/sw/bin/darwin-rebuild
-    ${config.system.primaryUser} ALL=(root) NOPASSWD: SETENV: /run/current-system/sw/bin/gp-connect-auto
+    ${
+      config.system.primaryUser
+    } ALL=(root) NOPASSWD: /run/current-system/sw/bin/darwin-rebuild
+    ${
+      config.system.primaryUser
+    } ALL=(root) NOPASSWD: SETENV: /run/current-system/sw/bin/gp-connect-auto
     ${config.system.primaryUser} ALL=(root) NOPASSWD: /usr/sbin/scutil
     ${config.system.primaryUser} ALL=(root) NOPASSWD: /bin/launchctl print *
   '';
@@ -220,7 +226,7 @@ in
       # Enable the internal firewall to prevent unauthorised applications,
       # programs and services from accepting incoming connections.
       # Historical note: with upstream nix-darwin this was force-enabled
-      # on every activation regardless of the declared value — macOS 26's
+      # on every activation regardless of the declared value -- macOS 26's
       # socketfilterfw implements `--setblockall off` as "set global state
       # to 1", clobbering the `--setglobalstate off` issued milliseconds
       # earlier.  Earlier revisions blamed Jamf; the unified log showed it
@@ -232,7 +238,7 @@ in
       # Allows any signed Application to accept incoming requests.  This
       # must stay on: macOS 26 split sshd into /usr/libexec/sshd-session,
       # which is not in ALF's per-app allow list, and with this off an
-      # enabled firewall holds every inbound SSH flow in limbo — the TCP
+      # enabled firewall holds every inbound SSH flow in limbo -- the TCP
       # handshake completes but the banner is never released, so clients
       # hang forever with no error.
       allowSigned = false;
@@ -339,7 +345,7 @@ in
         # Whether to automatically switch between light and dark mode. The
         # default is false.
         AppleInterfaceStyleSwitchesAutomatically = false;
-        # Set to ‘Dark’ to enable dark mode, or leave unset for normal mode.
+        # Set to 'Dark' to enable dark mode, or leave unset for normal mode.
         AppleInterfaceStyle = "Dark";
         # Configures the keyboard control behavior. Mode 3 enables full keyboard
         # control.  This makes it possible to tab to any UI element.
@@ -353,24 +359,24 @@ in
         # Whether to enable the press-and-hold feature.  The default is true.
         # Replace press-and-hold with key repeat.
         ApplePressAndHoldEnabled = false;
-        # Jump to the spot that’s clicked on the scroll bar.  The default is
+        # Jump to the spot that's clicked on the scroll bar.  The default is
         # false.
         AppleScrollerPagingBehavior = true;
         # Whether to show all file extensions in Finder.  The default is false.
         AppleShowAllExtensions = true;
         # Whether to always show hidden files.  The default is false.
         AppleShowAllFiles = true;
-        # When to show the scrollbars.  Options are ‘WhenScrolling’, ‘Automatic’
-        # and ‘Always’.
+        # When to show the scrollbars.  Options are 'WhenScrolling', 'Automatic'
+        # and 'Always'.
         # AppleShowScrollBars = "Automatic";
         # Whether to use Celsius or Fahrenheit.  The default is based on region
         # settings.
         AppleTemperatureUnit = "Celsius";
-        # Sets the window tabbing when opening a new document: ‘manual’,
-        # ‘always’, or ‘fullscreen’.  The default is ‘fullscreen’.
+        # Sets the window tabbing when opening a new document: 'manual',
+        # 'always', or 'fullscreen'.  The default is 'fullscreen'.
         AppleWindowTabbingMode = "fullscreen";
         # If you press and hold certain keyboard keys when in a text area, the
-        # key’s character begins to repeat.  For example, the Delete key
+        # key's character begins to repeat.  For example, the Delete key
         # continues to remove text for as long as you hold it down.
         # This sets how long you must hold down the key before it starts
         # repeating.  See also KeyRepeat.
@@ -450,7 +456,7 @@ in
         "com.apple.springing.delay" = 1.0;
         # Whether to enable spring loading (expose) for directories.
         "com.apple.springing.enabled" = true;
-        # Whether to enable “Natural” scrolling direction.
+        # Whether to enable "Natural" scrolling direction.
         "com.apple.swipescrolldirection" = true;
         # Whether to enable trackpad secondary click.
         "com.apple.trackpad.enableSecondaryClick" = true;
@@ -483,7 +489,7 @@ in
         dashboard-in-overlay = false;
         # Sets the speed of the Mission Control animations.
         expose-animation-duration = 1.0;
-        # Whether to group windows by application in Mission Control’s Exposé.
+        # Whether to group windows by application in Mission Control's Exposé.
         expose-group-apps = true;
         # Magnified icon size on hover.  Number is between 16 and 128 (both
         # inclusive).
@@ -553,8 +559,8 @@ in
         AppleShowAllFiles = true;
         # Whether to show icons on the desktop or not.
         CreateDesktop = false;
-        # Change the default search scope.  Use “SCcf” to default to current
-        # folder.  The default is unset (“This Mac”).
+        # Change the default search scope.  Use "SCcf" to default to current
+        # folder.  The default is unset ("This Mac").
         FXDefaultSearchScope = "SCcf";
         # Default Finder window set to column view.
         # FXPreferredViewStyle = "clmv";

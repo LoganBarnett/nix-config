@@ -10,13 +10,13 @@
 #   1. Fetch latest release tag from GitHub.
 #   2. Write fake src hash, build gpauth.src through the flake, and parse the
 #      real hash from the mismatch error.  fetchFromGitHub with
-#      fetchSubmodules cannot be prefetched from a URL — the hash is over
+#      fetchSubmodules cannot be prefetched from a URL -- the hash is over
 #      the populated tree including submodule contents.
 #   3. Write fake cargoHash, build gpauth, parse the real cargoHash from the
 #      vendor-staging derivation's mismatch error.
 #
 # This script assumes the flake exposes pkgs through
-# darwinConfigurations.<hostname> — both detected automatically.
+# darwinConfigurations.<hostname> -- both detected automatically.
 ################################################################################
 
 set -euo pipefail

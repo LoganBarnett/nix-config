@@ -15,7 +15,8 @@
 # users/logan-headless-development.nix with the printed fingerprint, then
 # commit and push.
 #
-# See secrets.org § "GPG signing subkey for headless development" for context.
+# See secrets.org section "GPG signing subkey for headless development" for
+# context.
 ################################################################################
 
 set -o errexit -o nounset -o pipefail
@@ -56,7 +57,7 @@ echo "Public key exported to gpg-keys/logan-gpg-public.asc"
 
 # Export only the secret subkey to a temporary file.
 # The trailing "!" on the subkey ID is GPG syntax meaning "exactly this key
-# only" — without it, GPG exports all secret subkeys.
+# only" -- without it, GPG exports all secret subkeys.
 tmpfile=$(mktemp)
 trap 'shred --remove "$tmpfile" || true' EXIT
 gpg --export-secret-subkeys --armor "${subkey_id}!" > "$tmpfile"

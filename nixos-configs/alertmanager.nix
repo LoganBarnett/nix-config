@@ -19,17 +19,21 @@
   };
   auth.ldap.users."${host-id}-alertmanager-service" = {
     fullName = "${host-id}-alertmanager-service";
-    description = "AlertManager service account on ${host-id}.  Primarily for posting alerts.";
+    description = "AlertManager service account on ${
+      host-id
+    }.  Primarily for posting alerts.";
     group = "root";
   };
   # Alertmanager posts to Matrix via matrix-alertmanager, so its LDAP identity
   # must be a member of matrix-users for the Matrix server to allow it.
-  auth.ldap.groups."matrix-users".members = [ "${host-id}-alertmanager-service" ];
+  auth.ldap.groups."matrix-users".members = [
+    "${host-id}-alertmanager-service"
+  ];
   age.secrets.matrix-alertmanager-secret = {
     generator.script = "base64";
     rekeyFile = ../secrets/matrix-alertmanager-secret.age;
   };
-  # Shared with darwin-configs/ollama.nix — that host generates the value;
+  # Shared with darwin-configs/ollama.nix -- that host generates the value;
   # this host needs to read it to authenticate with the webhook endpoint.
   age.secrets.ollama-webhook-token = {
     rekeyFile = ../secrets/generated/ollama-webhook-token.age;
@@ -38,7 +42,9 @@
   # service reads them from /run/credentials/alertmanager.service/<name>.
   # This avoids ownership management and works correctly with DynamicUser.
   systemd.services.alertmanager.serviceConfig.LoadCredential = [
-    "matrix-alertmanager-secret:${config.age.secrets.matrix-alertmanager-secret.path}"
+    "matrix-alertmanager-secret:${
+      config.age.secrets.matrix-alertmanager-secret.path
+    }"
     "ollama-webhook-token:${config.age.secrets.ollama-webhook-token.path}"
   ];
   environment.systemPackages = [
@@ -122,7 +128,7 @@
                     the ro option.  A writable store allows arbitrary root
                     processes to corrupt store paths.  Do not use
                     nix-store-dislodge or any other tool as a pretext to leave
-                    the store writable — terminate any stuck lock holders and
+                    the store writable -- terminate any stuck lock holders and
                     then restore the ro mount.  See docs/nix-store-locks.org.
                   '';
                 };
@@ -139,13 +145,15 @@
                 # context never acquired or lost after eviction), the check
                 # fails and this alert fires.
                 alert = "ollama_metal_gpu_evicted";
-                expr = ''increase(goss_tests_outcomes_total{outcome="fail",resource_id="ollama-metal-acceleration"}[5m]) > 0'';
+                expr =
+                  ''increase(goss_tests_outcomes_total{outcome="fail",resource_id="ollama-metal-acceleration"}[5m]) > 0'';
                 for = "0m";
                 labels = {
                   severity = "page";
                 };
                 annotations = {
-                  summary = "Ollama Metal GPU evicted on {{ $labels.instance }}.";
+                  summary =
+                    "Ollama Metal GPU evicted on {{ $labels.instance }}.";
                   description = ''
                     The ollama-metal-acceleration goss check has detected that
                     Ollama is running on CPU.  Alertmanager will POST to the
@@ -159,13 +167,15 @@
                 # repeated automated restart attempts.  Routes only to
                 # team-admins (not ollama-remediation) to avoid a restart loop.
                 alert = "ollama_metal_gpu_remediation_failed";
-                expr = ''increase(goss_tests_outcomes_total{outcome="fail",resource_id="ollama-metal-acceleration"}[5m]) > 0'';
+                expr =
+                  ''increase(goss_tests_outcomes_total{outcome="fail",resource_id="ollama-metal-acceleration"}[5m]) > 0'';
                 for = "8m";
                 labels = {
                   severity = "page";
                 };
                 annotations = {
-                  summary = "Ollama Metal GPU remediation failed on {{ $labels.instance }}.";
+                  summary =
+                    "Ollama Metal GPU remediation failed on {{ $labels.instance }}.";
                   description = ''
                     GPU eviction has persisted for more than 8 minutes despite
                     automated restart attempts.  Manual intervention is
@@ -195,7 +205,8 @@
                   basic_auth = {
                     # This seems to be hardcoded into matrix-alertmanager.
                     username = "alertmanager";
-                    password_file = "/run/credentials/alertmanager.service/matrix-alertmanager-secret";
+                    password_file =
+                      "/run/credentials/alertmanager.service/matrix-alertmanager-secret";
                   };
                 };
               }
@@ -205,14 +216,17 @@
             name = "ollama-remediation";
             webhook_configs = [
               {
-                url = "http://M-CL64PK702X.${facts.network.domain}:9000/hooks/ollama-restart";
-                # No resolved notification needed — we only care about kicking
+                url = "http://M-CL64PK702X.${
+                  facts.network.domain
+                }:9000/hooks/ollama-restart";
+                # No resolved notification needed -- we only care about kicking
                 # the restart, not about the all-clear.
                 send_resolved = false;
                 http_config = {
                   authorization = {
                     type = "Bearer";
-                    credentials_file = "/run/credentials/alertmanager.service/ollama-webhook-token";
+                    credentials_file =
+                      "/run/credentials/alertmanager.service/ollama-webhook-token";
                   };
                 };
               }
@@ -236,7 +250,7 @@
               matchers = [ ''alertname="ollama_metal_gpu_evicted"'' ];
               receiver = "ollama-remediation";
               continue = true;
-              # Fire immediately — no batching delay for remediation.
+              # Fire immediately -- no batching delay for remediation.
               group_wait = "0s";
               # Re-POST every 2 minutes while the alert remains active,
               # giving ~4 restart attempts before the 8-minute human

@@ -15,7 +15,7 @@ included the `.nwea.pvt` domains, so Safari's scoped resolver never used the VPN
 servers for those domains.
 
 Additionally, `gpclient` on macOS does **not** call vpnc-scripts even when `--script` is
-passed — it silently ignores them.
+passed -- it silently ignores them.
 
 ## Solution
 
@@ -33,19 +33,19 @@ This script is called automatically by `gp-monitor` after each successful VPN co
 
 ### New files
 
-- `nix/scripts/fix-vpn-dns-scoping.sh` — the DNS fix script
-- `nix/derivations/fix-vpn-dns-scoping.nix` — nix derivation wrapping the script
-- `nix/scripts/vpnc-script-macos.sh` — macOS vpnc-script (not called by gpclient but
+- `nix/scripts/fix-vpn-dns-scoping.sh` -- the DNS fix script
+- `nix/derivations/fix-vpn-dns-scoping.nix` -- nix derivation wrapping the script
+- `nix/scripts/vpnc-script-macos.sh` -- macOS vpnc-script (not called by gpclient but
   kept for documentation/future use)
 
 ### Modified files
 
-- `nix/darwin.nix` — added `sudo /usr/sbin/scutil` to `security.sudo.extraConfig`
+- `nix/darwin.nix` -- added `sudo /usr/sbin/scutil` to `security.sudo.extraConfig`
   NOPASSWD rules
-- `nix/derivations/gp-monitor.nix` — added `fix-vpn-dns-scoping` as a runtime dep
-- `nix/scripts/gp-monitor.sh` — calls `fix-vpn-dns-scoping` after VPN connects
-- `nix/derivations/gp-connect-auto.nix` — added vpnc-script wiring (unused by gpclient)
-- `nix/scripts/gp-connect-auto.sh` — passes `--script` to gpclient (ignored on macOS)
+- `nix/derivations/gp-monitor.nix` -- added `fix-vpn-dns-scoping` as a runtime dep
+- `nix/scripts/gp-monitor.sh` -- calls `fix-vpn-dns-scoping` after VPN connects
+- `nix/derivations/gp-connect-auto.nix` -- added vpnc-script wiring (unused by gpclient)
+- `nix/scripts/gp-connect-auto.sh` -- passes `--script` to gpclient (ignored on macOS)
 
 ## Key Technical Details
 
@@ -53,7 +53,7 @@ This script is called automatically by `gp-monitor` after each successful VPN co
 - **Service path for DNS**: `State:/Network/Service/<tundev>/DNS`
 - **The magic key**: `SupplementalMatchDomains` must list all VPN domains for
   `dns-sd` (and therefore Safari) to route those queries through VPN DNS servers
-- **Test command**: `dns-sd -G v4 stash.americas.nwea.pvt` — should resolve to
+- **Test command**: `dns-sd -G v4 stash.americas.nwea.pvt` -- should resolve to
   10.210.16.252 when working
 - **VPN interface detection**: `ifconfig | grep -B 3 "inet 10.89" | grep "^utun"`
 
@@ -81,7 +81,7 @@ logan.barnett ALL=(root) NOPASSWD: /usr/sbin/scutil
 ## Pending / Open Items
 
 - Changes are staged in git but not yet committed
-- The vpnc-script approach is dead code — gpclient on macOS silently ignores `--script`.
+- The vpnc-script approach is dead code -- gpclient on macOS silently ignores `--script`.
   Could be removed in a cleanup pass, or kept for documentation.
 - If VPN changes gateways or DNS servers change, `fix-vpn-dns-scoping.sh` has them
   hardcoded and will need updating

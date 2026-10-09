@@ -3,7 +3,7 @@
 #
 # macOS offers no rotation for the logs our launchd jobs and scripts emit.
 # launchd's StandardOutPath/StandardErrorPath are plain file descriptors
-# opened at spawn — no size caps, no rotation.  The system rotator,
+# opened at spawn -- no size caps, no rotation.  The system rotator,
 # newsyslog, rotates by renaming the file into place, and that breaks on
 # every log we emit: the writers hold their descriptor for the life of the
 # process.  launchd holds the StandardOutPath descriptor for as long as the
@@ -16,7 +16,7 @@
 # aside, compress the copy, and truncate the original in place.  Every
 # holder writes through an append-mode descriptor (`>>` and launchd's log
 # paths both open with O_APPEND), so the first write after truncation lands
-# at offset zero — no sparse hole, no stranded descriptor.  The cost is the
+# at offset zero -- no sparse hole, no stranded descriptor.  The cost is the
 # usual copytruncate caveat: bytes written between the copy and the truncate
 # are lost.  For these diagnostic logs that trade is fine.
 #
@@ -123,12 +123,14 @@ in
             keep = lib.mkOption {
               type = lib.types.int;
               default = 8;
-              description = "How many rotated (compressed) generations to keep.";
+              description =
+                "How many rotated (compressed) generations to keep.";
             };
             extraConfig = lib.mkOption {
               type = lib.types.listOf lib.types.str;
               default = [ ];
-              description = "Additional raw logrotate directives for this file.";
+              description =
+                "Additional raw logrotate directives for this file.";
             };
           };
         }

@@ -14,7 +14,7 @@ Posture:
   for cases where the alternative is materially worse.
 - iOS support is required.  Household uses iOS, so a delivery agent
   with no usable iOS client is disqualifying.  First-party iOS support
-  is preferred over a community port — the latter is operative until
+  is preferred over a community port -- the latter is operative until
   the maintainer loses interest.
 - The stack should be declarable in Nix.  Click-ops administration of
   notification sources is a hard negative; every new source should be a
@@ -38,8 +38,8 @@ What recommended it:
   read-write= and zero credentials for personal use, or locks down with
   users + per-topic ACLs when the topology calls for it.
 - User and ACL management ships as =ntfy user= and =ntfy access=
-  subcommands.  That made it tractable to add a reconciler later — see
-  [[https://github.com/LoganBarnett/nix-hapi-provider-ntfy][nix-hapi-provider-ntfy]] — without driving the web UI.
+  subcommands.  That made it tractable to add a reconciler later -- see
+  [[https://github.com/LoganBarnett/nix-hapi-provider-ntfy][nix-hapi-provider-ntfy]] -- without driving the web UI.
 
 ** Gotify (declined)
 
@@ -56,7 +56,7 @@ Why declined:
 - The application/token model means every new source is a click-ops
   round trip through the web UI to create the app and copy the token.
 - Token administration is fully web-UI-driven.  No CLI means no
-  reconciler — every change to the auth surface is a manual operation.
+  reconciler -- every change to the auth surface is a manual operation.
 
 The application model has real value when each source needs distinct
 authorisation in a multi-tenant deployment.  In a single-household
@@ -76,8 +76,8 @@ direction for the use case.
 
 ** Apprise (declined; wrong category)
 
-Notification *router* — a library / CLI that fans out to many backends
-(Discord, Slack, Pushover, Telegram, …).  It solves a different
+Notification *router* -- a library / CLI that fans out to many backends
+(Discord, Slack, Pushover, Telegram, ...).  It solves a different
 problem: "given multiple destinations, how do I address them
 uniformly?"  The choice this document is about is what the
 *destination* is.  Apprise could sit upstream of ntfy if the
@@ -91,15 +91,15 @@ self-hosted notification stack can deliver to an iOS phone right now.
 
 iOS distinguishes three interruption tiers:
 
-1. *Normal* — silenced during any active Focus mode.
-2. *Time-Sensitive* — what ntfy's ~X-Priority: 5~ triggers.  Pierces
+1. *Normal* -- silenced during any active Focus mode.
+2. *Time-Sensitive* -- what ntfy's ~X-Priority: 5~ triggers.  Pierces
    Focus modes /by default/, but only when the receiving Focus has
    "Allow Time-Sensitive notifications" enabled for ntfy (per-app,
    per-Focus).  Sleep Focus is the case to watch: a strict Sleep Focus
    configuration will silence Time-Sensitive notifications, so a
    3 AM disk-full alert can be muted unless the user has explicitly
    allowed Time-Sensitive from ntfy in the Sleep Focus settings.
-3. *Critical Alerts* — pierces DND, Focus modes, and the mute switch
+3. *Critical Alerts* -- pierces DND, Focus modes, and the mute switch
    unconditionally.  Requires a per-team entitlement granted by Apple;
    it is not a capability any developer can simply enable.
 
@@ -131,10 +131,10 @@ declaratively with a single routing tree.
 Until ntfy ships the Critical Alerts wiring, the de facto severity
 contract is:
 
-- ~X-Priority: 5~ → Time-Sensitive on iOS / high-priority on Android.
+- ~X-Priority: 5~ -> Time-Sensitive on iOS / high-priority on Android.
   Reliably pierces default Focus modes; user-configurable Sleep
   Focus may still silence it.
-- Lower priorities → Normal delivery, silenced during Focus modes.
+- Lower priorities -> Normal delivery, silenced during Focus modes.
 
 No special handling of mute switch or DND is currently reachable from
 ntfy.  Plan AlertManager severity routing accordingly: assume

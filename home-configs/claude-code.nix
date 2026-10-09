@@ -22,7 +22,9 @@ let
   # Local refs (.#app, ./path, /abs/path) are allowed.
   block-nix-run = pkgs.writeShellScript "block-nix-run" ''
     input=$(cat)
-    cmd=$(printf '%s' "$input" | ${pkgs.jq}/bin/jq --raw-output '.tool_input.command // ""')
+    cmd=$(printf '%s' "$input" | ${
+      pkgs.jq
+    }/bin/jq --raw-output '.tool_input.command // ""')
 
     if printf '%s' "$cmd" | grep --quiet --extended-regexp 'nix run'; then
       if ! printf '%s' "$cmd" | grep --quiet --extended-regexp 'nix run[[:space:]]+(\.#|\./|/)'; then
@@ -38,7 +40,9 @@ let
   # A PreToolUse hook is immune to PATH ordering.
   block-bsd-sed = pkgs.writeShellScript "block-bsd-sed" ''
     input=$(cat)
-    cmd=$(printf '%s' "$input" | ${pkgs.jq}/bin/jq --raw-output '.tool_input.command // ""')
+    cmd=$(printf '%s' "$input" | ${
+      pkgs.jq
+    }/bin/jq --raw-output '.tool_input.command // ""')
 
     if printf '%s' "$cmd" | grep --quiet --extended-regexp "sed\s+-i(\s+)?'''"; then
       printf 'Blocked: This is GNU sed.  Use sed -i (no suffix) for in-place editing, not the BSD sed -i empty-string form.  Better yet, use the Edit tool instead of sed.\n' >&2
@@ -183,7 +187,8 @@ in
             hooks = [
               {
                 type = "command";
-                command = ''echo "[$(date '+%Y-%m-%d %H:%M:%S')] Claude stopped."'';
+                command =
+                  ''echo "[$(date '+%Y-%m-%d %H:%M:%S')] Claude stopped."'';
               }
             ];
           }
@@ -446,7 +451,7 @@ in
 
         1. **Read each file**: Use the Read tool to read every file listed in
            FILES_TO_REVIEW before forming any opinions.  Never generate or
-           assume file content — always read it directly from disk.
+           assume file content -- always read it directly from disk.
         2. **Evaluate** against engineering best practices.
         3. **Consider** operational aspects and maintainability.
         4. **Write findings** to REPORT_FILE in org-mode format.
@@ -536,7 +541,7 @@ in
 
         ## 1. Read the template instructions
 
-        Read `~/dev/rust-template/README.org` in full — it contains the
+        Read `~/dev/rust-template/README.org` in full -- it contains the
         canonical setup procedure including all flags and post-generation
         steps.  Do not skip or paraphrase; follow it literally.
 
@@ -576,7 +581,7 @@ in
         ```
 
         Use `$USER` as the Gitea username.  The clone URL must use
-        `ssh://git@gitea.proton:2222/` — `tea` generates incorrect URLs.
+        `ssh://git@gitea.proton:2222/` -- `tea` generates incorrect URLs.
 
         ## 6. Verify
 
@@ -597,7 +602,7 @@ in
         Nix flakes only see files tracked by git.  When working in a
         project that has a `flake.nix` at the repository root, run
         `git add <file>` on every newly created file **immediately after
-        creating it** — before any `nix` command that might reference it.
+        creating it** -- before any `nix` command that might reference it.
 
         Forgetting this causes opaque "file not found" or "No such file or
         directory" errors from Nix that do not mention git tracking as the
@@ -633,7 +638,7 @@ in
     # it must be set at the shell level instead.
     DISABLE_INSTALLATION_CHECKS = "1";
     # Raises the default 32k cap to Fable 5's actual 128k output limit.  This
-    # is a ceiling, not a target — a model with a lower limit is unaffected
+    # is a ceiling, not a target -- a model with a lower limit is unaffected
     # by the headroom.
     CLAUDE_CODE_MAX_OUTPUT_TOKENS = "128000";
   };

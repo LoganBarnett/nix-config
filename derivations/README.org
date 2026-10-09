@@ -30,7 +30,7 @@ derivations/
 
 The shebang lets editors apply correct syntax highlighting and lets the script
 be run directly outside of Nix (as long as the required interpreter and any
-runtime dependencies are already on ~PATH~).  Use the appropriate ~writers~ function for the script's language — no custom
+runtime dependencies are already on ~PATH~).  Use the appropriate ~writers~ function for the script's language -- no custom
 ~installPhase~ needed.  Each writer handles the shebang, installs the binary,
 and runs a linter (~shellcheck~ / ~pyflakes~) at build time.
 

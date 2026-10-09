@@ -64,7 +64,7 @@ in
     ../darwin-configs/goss-ollama-metal-gpu.nix
     ../darwin-configs/sonify-health-goss.nix
     ../darwin-configs/ollama.nix
-    # M1 Max with 32 GB unified memory: 32 × 0.75 ≈ 24 GB available for
+    # M1 Max with 32 GB unified memory: 32 x 0.75 ~ 24 GB available for
     # model weights when the machine is lightly loaded.
     ../nixos-configs/ollama-models-24gb-vram.nix
     ../nixos-configs/user-can-admin.nix

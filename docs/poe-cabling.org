@@ -6,7 +6,7 @@
 *Cat5e or better.  That is the whole rule.*
 
 If the jacket says =CAT5E=, =CAT6=, or =CAT6A=, the cable will carry any PoE
-class we are likely to deploy — 802.3af, 802.3at, or 802.3bt — and there is
+class we are likely to deploy -- 802.3af, 802.3at, or 802.3bt -- and there is
 nothing further to check.  Buy on the category marking and move on.
 
 * Why the category marking is sufficient
@@ -48,10 +48,10 @@ typical print:
 
 | marking            | meaning                                    | matters for PoE?              |
 |--------------------+--------------------------------------------+-------------------------------|
-| =CAT5E= / =CAT6=   | TIA-568 category                           | *yes — this is the one*       |
+| =CAT5E= / =CAT6=   | TIA-568 category                           | *yes -- this is the one*      |
 | =23AWG= / =24AWG=  | conductor gauge, lower is thicker          | only for thin patch cords     |
 | =4PR=              | four twisted pairs                         | implied by the category       |
-| =TYPE CM/CMR/CMP=  | NEC fire class — where you may run it      | no, it is a code question     |
+| =TYPE CM/CMR/CMP=  | NEC fire class -- where you may run it     | no, it is a code question     |
 | =(UL)= =c(UL)=     | safety listings, US and Canada             | no, but a provenance signal   |
 | =CU= / =CCA=       | conductor material                         | moot if the category is real  |
 
@@ -68,13 +68,13 @@ For scale: 24AWG solid copper is roughly 0.084 Ω/m per conductor, giving about
 8.4 Ω loop resistance over a full 100 m two-pair run, against the 12.5 Ω that
 802.3at permits.  Comfortable margin, and every run we have is far shorter.
 
-* Fire class — a location question, not a PoE question
+* Fire class -- a location question, not a PoE question
 
 Pick by where the cable runs, per NEC Article 800:
 
-- =CM= — general purpose.  Rooms, surface runs, ordinary walls.
-- =CMR= — riser.  Vertical runs passing between floors.
-- =CMP= — plenum.  Spaces used for air handling, such as above a dropped
+- =CM= -- general purpose.  Rooms, surface runs, ordinary walls.
+- =CMR= -- riser.  Vertical runs passing between floors.
+- =CMP= -- plenum.  Spaces used for air handling, such as above a dropped
   ceiling that returns air.
 
 This has no bearing on PoE capability.  It is about what the cable does in a
@@ -102,7 +102,7 @@ skin.  CCA is also noticeably stiffer and snaps after fewer bends.
 Cat5e has all eight conductors, so this is automatic.
 
 The thing this rules out is cheap four-conductor "2-pair" cable sold for
-100 Mbit runs — which also fails the gigabit floor, so the Cat5e rule catches
+100 Mbit runs -- which also fails the gigabit floor, so the Cat5e rule catches
 it before PoE ever enters the picture.
 
 * Checklist

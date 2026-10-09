@@ -48,7 +48,7 @@ echo "Found VPN interface: $VPN_IF"
 # services.globalprotect-monitor.{corpDomainSuffixes,fallbackSearchDomains}.
 CONFIG_FILE="$GP_AUTO_CONFIG"
 if [ ! -r "$CONFIG_FILE" ]; then
-  echo "Error: $CONFIG_FILE not found — globalprotect-monitor module not in effect?"
+  echo "Error: $CONFIG_FILE not found -- globalprotect-monitor module not in effect?"
   exit 1
 fi
 # Build a `pvt|hmco\.com|...` regex from the suffix list.
@@ -94,7 +94,7 @@ if [ ${#VPN_SEARCH_DOMAINS[@]} -eq 0 ]; then
   # services.globalprotect-monitor.fallbackSearchDomains via
   # $GP_AUTO_CONFIG.
   VPN_SEARCH_DOMAINS=("${CONFIGURED_FALLBACK_DOMAINS[@]}")
-  echo "No VPN search domains from scutil — using known corporate domains as fallback"
+  echo "No VPN search domains from scutil -- using known corporate domains as fallback"
 fi
 
 echo "Found VPN DNS servers: ${VPN_DNS_SERVERS[*]}"

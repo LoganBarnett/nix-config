@@ -46,7 +46,7 @@ let
     "${localPart}@${facts.network.domain}";
 
   # All `mail` LDAP values across all email-enabled users.  Used to
-  # auto-generate pass-through clauses in session.rcpt.rewrite — every
+  # auto-generate pass-through clauses in session.rcpt.rewrite -- every
   # explicit address inside a catch-all'd domain must bypass the
   # catch-all so it routes to its actual owner.
   allMail = lib.lists.concatMap (
@@ -74,28 +74,32 @@ let
         condition = [
           {
             "if" =
-              "to.domain == '${domain}' && (from.domain == to.local || ends_with(from.domain, '.' + to.local))";
-            "then" = "'CATCHALL_SENDER_ALIGNED'";
-          }
-          { "else" = false; }
-        ];
-      };
-    "STWT_CATCHALL_SENDER_MISMATCH_${
-      lib.toUpper (lib.replaceStrings [ "." ] [ "_" ] domain)
-    }" =
+  "to.domain == '${
+    domain
+  }' && (from.domain == to.local || ends_with(from.domain, '.' + to.local))";
+"then" = "'CATCHALL_SENDER_ALIGNED'";
+  }
+  { "else" = false; }
+  ];
+  };
+"STWT_CATCHALL_SENDER_MISMATCH_${
+  lib.toUpper (lib.replaceStrings [ "." ] [ "_" ] domain)
+}" =
+  {
+    enable = true;
+    scope = "any";
+    priority = 2001;
+    condition = [
       {
-        enable = true;
-        scope = "any";
-        priority = 2001;
-        condition = [
-          {
-            "if" =
-              "to.domain == '${domain}' && from.domain != to.local && !ends_with(from.domain, '.' + to.local)";
-            "then" = "'CATCHALL_SENDER_MISMATCH'";
-          }
-          { "else" = false; }
-        ];
-      };
+        "if" =
+  "to.domain == '${
+    domain
+  }' && from.domain != to.local && !ends_with(from.domain, '.' + to.local)";
+"then" = "'CATCHALL_SENDER_MISMATCH'";
+  }
+  { "else" = false; }
+  ];
+  };
   };
 in
 {
@@ -138,7 +142,8 @@ in
     # LoadCredential so no group-membership changes are needed.
     certificate = lib.mapAttrs (domain: _: {
       cert = "/var/lib/acme/${domain}/fullchain.pem";
-      private-key = "%{file:/run/credentials/stalwart.service/acme-key-${domain}}%";
+      private-key =
+        "%{file:/run/credentials/stalwart.service/acme-key-${domain}}%";
     }) externalDomains;
 
     # DKIM signing config per external domain.
@@ -146,7 +151,8 @@ in
       algo = "ed25519-sha256";
       inherit domain;
       selector = cfg.dkimSelector;
-      private-key = "%{file:/run/credentials/stalwart.service/${cfg.dkimSecretName}}%";
+      private-key =
+        "%{file:/run/credentials/stalwart.service/${cfg.dkimSecretName}}%";
       headers.relaxed = [
         "From"
         "To"
@@ -162,9 +168,9 @@ in
     #
     # For each externalDomain with a catchAllUser, rewrite *@domain
     # envelope recipients to the user's derived primary before LDAP
-    # verify runs.  Explicit recipients — any address that some LDAP
+    # verify runs.  Explicit recipients -- any address that some LDAP
     # user already claims via their derived primary or `email.aliases`
-    # — are emitted as pass-through clauses *before* the regex
+    # -- are emitted as pass-through clauses *before* the regex
     # catch-all, so first-match-wins evaluation preserves them.
     #
     # Adding `email.aliases = [ "foo@logustus.com" ]` on any user

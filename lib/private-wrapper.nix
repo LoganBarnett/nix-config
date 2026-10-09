@@ -1,5 +1,5 @@
 ################################################################################
-# mkPrivateWrapper — build flake outputs for a private wrapper around the
+# mkPrivateWrapper -- build flake outputs for a private wrapper around the
 # public `nix-config` flake.
 #
 # A private wrapper exists to layer host-specific configuration that is unsafe
@@ -20,7 +20,7 @@
 #   this they evaluate against the unmodified specialArgs that public's
 #   `darwin-host` / `nix-host` captured at let-binding time.
 # - Throws if any `<hostname>.nix` doesn't name a host that exists in
-#   nix-config — typos otherwise drop silently and leave the host
+#   nix-config -- typos otherwise drop silently and leave the host
 #   unconfigured.
 #
 # Returns the full flake-outputs shape (`nix-config // overrides`), so the
@@ -67,7 +67,7 @@ let
         # `flake-inputs`, so the specialArgs override above does not reach
         # home-manager modules.  Re-derive extraSpecialArgs from our
         # (overridden) specialArgs here so that the augmented flake-inputs
-        # is visible to user-level configs too — without this, home-manager
+        # is visible to user-level configs too -- without this, home-manager
         # modules that reach back into nix-config fail with `attribute
         # 'nix-config' missing`.
         (
@@ -101,7 +101,8 @@ let
     );
 
   finalDarwin =
-    nix-config.darwinConfigurations // overlayFor nix-config.darwinConfigurations;
+    nix-config.darwinConfigurations
+    // overlayFor nix-config.darwinConfigurations;
   finalNixos =
     nix-config.nixosConfigurations // overlayFor nix-config.nixosConfigurations;
 
@@ -112,7 +113,12 @@ let
   ) hostExtensions;
 in
 if unmatched != { } then
-  throw "host extensions in ${toString hostsDir} with no matching nix-config host: ${lib.concatStringsSep ", " (lib.attrNames unmatched)}"
+  throw
+    "host extensions in ${
+      toString hostsDir
+    } with no matching nix-config host: ${
+      lib.concatStringsSep ", " (lib.attrNames unmatched)
+    }"
 else
   nix-config
   // {

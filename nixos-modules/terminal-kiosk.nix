@@ -56,7 +56,9 @@ let
         ${
           if programCount == 1 then
             ''
-              CHOSEN_CMD=${lib.escapeShellArg (builtins.head cfg.programs).command}
+              CHOSEN_CMD=${
+                lib.escapeShellArg (builtins.head cfg.programs).command
+              }
             ''
           else
             ''
@@ -65,7 +67,10 @@ let
                 --menu "Select a program:" 20 60 ${toString programCount} \
                 ${
                   lib.concatMapStringsSep " " (
-                    p: "${lib.escapeShellArg p.name} ${lib.escapeShellArg p.command}"
+                    p:
+                    "${lib.escapeShellArg p.name} ${
+                      lib.escapeShellArg p.command
+                    }"
                   ) cfg.programs
                 } \
                 2>&1 >/dev/tty) || true
@@ -90,7 +95,7 @@ let
         # Re-lock Ctrl+C for the countdown screen.
         trap "" INT
 
-        # Countdown screen — Ctrl+C restarts the loop via trap.
+        # Countdown screen -- Ctrl+C restarts the loop via trap.
         RESTART=0
         trap "RESTART=1" INT
         clear
@@ -168,7 +173,8 @@ in
     assertions = [
       {
         assertion = cfg.programs != [ ];
-        message = "services.terminal-kiosk.programs must contain at least one program.";
+        message =
+          "services.terminal-kiosk.programs must contain at least one program.";
       }
     ];
 
@@ -176,7 +182,7 @@ in
     users.users.${cfg.user} = {
       isNormalUser = true;
       group = cfg.group;
-      # Locked password — no interactive or SSH login possible.
+      # Locked password -- no interactive or SSH login possible.
       initialHashedPassword = "!";
       extraGroups = [ "video" ];
       shell = "${wrapperScript}/bin/terminal-kiosk-shell";

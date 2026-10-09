@@ -1,5 +1,5 @@
 ################################################################################
-# TOMBSTONE — Jellyfin is no longer hosted.
+# TOMBSTONE -- Jellyfin is no longer hosted.
 #
 # Jellyfin is a free and open-source media server.  It served the contents of
 # /tank/data/media, which Metube populates via yt-dlp downloads.

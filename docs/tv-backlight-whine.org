@@ -3,7 +3,7 @@
 
 * Overview
 
-A high-pitched buzz / whine from the living-room Philips TV — a *TV hardware*
+A high-pitched buzz / whine from the living-room Philips TV -- a *TV hardware*
 issue, fully independent of =krypton= / Kodi.  Documented because the diagnosis
 is non-obvious and it surfaced during unrelated CEC debugging (see
 [[file:kodi-cec-troubleshooting.org][kodi-cec-troubleshooting.org]]).
@@ -12,11 +12,11 @@ is non-obvious and it surfaced during unrelated CEC debugging (see
 
 - High-pitched buzz / whine from behind the panel, *below-center* (the
   power-supply / backlight-driver board), not the speakers.
-- Independent of Kodi — muting Kodi (over JSON-RPC or otherwise) changes
+- Independent of Kodi -- muting Kodi (over JSON-RPC or otherwise) changes
   nothing.
 - Independent of *TV* volume / mute, and of the TV-speakers-vs-external-audio
   setting.
-- Present on *real* inputs (HDMI, *and* the tuner — even a black tuner screen)
+- Present on *real* inputs (HDMI, *and* the tuner -- even a black tuner screen)
   but *not* on the TV's internal smart-UI / apps.
 - Cupping a hand over a tall transformer / inductor (black bobbin, yellow
   insulation tape) on that board damps it.
@@ -28,15 +28,15 @@ is non-obvious and it surfaced during unrelated CEC debugging (see
 *PWM backlight-dimming coil whine.*  Below 100% backlight the TV dims the LED
 backlight by *pulsing* it (PWM); that pulsing current makes the
 backlight-driver inductor mechanically resonate.  At *100% backlight* the drive
-is continuous — no pulsing — so the inductor is silent.
+is continuous -- no pulsing -- so the inductor is silent.
 
 A factory reset re-enables eco / auto-brightness defaults and a lower (PWM)
 backlight, which turns a normally-faint whine loud.  It is not *new* after a
-reset — just louder, and no longer masked by program audio.
+reset -- just louder, and no longer masked by program audio.
 
 * Fix
 
-1. Set *Backlight = 100%* — the silent, no-PWM operating point.
+1. Set *Backlight = 100%* -- the silent, no-PWM operating point.
 2. If 100% is too bright, dim the *picture*, not the backlight: lower
    *Contrast* / *Brightness*, or use a *Movie/Cinema* picture mode.  These
    scale the video signal, not the LED PWM, so they darken the image while the
@@ -50,7 +50,7 @@ reset — just louder, and no longer masked by program audio.
 * Identified component (for possible replacement)
 
 The whine originates from a single magnetic component on the TV's power-supply
-/ backlight-driver board, confirmed by damping it with a hand — the buzz stops
+/ backlight-driver board, confirmed by damping it with a hand -- the buzz stops
 while the part is touched / covered.
 
 Printed on part:
@@ -73,15 +73,15 @@ Physical description:
 
 Caveats before replacing it:
 
-- This is a "working but mechanically resonant" part, *not* a failed one — the
+- This is a "working but mechanically resonant" part, *not* a failed one -- the
   non-invasive fix (backlight 100% + auto-dimming off; see [[Fix]]) is
   preferred.  Swapping the magnetic is not guaranteed to silence it, and an
   exact replacement may resonate the same.
-- Coil whine on a healthy magnetic is more commonly addressed by *staking* — a
-  dab of non-conductive adhesive / varnish to mechanically damp the windings —
+- Coil whine on a healthy magnetic is more commonly addressed by *staking* -- a
+  dab of non-conductive adhesive / varnish to mechanically damp the windings --
   than by replacement.
 
-To source a replacement, capture the following (TV *unplugged and discharged* —
+To source a replacement, capture the following (TV *unplugged and discharged* --
 see [[Notes]] for the hazard):
 
 1. The TV's *model number* (rear label).
@@ -96,7 +96,7 @@ parts list maps it to an orderable component.
 
 * Notes
 
-- Do *not* use a backlight-*dimming* idle screensaver — dimming is exactly what
+- Do *not* use a backlight-*dimming* idle screensaver -- dimming is exactly what
   causes the whine.  A plain black screensaver is fine (the backlight stays
   full).
 - Working on the PSU / backlight board *live* is a shock hazard: the primary

@@ -11,9 +11,9 @@ let
   user = config.system.primaryUser;
 in
 {
-  # Flags: N — no signal on rotation.  The agent exits after each daily run and
+  # Flags: N -- no signal on rotation.  The agent exits after each daily run and
   # reopens the log on the next, so nothing keeps a descriptor on the rotated
-  # inode.  J — bzip2-compress archived rotations.  Size is in KB (10240 =
+  # inode.  J -- bzip2-compress archived rotations.  Size is in KB (10240 =
   # 10 MB); count is archives retained.
   environment.etc."newsyslog.d/cargo-sweep.conf".text = ''
     # logfilename [owner:group] mode count size when flags

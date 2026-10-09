@@ -57,18 +57,21 @@ in
             start_tls = false;
             base = "dc=proton,dc=org";
             bind_dn = "uid=${host-id}-matrix-service,ou=users,dc=proton,dc=org";
-            bind_password_file = "/run/credentials/matrix-synapse.service/ldap-password";
+            bind_password_file =
+              "/run/credentials/matrix-synapse.service/ldap-password";
             attributes = {
               uid = "uid";
               mail = "mail";
               name = "cn";
             };
             # Only allow users who are members of matrix-users
-            filter = "(&(objectClass=person)(memberOf=cn=matrix-users,ou=groups,dc=proton,dc=org))";
+            filter =
+              "(&(objectClass=person)(memberOf=cn=matrix-users,ou=groups,dc=proton,dc=org))";
             # Optional: fallback for local DB auth if needed
             allowLocalPasswords = false;
             # Define who gets admin privileges
-            adminFilter = "(&(objectClass=person)(memberOf=cn=matrix-admins,ou=groups,dc=proton,dc=org))";
+            adminFilter =
+              "(&(objectClass=person)(memberOf=cn=matrix-admins,ou=groups,dc=proton,dc=org))";
           };
         }
       ];
@@ -118,7 +121,7 @@ in
     ];
   };
 
-  # Why this service exists — please read before simplifying it away.
+  # Why this service exists -- please read before simplifying it away.
   #
   # Synapse refuses to start against a PostgreSQL database whose LC_COLLATE is
   # not 'C'.  This is not mere preference: PostgreSQL B-tree indexes store

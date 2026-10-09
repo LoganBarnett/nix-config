@@ -101,10 +101,10 @@ route delete -net 172.16.0.0/12 2>/dev/null && echo "  Deleted 172.16.0.0/12" ||
 echo "Checking default route..."
 _DEF_IF=$(route -n get default 2>/dev/null | awk '/interface:/ {print $2; exit}')
 if [[ "${_DEF_IF:-}" == utun* ]]; then
-  echo "  Default route via utun ($_DEF_IF) — deleting"
+  echo "  Default route via utun ($_DEF_IF) -- deleting"
   route delete default 2>/dev/null || true
 else
-  echo "  Default route via ${_DEF_IF:-none} (physical) — keeping"
+  echo "  Default route via ${_DEF_IF:-none} (physical) -- keeping"
 fi
 
 # ---------------------------------------------------------------------------
@@ -155,7 +155,7 @@ fi
 # ---------------------------------------------------------------------------
 # Step 4: Remove all VPN state files so the next session starts clean.
 # ---------------------------------------------------------------------------
-# Keep /var/run/vpnc-dns-domains for the recovery section below — it
+# Keep /var/run/vpnc-dns-domains for the recovery section below -- it
 # reads the file to clean up /etc/resolver entries, then removes it.
 rm -f /var/run/vpnc-default-gateway \
       /var/run/vpnc-actual-tundev \
@@ -170,7 +170,7 @@ echo "Cleared VPN state files"
 
 # ── Targeted network recovery (non-disruptive) ───────────────────────
 # Unlike vpn-dns-recover, this does NOT disable/re-enable network
-# services — that breaks Claude Code's API streaming connection.
+# services -- that breaks Claude Code's API streaming connection.
 echo ""
 echo "Performing targeted network recovery..."
 
@@ -197,7 +197,7 @@ done
 # continue resolving through dnsmasq.
 if /usr/bin/pgrep -x dnsmasq >/dev/null 2>&1; then
   _DNS_TARGET="127.0.0.1"
-  echo "  dnsmasq running — restoring DNS to $_DNS_TARGET"
+  echo "  dnsmasq running -- restoring DNS to $_DNS_TARGET"
 else
   _DNS_TARGET="Empty"
 fi

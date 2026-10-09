@@ -23,7 +23,7 @@
   # power_save=10, so the codec powers down ten seconds after the sink goes
   # idle.  On Haswell the HDMI codec's resume path is coupled to i915 display
   # power through the audio component, which makes "codec suspended" and
-  # "display link just dropped" a bad pair of states to be in at once — the
+  # "display link just dropped" a bad pair of states to be in at once -- the
   # resume can fail and leave the sink unusable.
   #
   # There is nothing to save here.  This host is a mains-powered media player
@@ -104,7 +104,7 @@
       # dialogue".
     };
     guiSettings = {
-      # "Keep audio device alive" — 153722867 is the "Always" option (the
+      # "Keep audio device alive" -- 153722867 is the "Always" option (the
       # values are a minutes count, with this sentinel standing in for "never
       # suspend"; confirm against Settings.GetSettings over JSON-RPC rather
       # than assuming).  The stock value is 1, meaning one minute of silence
@@ -210,7 +210,9 @@
       };
       Service = {
         Type = "oneshot";
-        ExecStart = "${pkgs.pulseaudioFull}/bin/pactl set-sink-volume alsa_output.pci-0000_00_03.0.hdmi-stereo 100%";
+        ExecStart = "${
+          pkgs.pulseaudioFull
+        }/bin/pactl set-sink-volume alsa_output.pci-0000_00_03.0.hdmi-stereo 100%";
         RemainAfterExit = false;
       };
       Install = {

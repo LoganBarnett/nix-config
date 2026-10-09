@@ -3,7 +3,7 @@
 #
 # This module is used for two things: the authorize-phase lookup (resolve the
 # user DN and group membership) and the authenticate-phase bind.  It never
-# reads userPassword — the directory hashes with argon2 (one-way), so password
+# reads userPassword -- the directory hashes with argon2 (one-way), so password
 # verification is performed by BINDING as the user with the cleartext supplied
 # in the TTLS/PAP inner tunnel.  See sites-available/inner-tunnel.
 #
@@ -12,7 +12,7 @@ ldap {
 	server   = 'ldaps://ldap.proton'
 	identity = 'uid=silicon-freeradius-service,ou=users,dc=proton,dc=org'
 
-	# Provides: password = "..."  — the bind passphrase, delivered via
+	# Provides: password = "..."  -- the bind passphrase, delivered via
 	# LoadCredential and kept out of the Nix store.  See freeradius.nix.
 	$INCLUDE /run/credentials/freeradius.service/ldap-bind
 

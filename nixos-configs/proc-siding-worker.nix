@@ -5,7 +5,7 @@
     settings = {
       pressure = {
         threshold = 25;
-        # 12 × 5 s = 60 s of sustained pressure required before pausing.
+        # 12 x 5 s = 60 s of sustained pressure required before pausing.
         hysteresis = 12;
         poll_interval_ms = 5000;
       };

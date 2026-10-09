@@ -1181,7 +1181,7 @@ You see ~systemctl status some-unit~ reporting ~Memory: 1.6G~ (or
 similar) for a service that obviously shouldn't be using that much,
 and the number grows over time, prompting a leak investigation.
 Restarting the service drops it to a few MB and slowly climbs back.
-This often *isn't* a leak — it's normal cgroup v2 page-cache
+This often *isn't* a leak -- it's normal cgroup v2 page-cache
 accounting.
 
 *** What's actually happening
@@ -1190,7 +1190,7 @@ accounting.
 ~systemctl show -P MemoryCurrent~) report the cgroup's
 ~memory.current~ from cgroup v2.  With the default
 ~MemoryAccounting=yes~, that figure includes *file-backed page
-cache* for files the cgroup's processes touched — read-only mmaps
+cache* for files the cgroup's processes touched -- read-only mmaps
 and plain ~read()~ of large files all count.  The pages are fully
 reclaimable; the kernel drops them the moment any other allocation
 needs the RAM.  But ~systemctl~ doesn't distinguish reclaimable
@@ -1206,15 +1206,15 @@ immediately.
 
 *** How to tell what's real
 
-| Question                                          | Look at                                                                     |
-|---------------------------------------------------+-----------------------------------------------------------------------------|
-| What's the unit's real anon memory?               | ~awk '/^VmRSS:/{print $2}' /proc/<pid>/status~                              |
-| Is the cgroup attribution real or cache?          | ~sudo cat /sys/fs/cgroup/system.slice/<unit>/memory.stat~ — ~anon~ vs ~file~ |
-| Is the host genuinely under memory pressure?      | ~/proc/pressure/memory~ (PSI); non-zero ~avg10~ / ~avg60~ means real stalls |
-| Is memory actually available for new allocations? | ~MemAvailable~ in ~/proc/meminfo~ (kernel's own estimate)                   |
+| Question                                          | Look at                                                                       |
+|---------------------------------------------------+-------------------------------------------------------------------------------|
+| What's the unit's real anon memory?               | ~awk '/^VmRSS:/{print $2}' /proc/<pid>/status~                                |
+| Is the cgroup attribution real or cache?          | ~sudo cat /sys/fs/cgroup/system.slice/<unit>/memory.stat~ -- ~anon~ vs ~file~ |
+| Is the host genuinely under memory pressure?      | ~/proc/pressure/memory~ (PSI); non-zero ~avg10~ / ~avg60~ means real stalls   |
+| Is memory actually available for new allocations? | ~MemAvailable~ in ~/proc/meminfo~ (kernel's own estimate)                     |
 
 If the cgroup ~memory.stat~ shows ~file: 1.5G~ and ~anon: 10M~,
-there's nothing leaking — it's just cached file pages tagged to the
+there's nothing leaking -- it's just cached file pages tagged to the
 cgroup.  ~MemAvailable~ already discounts them.
 
 *** Dashboard / Prometheus metric to trust
@@ -1229,11 +1229,11 @@ reclaimable cache" and it already discounts the page-cache
 attribution.  But it's a single scalar that hides shape.  Worth
 pairing with:
 
-- *PSI memory pressure* —
+- *PSI memory pressure* --
   ~rate(node_pressure_memory_waiting_seconds_total[5m])~.  Non-zero
   only when processes are actually stalling on memory allocation.
   The empirical "is memory really a problem right now" signal.
-- *Anon vs cache split* — ~node_memory_AnonPages_bytes~ and
+- *Anon vs cache split* -- ~node_memory_AnonPages_bytes~ and
   ~node_memory_Cached_bytes~ separately.  Anon growth without cache
   growth is a real leak; cache growth without anon growth is just
   Linux being Linux.
@@ -1251,14 +1251,14 @@ pairing with:
 
 A common adjacent confusion: a ~proton-deploy switch~ to a host
 that builds its own derivations (via ~--build-host~) will
-*temporarily* inflate host memory during compilation — Rust LTO
+*temporarily* inflate host memory during compilation -- Rust LTO
 release builds in particular use 1-2 GB of anon memory.  After the
 build finishes that anon memory is freed and the dashboard shows a
 dramatic-looking "drop."  Without observing the preceding spike
 this can look like a leak being released.  If the
 ~MemAvailable~-based dashboard shows a sudden drop that coincides
 with a deploy, check the prior ~5-10 minutes for an equal or
-larger rise — that's the signature of a build spike, not a leak.
+larger rise -- that's the signature of a build spike, not a leak.
 
 ** Kodi CEC remote stops working (devices show as "HDMI N", not by name)
 
@@ -1283,13 +1283,13 @@ already off.
 
 The usual cause is Kodi's *volume amplification* being turned up.  It should be
 =0 dB=.  Amplification is applied /before/ Kodi's limiter, so a boosted signal
-slams the limiter and the resulting gain reduction ducks the entire mix —
-dialogue included — precisely when the music is loudest.  Turning amplification
+slams the limiter and the resulting gain reduction ducks the entire mix --
+dialogue included -- precisely when the music is loudest.  Turning amplification
 *up* to chase quiet dialogue therefore makes it worse rather than better.
 
-Fix: OSD → Audio settings → Volume amplification → =0=.  Raise the *TV* volume
-instead.  The TV's amplifier has real headroom; Kodi's digital gain stage does
-not.
+Fix: OSD -> Audio settings -> Volume amplification -> =0=.  Raise the *TV*
+volume instead.  The TV's amplifier has real headroom; Kodi's digital gain stage
+does not.
 
 DVD rips genuinely are quiet (an anime DVD measured here sat at -17 to -24 LUFS
 with ~14 LU of loudness range, against roughly -16 to -14 LUFS and 6-8 LU for
@@ -1340,7 +1340,7 @@ sudo -u kodi sqlite3 \
   "UPDATE settings SET VolumeAmplification = 0.0 WHERE idFile = <id>;"
 #+end_src
 
-This is safe to run while Kodi is up — it only holds per-file video settings in
+This is safe to run while Kodi is up -- it only holds per-file video settings in
 memory for the file currently playing, and writes them back when that file
 stops.  Do not edit the row for whatever is on screen.
 
@@ -1353,7 +1353,7 @@ sudo -u kodi sqlite3 /home/kodi/.kodi/userdata/Database/MyVideos131.db \
 #+end_src
 
 The number in =MyVideos131.db= tracks Kodi's schema version and changes on major
-Kodi upgrades — check the real filename in that directory before running these.
+Kodi upgrades -- check the real filename in that directory before running these.
 
 *** Not the cause
 
@@ -1362,7 +1362,7 @@ Worth ruling out explicitly, since these are the tempting first guesses:
 - *Downmix / centre-channel loss.*  Only applies to multichannel sources.  DVD
   rips are frequently plain 2.0 stereo; check with ~ffprobe -select_streams a~
   before chasing it.
-- *Dolby Surround matrix decoding.*  =mediainfo= reports =dsurmod= — "Not Dolby
+- *Dolby Surround matrix decoding.*  =mediainfo= reports =dsurmod= -- "Not Dolby
   Surround encoded" means no matrix decode is expected.
 - *AC3 dynamic range compression* (=applydrc=).  DRC acts on =dynrng= metadata
   in the bitstream; if =mediainfo= shows a =compr= near 0 dB there is nothing

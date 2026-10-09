@@ -29,7 +29,9 @@ in
 {
   options = {
     services.kodi-standalone = {
-      enable = mkEnableOption "Run Kodi in standalone mode as a media center interface.";
+      enable =
+        mkEnableOption
+          "Run Kodi in standalone mode as a media center interface.";
       systemUser = mkOption {
         type = lib.types.str;
         default = "kodi";
@@ -61,7 +63,7 @@ in
           advancedsettings.xml as services.webserverport, so Kodi is told the
           value rather than left on its default and assumed to have stayed
           there.  Consumers should read this option instead of hardcoding a
-          number — the units in this module that drive JSON-RPC do, and so
+          number -- the units in this module that drive JSON-RPC do, and so
           should any firewall rule or reverse-proxy target for the web
           interface.
 
@@ -71,7 +73,7 @@ in
           before the web server binds, so it is the only lever that works.
 
           The default matches Kodi's own so that leaving this alone is not a
-          surprise.  Be aware that 8080 is heavily contended, though — it is a
+          surprise.  Be aware that 8080 is heavily contended, though -- it is a
           popular default for unrelated software, so on a host running much
           else it is worth moving somewhere quieter.  Prefer a port below the
           ephemeral range (net.ipv4.ip_local_port_range, typically 32768 and
@@ -123,7 +125,7 @@ in
         description = ''
           Peripheral-specific settings for Kodi's peripheral_data directory.
           Each key is a peripheral filename (without .xml), and the value is
-          an attrset of setting-id → value pairs.
+          an attrset of setting-id -> value pairs.
 
           Uses <setting id="key" value="value"/> format (value as attribute).
         '';
@@ -162,14 +164,14 @@ in
           Kodi starts.
 
           Unlike advancedsettings.xml, guisettings.xml is owned and rewritten
-          by Kodi itself — it cannot be managed as a home-manager file without
+          by Kodi itself -- it cannot be managed as a home-manager file without
           Kodi clobbering it on every shutdown.  Driving the same values
           through Settings.SetSettingValue at startup is the only way to hold
           them declaratively; Kodi then persists them normally.
 
           Values are typed: booleans, integers and strings all map onto their
           JSON equivalents.  Enum-valued settings take the integer the setting
-          definition assigns, not the label — consult
+          definition assigns, not the label -- consult
           share/kodi/system/settings/settings.xml in the Kodi package, or
           query Settings.GetSettings over JSON-RPC on a running instance.
         '';
@@ -201,7 +203,8 @@ in
                 };
                 path = mkOption {
                   type = lib.types.str;
-                  description = "File path or network location for this media source.";
+                  description =
+                    "File path or network location for this media source.";
                 };
               };
             }
@@ -329,7 +332,7 @@ in
             Restart = "always";
             # A Kodi whose audio engine has deadlocked blocks in its own
             # shutdown path waiting on the wedged thread, so it sits there for
-            # the full 90s default before systemd gives up and SIGKILLs it —
+            # the full 90s default before systemd gives up and SIGKILLs it --
             # which is exactly the state you are usually in when restarting it.
             # Twenty seconds is well clear of a healthy shutdown.
             TimeoutStopSec = "20s";
@@ -340,37 +343,41 @@ in
         #
         # This lands in advancedsettings.xml, which reaches the settings system
         # through CSettings::LoadHidden() rather than any key-by-key parser in
-        # AdvancedSettings.cpp — so any real setting id works here, and only
+        # AdvancedSettings.cpp -- so any real setting id works here, and only
         # real setting ids work.  ("services.webserverport" is one; see the
         # note on volumeamplification in nixos-configs/kodi-media-player.nix
         # for what happens when you invent one that is not.)
         services.kodi-standalone.advancedSettings.services.webserverport =
-          toString cfg.webserverPort;
+          toString
+            cfg.webserverPort;
 
         # Enable hardware acceleration for video playback.
         hardware.graphics.enable = true;
       }
-      (mkIf (cfg.videoExcludeFromScan != [ ] || cfg.videoExcludeFromListing != [ ]) {
-        # Kodi's <video><excludefromscan> and <excludefromlisting> take repeated
-        # <regexp> children, which the attrsOf-str advancedSettings type cannot
-        # express directly.  The generator injects values without escaping, so
-        # the repeated elements ride through as a raw XML string.  Unlike
-        # webserverport above — a hidden setting id loaded via
-        # CSettings::LoadHidden() — these elements are parsed key-by-key by
-        # CAdvancedSettings itself, so the "only real setting ids work" note is
-        # scoped to setting ids and does not apply here.
-        services.kodi-standalone.advancedSettings.video =
-          lib.optionalAttrs (cfg.videoExcludeFromScan != [ ]) {
-            excludefromscan = lib.concatMapStrings (
-              regexp: "<regexp>${regexp}</regexp>"
-            ) cfg.videoExcludeFromScan;
-          }
-          // lib.optionalAttrs (cfg.videoExcludeFromListing != [ ]) {
-            excludefromlisting = lib.concatMapStrings (
-              regexp: "<regexp>${regexp}</regexp>"
-            ) cfg.videoExcludeFromListing;
-          };
-      })
+      (mkIf
+        (cfg.videoExcludeFromScan != [ ] || cfg.videoExcludeFromListing != [ ])
+        {
+          # Kodi's <video><excludefromscan> and <excludefromlisting> take repeated
+          # <regexp> children, which the attrsOf-str advancedSettings type cannot
+          # express directly.  The generator injects values without escaping, so
+          # the repeated elements ride through as a raw XML string.  Unlike
+          # webserverport above -- a hidden setting id loaded via
+          # CSettings::LoadHidden() -- these elements are parsed key-by-key by
+          # CAdvancedSettings itself, so the "only real setting ids work" note is
+          # scoped to setting ids and does not apply here.
+          services.kodi-standalone.advancedSettings.video =
+            lib.optionalAttrs (cfg.videoExcludeFromScan != [ ]) {
+              excludefromscan = lib.concatMapStrings (
+                regexp: "<regexp>${regexp}</regexp>"
+              ) cfg.videoExcludeFromScan;
+            }
+            // lib.optionalAttrs (cfg.videoExcludeFromListing != [ ]) {
+              excludefromlisting = lib.concatMapStrings (
+                regexp: "<regexp>${regexp}</regexp>"
+              ) cfg.videoExcludeFromListing;
+            };
+        }
+      )
       (mkIf (cfg.enabledAddons != [ ]) {
         # Service to enable addons via JSON-RPC after Kodi starts.
         systemd.user.services.kodi-enable-addons = {
@@ -447,7 +454,10 @@ in
                     lib.mapAttrsToList (section: settings: ''
                       <${section}>
                                     ${builtins.concatStringsSep "\n    " (
-                                      lib.mapAttrsToList (name: value: ''<${name}>${value}</${name}>'') settings
+                                      lib.mapAttrsToList (
+                                        name: value:
+                                        "<${name}>${value}</${name}>"
+                                      ) settings
                                     )}
                                   </${section}>'') cfg.advancedSettings
                   )}
@@ -462,17 +472,20 @@ in
         home-manager.users.${cfg.systemUser} = {
           home.file = lib.mapAttrs' (
             addonPath: settings:
-            lib.nameValuePair ".kodi/userdata/addon_data/${addonPath}/settings.xml" {
-              text = ''
-                <settings version="2">
-                  ${builtins.concatStringsSep "\n  " (
-                    lib.mapAttrsToList (
-                      settingId: value: ''<setting id="${settingId}">${value}</setting>''
-                    ) settings
-                  )}
-                </settings>
-              '';
-            }
+            lib.nameValuePair
+              ".kodi/userdata/addon_data/${addonPath}/settings.xml"
+              {
+                text = ''
+                  <settings version="2">
+                    ${builtins.concatStringsSep "\n  " (
+                      lib.mapAttrsToList (
+                        settingId: value:
+                        ''<setting id="${settingId}">${value}</setting>''
+                      ) settings
+                    )}
+                  </settings>
+                '';
+              }
           ) cfg.addonSettings;
         };
       })
@@ -480,18 +493,21 @@ in
         home-manager.users.${cfg.systemUser} = {
           home.file = lib.mapAttrs' (
             peripheralName: settings:
-            lib.nameValuePair ".kodi/userdata/peripheral_data/${peripheralName}.xml" {
-              force = true;
-              text = ''
-                <settings>
-                    ${builtins.concatStringsSep "\n    " (
-                      lib.mapAttrsToList (
-                        settingId: value: ''<setting id="${settingId}" value="${value}"/>''
-                      ) settings
-                    )}
-                </settings>
-              '';
-            }
+            lib.nameValuePair
+              ".kodi/userdata/peripheral_data/${peripheralName}.xml"
+              {
+                force = true;
+                text = ''
+                  <settings>
+                      ${builtins.concatStringsSep "\n    " (
+                        lib.mapAttrsToList (
+                          settingId: value:
+                          ''<setting id="${settingId}" value="${value}"/>''
+                        ) settings
+                      )}
+                  </settings>
+                '';
+              }
           ) cfg.peripheralSettings;
         };
       })
@@ -508,8 +524,12 @@ in
                                     ${builtins.concatStringsSep "\n    " (
                                       map (source: ''
                                         <source>
-                                                          <name>${source.name}</name>
-                                                          <path pathversion="1">${source.path}</path>
+                                                          <name>${
+                                                            source.name
+                                                          }</name>
+                                                          <path pathversion="1">${
+                                                            source.path
+                                                          }</path>
                                                         </source>'') sources
                                     )}
                                   </${mediaType}>'') cfg.mediaSources

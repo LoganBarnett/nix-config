@@ -36,14 +36,14 @@
       # The main network, whose atypical subnet is a vestigial dictation by the
       # consumer router.
       barnett-main = "192.168.254";
-      # IoT VLAN (20) — isolated devices with per-device internet allowlisting.
+      # IoT VLAN (20) -- isolated devices with per-device internet allowlisting.
       barnett-iot = "10.20.0";
-      # Guest VLAN (30) — internet-only access, no internal LAN visibility.
+      # Guest VLAN (30) -- internet-only access, no internal LAN visibility.
       barnett-guest = "10.30.0";
     };
     # The VLAN plan.  The rule: VLAN N owns the 10.N.0.0/16 allocation,
     # deployed as a /24 until a segment needs more, at which point the mask
-    # widens in place — no renumbering.  Names are roles, not sites: the
+    # widens in place -- no renumbering.  Names are roles, not sites: the
     # geode direction is a core codebase any household network can
     # instantiate, so nothing here may carry a family or site name.  The
     # gateway host owns .1 on every VLAN it routes; legacy predates that
@@ -52,25 +52,25 @@
     # supersede the stringly `subnets` above, which remain for incremental
     # migration.
     vlans = {
-      # Trusted — admitted, full-permission devices.
+      # Trusted -- admitted, full-permission devices.
       main = {
         id = 10;
         prefix = "10.10.0";
         prefixLength = 24;
       };
-      # IoT — blocked by default, per-device internet allowlisting.
+      # IoT -- blocked by default, per-device internet allowlisting.
       iot = {
         id = 20;
         prefix = "10.20.0";
         prefixLength = 24;
       };
-      # Guest — internet-only, no internal LAN visibility.
+      # Guest -- internet-only, no internal LAN visibility.
       guest = {
         id = 30;
         prefix = "10.30.0";
         prefixLength = 24;
       };
-      # Onboarding lobby — reaches only the gateway's enrollment services.
+      # Onboarding lobby -- reaches only the gateway's enrollment services.
       lobby = {
         id = 40;
         prefix = "10.40.0";
@@ -271,7 +271,7 @@
         ipv4 = 8;
         # Only one of these MACs may hold the reservation at a time.  dnsmasq
         # accepts several MACs on a single dhcp-host entry, but it abandons the
-        # lease held by one address when another asks for it — its own
+        # lease held by one address when another asks for it -- its own
         # documentation warns the arrangement is reliable only when exactly one
         # of the addresses is active.  With both NICs up the two interfaces
         # fought over 192.168.254.8, which presented as sporadic unreachability

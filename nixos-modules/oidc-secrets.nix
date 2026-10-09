@@ -11,7 +11,7 @@
 # When a service is running locally, its systemd unit is also given a
 # restartTrigger on the secret's rekeyed .age file.  The file lives in the Nix
 # store and its path changes on every rekey, so NixOS treats the unit as
-# changed and restarts it — ensuring the service always picks up rotated
+# changed and restarts it -- ensuring the service always picks up rotated
 # secrets without a manual intervention.  Authelia handles its own triggers
 # (it restarts on any client-secret change); this covers only the service-side
 # units.

@@ -8,7 +8,7 @@
 #   1. Gracefully disconnect any existing VPN session.
 #   2. Connect via gp-connect-auto (full auth cycle).
 #   3. Run the test script unconditionally.
-#   4. Run baseline network assertions; recover and retry up to 3× if any fail.
+#   4. Run baseline network assertions; recover and retry up to 3x if any fail.
 #   5. Gracefully disconnect VPN so the vpnc-script restores the default route.
 #   6. Run baseline assertions again to guarantee the network is healthy on exit.
 #   7. Exit with the test script's original exit code.
@@ -107,7 +107,7 @@ vpn_disconnect_graceful() {
   done
 
   if vpn_is_connected; then
-    echo "  WARNING: gpclient still alive after ${waited}s — recovering gateway and continuing"
+    echo "  WARNING: gpclient still alive after ${waited}s -- recovering gateway and continuing"
     # The vpnc disconnect script did not run, so restore the gateway manually
     # to ensure the network survives this iteration.
     sudo -E vpn-test-harness-recover || true
@@ -147,9 +147,9 @@ run_baseline_assertions() {
   local silicon_ip
   silicon_ip=$(resolve_ip silicon.proton)
   if [ -n "$silicon_ip" ]; then
-    echo "  [DNS ] silicon.proton → $silicon_ip  ✓"
+    echo "  [DNS ] silicon.proton -> $silicon_ip  ✓"
   else
-    echo "  [DNS ] silicon.proton → (failed; using stable fallback $SILICON_IP_STABLE)  ✗"
+    echo "  [DNS ] silicon.proton -> (failed; using stable fallback $SILICON_IP_STABLE)  ✗"
     silicon_ip="$SILICON_IP_STABLE"
     fail=1
   fi
@@ -164,7 +164,7 @@ run_baseline_assertions() {
   local yahoo_ip
   yahoo_ip=$(resolve_ip yahoo.com)
   if [ -n "$yahoo_ip" ]; then
-    echo "  [DNS ] yahoo.com → $yahoo_ip  ✓"
+    echo "  [DNS ] yahoo.com -> $yahoo_ip  ✓"
     if ping -c 1 -W 5 "$yahoo_ip" >/dev/null 2>&1; then
       echo "  [IP  ] yahoo.com ($yahoo_ip) reachable  ✓"
     else
@@ -172,8 +172,8 @@ run_baseline_assertions() {
       fail=1
     fi
   else
-    echo "  [DNS ] yahoo.com → (failed)  ✗"
-    echo "  [IP  ] yahoo.com (skipped — DNS failed)  ✗"
+    echo "  [DNS ] yahoo.com -> (failed)  ✗"
+    echo "  [IP  ] yahoo.com (skipped -- DNS failed)  ✗"
     fail=1
   fi
 
@@ -181,7 +181,7 @@ run_baseline_assertions() {
   local anthropic_ip
   anthropic_ip=$(resolve_ip api.anthropic.com)
   if [ -n "$anthropic_ip" ]; then
-    echo "  [DNS ] api.anthropic.com → $anthropic_ip  ✓"
+    echo "  [DNS ] api.anthropic.com -> $anthropic_ip  ✓"
     if ping -c 1 -W 5 "$anthropic_ip" >/dev/null 2>&1; then
       echo "  [IP  ] api.anthropic.com ($anthropic_ip) reachable  ✓"
     else
@@ -189,8 +189,8 @@ run_baseline_assertions() {
       fail=1
     fi
   else
-    echo "  [DNS ] api.anthropic.com → (failed)  ✗"
-    echo "  [IP  ] api.anthropic.com (skipped — DNS failed)  ✗"
+    echo "  [DNS ] api.anthropic.com -> (failed)  ✗"
+    echo "  [IP  ] api.anthropic.com (skipped -- DNS failed)  ✗"
     fail=1
   fi
 
@@ -224,7 +224,7 @@ baseline_assertion_gate() {
     fi
     echo ""
     if [ $attempt -lt $BASELINE_MAX_RETRIES ]; then
-      echo "Assertions failed — running vpn-test-harness-recover..."
+      echo "Assertions failed -- running vpn-test-harness-recover..."
       sudo -E vpn-test-harness-recover || true
       echo "Waiting 5s for network stack to settle..."
       sleep 5
@@ -233,7 +233,7 @@ baseline_assertion_gate() {
   done
 
   echo "FATAL: Baseline assertions still failing after $BASELINE_MAX_RETRIES attempt(s)" >&2
-  echo "  Network may not be healthy — manual intervention may be required" >&2
+  echo "  Network may not be healthy -- manual intervention may be required" >&2
   echo ""
 }
 
@@ -251,7 +251,7 @@ echo ""
 _PHYS_IF=$(route -n get default 2>/dev/null | awk '/interface:/ {print $2; exit}') || true
 _PHYS_IP=$("$IFCONFIG" "${_PHYS_IF:-en10}" 2>/dev/null | awk '/inet [0-9]/ {print $2}' | head -1) || true
 if [ -z "$_PHYS_IP" ]; then
-  echo "  ${_PHYS_IF:-en10} has no IPv4 — requesting DHCP and waiting up to 30s..."
+  echo "  ${_PHYS_IF:-en10} has no IPv4 -- requesting DHCP and waiting up to 30s..."
   /usr/sbin/ipconfig set "${_PHYS_IF:-en10}" DHCP 2>/dev/null || true
   for _dhcp_wait in $(seq 1 30); do
     _PHYS_IP=$("$IFCONFIG" "${_PHYS_IF:-en10}" 2>/dev/null | awk '/inet [0-9]/ {print $2}' | head -1) || true
@@ -262,7 +262,7 @@ if [ -z "$_PHYS_IP" ]; then
     sleep 1
   done
   if [ -z "$_PHYS_IP" ]; then
-    echo "  WARNING: ${_PHYS_IF:-en10} still has no IP after 30s — continuing anyway" >&2
+    echo "  WARNING: ${_PHYS_IF:-en10} still has no IP after 30s -- continuing anyway" >&2
   fi
 else
   echo "  ✓ ${_PHYS_IF:-en10} already has IP $_PHYS_IP"
@@ -290,7 +290,7 @@ echo "========================================================"
 echo ""
 
 # The harness runs as root (via sudo -E vpn-test-harness), so gp-connect-auto
-# inherits root privileges directly.  Do NOT use 'sudo -E' here — a nested
+# inherits root privileges directly.  Do NOT use 'sudo -E' here -- a nested
 # sudo overwrites SUDO_USER, causing gpauth to refuse with "cannot be run as
 # root" (gpauth uses SUDO_USER to drop privileges for the browser auth flow).
 gp-connect-auto &
@@ -348,11 +348,11 @@ for _i in $(seq 1 90); do
     2>/dev/null || echo "")
   _TEST_HOST_LABEL=${_TEST_HOST%%.*}
   if [ -z "$_TEST_HOST" ]; then
-    echo "  (skipping VPN data-plane probe — no testHost configured)"
+    echo "  (skipping VPN data-plane probe -- no testHost configured)"
     break
   fi
   DIG_OUT=$(dig +timeout=1 +tries=1 @10.198.51.37 "$_TEST_HOST" A 2>&1 || true)
-  # Only accept NOERROR with an actual answer — NXDOMAIN or SERVFAIL mean
+  # Only accept NOERROR with an actual answer -- NXDOMAIN or SERVFAIL mean
   # the DNS server responded but the test host did not resolve, which is
   # not a working data plane.
   if echo "$DIG_OUT" | grep -q "NOERROR"; then
@@ -360,7 +360,7 @@ for _i in $(seq 1 90); do
       | awk -v label="$_TEST_HOST_LABEL" '$0 ~ "^" label "\\..*IN[[:space:]]+A[[:space:]]" {print $NF}' \
       | head -1)
     if [ -n "$_STASH_IP" ]; then
-      echo "  ✓ VPN data plane ready after ${_i}s (stash → $_STASH_IP)"
+      echo "  ✓ VPN data plane ready after ${_i}s (stash -> $_STASH_IP)"
     else
       echo "  ✓ VPN data plane ready after ${_i}s (NOERROR but no A record)"
     fi
@@ -377,12 +377,12 @@ for _i in $(seq 1 90); do
     echo "    utun4 pkts: $(netstat -I utun4 -n 2>/dev/null | awk 'NR>1 {ip+=$5; op+=$7} END {print "Ipkts=" ip " Opkts=" op}')"
     echo "    10.198.51.37 route: $(route -n get 10.198.51.37 2>/dev/null | awk '/interface:|gateway:|flags:/ {printf $2 " "}')"
     echo "    10.0.0.0/8 route: $(netstat -rn 2>/dev/null | awk '/^10\.0\.0\.0/ {print $1,$2,$3,$6}' | head -2)"
-    echo "    any→vpnserver: $(netstat -an 2>/dev/null | awk '/130\.41\.54\.241/ && !/LISTEN/ {print $1 " " $4 " " $5}' | head -3)"
+    echo "    any->vpnserver: $(netstat -an 2>/dev/null | awk '/130\.41\.54\.241/ && !/LISTEN/ {print $1 " " $4 " " $5}' | head -3)"
   fi
   sleep 1
 done
 if [ "$VPN_READY" = "false" ]; then
-  echo "  (VPN DNS still unreachable after 90s — final utun state:)"
+  echo "  (VPN DNS still unreachable after 90s -- final utun state:)"
   "$IFCONFIG" | awk '/^utun/{iface=$1} /inet /{print "    " iface ": " $2}'
 fi
 
@@ -393,7 +393,7 @@ fi
 # FIRST restart with a working data plane.
 if [ "$VPN_READY" = "true" ]; then
   # Flush DNS cache and notify configd.  Use HUP (not full restart) to avoid
-  # killing mDNSResponder — a full restart via launchctl kickstart -k takes
+  # killing mDNSResponder -- a full restart via launchctl kickstart -k takes
   # 15+ seconds to rebind port 53 on this macOS version.
   echo "Flushing DNS cache and notifying configd..."
   /usr/bin/dscacheutil -flushcache 2>/dev/null || true
@@ -421,7 +421,7 @@ TEST_EXIT=0
 # expiry; treat that as a test failure so the cleanup steps still run.
 timeout "$TEST_TIMEOUT" "$TEST_SCRIPT" "$@" || TEST_EXIT=$?
 if [ "$TEST_EXIT" -eq 124 ]; then
-  echo "WARNING: test script exceeded ${TEST_TIMEOUT}s timeout — killed" >&2
+  echo "WARNING: test script exceeded ${TEST_TIMEOUT}s timeout -- killed" >&2
 fi
 
 echo ""
@@ -431,7 +431,7 @@ echo "========================================================"
 echo ""
 
 # ---------------------------------------------------------------------------
-# Step 4: baseline assertions — block until network is healthy or give up
+# Step 4: baseline assertions -- block until network is healthy or give up
 # ---------------------------------------------------------------------------
 
 baseline_assertion_gate "after test script"

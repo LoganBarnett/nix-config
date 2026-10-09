@@ -126,7 +126,7 @@ in
     pkgs.rush-parallel
     # Watch TCP packets!
     pkgs.tcpdump
-    # GNU inetutils.  Wanted mainly for telnet and tftp — telnet because,
+    # GNU inetutils.  Wanted mainly for telnet and tftp -- telnet because,
     # unlike netcat, it performs option negotiation, which matters against
     # embedded devices whose telnetd opens with IAC bytes that a raw socket
     # leaves as garbage on your terminal; tftp because it is how you smoke-test

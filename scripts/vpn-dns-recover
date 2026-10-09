@@ -99,7 +99,7 @@ for i in $(seq 1 30); do
 done
 
 if ! route -n get default &>/dev/null; then
-  slog "WARNING: No default route after 30s — DHCP may have failed."
+  slog "WARNING: No default route after 30s -- DHCP may have failed."
 fi
 
 # For reasons beyond me, this must be called twice - once before the reset of

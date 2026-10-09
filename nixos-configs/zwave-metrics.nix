@@ -2,7 +2,7 @@
 # Exports Z-Wave node health as Prometheus textfile metrics.
 #
 # The collector (zwave-metrics.js) takes one state dump per run from the
-# zwave-js-server websocket that zwave-js-ui already exposes on localhost —
+# zwave-js-server websocket that zwave-js-ui already exposes on localhost --
 # the same interface OpenHAB consumes.  This is the driver's own view of the
 # network, so it sees things no other host metric can: nodes the controller
 # has marked Dead, battery levels, and Notification CC sensor states.
@@ -12,7 +12,7 @@
 #       1 when the controller marks the node Dead.  Asleep battery devices are
 #       healthy and do not count.  This is the alert that would have caught
 #       the orphaned Long Range node 257, which sat dead for weeks after its
-#       security keys were lost — see the history in zwave-js-ui.nix around
+#       security keys were lost -- see the history in zwave-js-ui.nix around
 #       securityKeysLongRange.
 #   zwave_node_battery_percent
 #       Battery level per node, for devices that report it.  A water sensor

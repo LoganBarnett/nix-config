@@ -9,13 +9,13 @@
 
 The current DNS filtering stack is:
 
-- *Blocky* — DNS proxy with per-client block profiles (child, adult, default).
+- *Blocky* -- DNS proxy with per-client block profiles (child, adult, default).
   Fetches blocklists from HTTP URLs and applies them per-client based on IP,
   MAC address, or hostname.
-- *dns-smart-block* — LLM-powered dynamic classifier that watches DNS query
+- *dns-smart-block* -- LLM-powered dynamic classifier that watches DNS query
   logs, classifies domains as gaming or video-streaming, and serves the
   results as HTTP text blocklists that Blocky polls.
-- *blocky-lists-updater* — a third-party shim that downloads those HTTP lists
+- *blocky-lists-updater* -- a third-party shim that downloads those HTTP lists
   and calls Blocky's reload API, because Blocky has no push-notification
   interface.
 
@@ -37,7 +37,7 @@ pointing to ~0.0.0.0~.
 The resolver subscribes to the zone via standard DNS zone transfer.  When the
 authoritative server's zone changes, it sends a DNS ~NOTIFY~ message to all
 subscribers.  Each subscriber then performs an ~IXFR~ (incremental zone
-transfer) to pull only the diff — the added and removed records since its last
+transfer) to pull only the diff -- the added and removed records since its last
 known serial number.  Changes propagate in seconds with no polling interval,
 no scheduled refresh, and no cache expiry problem.  It is a DNS-native
 pub/sub mechanism.
@@ -61,7 +61,7 @@ That said, several signals suggest it would not be:
 2. *The push-notification problem has gone unresolved for years.*
    [[https://github.com/0xERR0R/blocky/issues/844][Issue #844]] ("Able to refresh an individual group of lists manually or
    automatically", open since August 2023, milestone: /future/) is the
-   closest analogue — an explicit request for a way to trigger list refreshes
+   closest analogue -- an explicit request for a way to trigger list refreshes
    from outside Blocky.  It has sat with no maintainer engagement.  This is
    the exact gap that forced blocky-lists-updater into existence as a
    workaround.
@@ -116,21 +116,21 @@ Newer OpenSSL (we run 3.6.0) and other consumers have tightened X.509 spec
 enforcement.  The currently-deployed ~proton-ca~ root predates the fix in the
 ~tls-ca-root~ / ~tls-signed-certificate~ generators (~agenix/tls-secret.nix~)
 and lacks the extensions a CA needs to be accepted as a leaf issuer under the
-stricter validators — so it can effectively no longer mint usable leaf certs.
+stricter validators -- so it can effectively no longer mint usable leaf certs.
 The generators themselves are already fixed; the deployed chain is not.  Since
 every leaf is signed by this root, fixing it means regenerating the /whole/
 chain (root + every ~tls-*~ leaf), not patching a single cert.
 
-*** Scope 1 — regenerate the whole chain
+*** Scope 1 -- regenerate the whole chain
 
 - Regenerate the ~proton-ca~ root with the corrected generator so it carries
   the extensions required to issue leaves under strict validators.
 - Re-issue every ~tls-*~ leaf against the new root.
-- Roll the new root into every host's trust store and re-deploy — the old root
+- Roll the new root into every host's trust store and re-deploy -- the old root
   will stop validating anything, so this is a coordinated cutover, not a
   rolling one.
 
-*** Scope 2 — migrate .proton -> .internal
+*** Scope 2 -- migrate .proton -> .internal
 
 Switch the internal domain from ~.proton~ to ~.internal~.  ~.internal~ is the
 ICANN-reserved private-use TLD (reserved 2024), so it is the correct,
@@ -138,8 +138,8 @@ collision-safe choice; ~.proton~ is unreserved and brand-adjacent.
 
 The deliberate trick: scope the root CA's ~nameConstraints~ to the /entire/
 ~.internal~ TLD rather than to this network's ~network-a.internal~ subtree.
-That makes a single "blessed" root authoritative for any ~*.internal~ name —
-including ~network-b.internal~ — which is the foundation for joining networks
+That makes a single "blessed" root authoritative for any ~*.internal~ name --
+including ~network-b.internal~ -- which is the foundation for joining networks
 (Scope 3).
 
 This is a wide cutover: it touches DNS (~facts.nix~ host names, ~dnsAliases~),
@@ -147,12 +147,12 @@ every service FQDN and OIDC redirect URI, every TLS leaf ~fqdn~, and the agenix
 secret names derived from them.  Open question: big-bang vs phased (e.g. serve
 both domains during a transition window).
 
-*** Scope 3 — cross-network TLS bridge
+*** Scope 3 -- cross-network TLS bridge
 
 Goal: a client on ~network-a~ can reach ~foo.network-b.internal~ without
 reconfiguring trust on the client device (painful, especially for phones/IoT).
 
-Mechanism: a TLS dual-bridge across the VPN link between the two networks — an
+Mechanism: a TLS dual-bridge across the VPN link between the two networks -- an
 nginx instance at each end that terminates and re-presents TLS, acting as a
 trust-translating proxy.  Because both networks' roots are scoped to
 ~.internal~ (Scope 2), a client that already trusts its own ~.internal~ root
@@ -165,7 +165,7 @@ reachable namespace over the VPN.
 
 - Relates to the multi-network federation direction (OIDC brokering, identity
   = (sub, iss)); the ~.internal~ trust scoping is the TLS half of that story.
-- Decide the cutover strategy before starting Scope 2 — the domain rename is
+- Decide the cutover strategy before starting Scope 2 -- the domain rename is
   the widest-blast-radius step.
 
 * Nix
@@ -192,15 +192,15 @@ to end before each step lands.
 The project uses both =globalprotect= (one word) and =global-protect= (two
 words) interchangeably across file names, option paths, and prose:
 
-- =darwin-modules/global-protect-persistent.nix= — file uses the two-word form,
+- =darwin-modules/global-protect-persistent.nix= -- file uses the two-word form,
   but defines =services.globalprotect-monitor.*= options (one word).
-- =nixos-modules/globalprotect-monitor.nix= — file uses the one-word form.
-- =docs/globalprotect-*.org= — one word.
+- =nixos-modules/globalprotect-monitor.nix= -- file uses the one-word form.
+- =docs/globalprotect-*.org= -- one word.
 - =docs/gpauth-root-restriction.org= refers to the file as
   =darwin-modules/global-protect-persistent.nix= (two words).
 
-Pick one spelling — Palo Alto's product is officially "GlobalProtect", which
-maps cleanly to the one-word =globalprotect= identifier — and rename
+Pick one spelling -- Palo Alto's product is officially "GlobalProtect", which
+maps cleanly to the one-word =globalprotect= identifier -- and rename
 consistently: file names, option paths, derivation names, prose.  Keep
 deprecation aliases on the option paths for one release to avoid breaking
 host configs.
@@ -210,9 +210,9 @@ host configs.
 There are two GlobalProtect-adjacent modules whose responsibilities overlap
 and whose names do not communicate the distinction:
 
-- =nixos-modules/globalprotect-monitor.nix= — Linux-flavored module defining
+- =nixos-modules/globalprotect-monitor.nix= -- Linux-flavored module defining
   =services.globalprotect-monitor.*=.  Not imported anywhere (=grep= confirms).
-- =darwin-modules/global-protect-persistent.nix= — Darwin module that *also*
+- =darwin-modules/global-protect-persistent.nix= -- Darwin module that *also*
   defines =services.globalprotect-monitor.*=, plus a local =dnsmasq= forwarder
   and a pile of VPN-recovery tooling in =environment.systemPackages= and
   sudoers.
@@ -238,9 +238,9 @@ module no longer leaks effects.  The remaining cleanup:
 There is no =globalprotect= / =global-protect= module that simply brings up
 the VPN once.  The only options today are:
 
-- =gp-connect= / =gp-connect-auto= derivations — invoked manually from a
+- =gp-connect= / =gp-connect-auto= derivations -- invoked manually from a
   shell, no Nix module wraps them.
-- =services.globalprotect-monitor= — the *persistent watchdog* daemon, which
+- =services.globalprotect-monitor= -- the *persistent watchdog* daemon, which
   also re-authenticates and reconnects on a timer.  Overkill if all you want
   is "connect now and stay connected until I log off".
 
@@ -282,10 +282,10 @@ For each orphan:
 3. If a doc is genuinely obsolete, move it to ~graveyard/~ with a
    ~TOMBSTONE~ explaining the retirement.
 
-Also fix any further dead links in ~README.org~ — the
+Also fix any further dead links in ~README.org~ -- the
 ~[[*Troubleshooting]]~ link was one example (now redirected to
 ~troubleshooting-methods.org~); a sweep for ~[[*~ targets whose
 headings no longer exist would catch the rest.
 
-This is incremental work — fine to do a few orphans per session rather
+This is incremental work -- fine to do a few orphans per session rather
 than all at once.

@@ -16,7 +16,7 @@ This is the convention for packaged helper tools we elevate, e.g.
 ** It decouples the rule from how the binary reaches PATH
 
 A symlink-path rule silently depends on the tool being provided through
-one particular channel — nix-darwin's ~environment.systemPackages~
+one particular channel -- nix-darwin's ~environment.systemPackages~
 (~/run/current-system/sw/bin~) versus a Home Manager profile
 (~/etc/profiles/per-user/...~ or ~~/.nix-profile/bin~).  Move the package
 between those and the rule's target path changes out from under it.  The
@@ -26,7 +26,7 @@ any, also exposes the tool on ~PATH~.
 ** It pins NOPASSWD to one specific, audited build
 
 A store path names exactly one realized derivation.  The grant therefore
-applies to /that build/ and nothing else — not to "whatever currently
+applies to /that build/ and nothing else -- not to "whatever currently
 answers to this name on ~PATH~".  A future, unrelated package that
 happens to install a same-named binary into ~/run/current-system/sw/bin~
 cannot inherit the passwordless grant.
@@ -69,7 +69,7 @@ sudo -n dns-resolver-helper flush-cache   # from the calling script's PATH
 
 * The one trade-off
 
-The sudoers file is regenerated whenever the tool's build changes — a new
+The sudoers file is regenerated whenever the tool's build changes -- a new
 derivation hash means a new path in the rule.  Activation diffs will show
 the rule churning.  That is expected and correct: the rule is tracking the
 specific blessed build.  If a stable, never-churning sudoers entry is more

@@ -4,7 +4,7 @@
 //
 // The zwave-js-server websocket (zwave.serverEnabled in zwave-js-ui's
 // settings) is the same interface OpenHAB consumes, and it is the driver's
-// own view of the network — no MQTT gateway or REST scraping involved.  One
+// own view of the network -- no MQTT gateway or REST scraping involved.  One
 // full state dump per run, no subscription kept open.
 //
 // Environment:

@@ -44,7 +44,7 @@ in
       description = "Register UPnP port-forward with the upstream router";
       after = [ "network-online.target" ];
       wants = [ "network-online.target" ];
-      # No wantedBy here — the timer is the sole activator.  Letting
+      # No wantedBy here -- the timer is the sole activator.  Letting
       # multi-user.target pull the service in directly races against the
       # network becoming available and causes an immediate failure on every
       # deploy/boot.

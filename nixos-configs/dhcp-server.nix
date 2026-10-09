@@ -34,7 +34,7 @@ let
 in
 {
   networking.monitors = [ "dnsmasq" ];
-  # The DHCP server has fully static addressing — it must not run a DHCP
+  # The DHCP server has fully static addressing -- it must not run a DHCP
   # client on the same interface.  networking-static.nix enables
   # networking.useDHCP globally (needed by other hosts), but dhcpcd racing
   # with the static address setup can drop secondary IPs on reboot.
@@ -92,7 +92,8 @@ in
           (mapAttrsToList (
             _hostname: host:
             mapAttrsToList (
-              extraName: extraIpv4: "${extraName}.${domain},${subnet}.${toString extraIpv4}"
+              extraName: extraIpv4:
+              "${extraName}.${domain},${subnet}.${toString extraIpv4}"
             ) (host.extraAddresses or { })
           ))
           flatten
@@ -120,13 +121,14 @@ in
             # skip them here to avoid duplicate CNAMEs.
             ++ lib.pipe facts.network.hosts [
               (lib.filterAttrs (
-                hostname: host: !(builtins.hasAttr hostname nodes) && hostname != host-id
+                hostname: host:
+                !(builtins.hasAttr hostname nodes) && hostname != host-id
               ))
               (mapAttrsToList (
                 hostname: host:
-                builtins.map (alias: "${alias}.${domain},${hostname}.${domain}") (
-                  host.aliases or [ ]
-                )
+                builtins.map (
+                  alias: "${alias}.${domain},${hostname}.${domain}"
+                ) (host.aliases or [ ])
               ))
               flatten
             ];
@@ -159,7 +161,9 @@ in
       dhcp-option = [
         "option:domain-search,${domain}"
         "option:router,192.168.254.254"
-        "option:dns-server,192.168.254.${toString facts.network.hosts.silicon.ipv4}"
+        "option:dns-server,192.168.254.${
+          toString facts.network.hosts.silicon.ipv4
+        }"
       ];
     };
   };
