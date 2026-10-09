@@ -95,13 +95,8 @@ when explicitly asked.
 
 *** The one exception: new files in a Nix flake repo
 
-Nix flakes only see files tracked by git, so a newly /created/ file in a
-project with a ~flake.nix~ at its root must be ~git add~-ed immediately —
-otherwise ~nix~ commands fail with opaque "file not found" errors that
-never mention git tracking as the cause.  This is the sole reason to run
-~git add~ unprompted, and it applies only to brand-new files needed for a
-~nix~ invocation — never to modifications of already-tracked files, which
-stay unstaged for the user to review.
+When creating files in a Nix Flake managed repo, use ~git add --intent-to-add~.
+
 
 * Rust
 
