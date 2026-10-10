@@ -542,13 +542,19 @@ human to run the above invocation.
 
 Tokens a third-party service issues (API keys, personal access tokens) can't be
 generated, so they live under ~secrets/issued/~ as
-~<service>-<purpose>-<host-id>.age~, one per consuming host so that revoking a
-token never reaches past that host.  Store a freshly issued one with:
+~<service>-<host-id>-<purpose>.age~, one per consuming host so that revoking a
+token never reaches past that host.  Services with several instances put the
+instance name after the service: ~grafana-<instance>-<host-id>-mcp-token.age~.
+Store a freshly issued one with:
 
 #+begin_src sh :results none :exports code
-agenix edit secrets/issued/gitea-mcp-scandium.age
-agenix rekey generate --rekey --add-to-git
+agenix edit secrets/issued/gitea-scandium-mcp-token.age
+agenix rekey --add-to-git
 #+end_src
+
+The rekeyed copy is named ~<hash>-<secret-name>.age~, where the hash covers the
+host key and the token bytes but not the file name.  Renaming an issued file
+therefore needs no rekey, while renaming the ~age.secrets~ attribute does.
 
 *** Wiring Secrets to Services
 

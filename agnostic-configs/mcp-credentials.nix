@@ -6,12 +6,12 @@
 # Each token is a read-only credential the service issued to one host, hence
 # the host-id in the file name: revoking one host's token must not touch any
 # other host's.  Store a freshly issued token with
-# `agenix edit secrets/issued/<service>-mcp-<host-id>.age`, then rekey.
+# `agenix edit secrets/issued/<service>-<host-id>-mcp-token.age`, then rekey.
 ################################################################################
 { host-id, ... }:
 let
   issuedToken = service: {
-    rekeyFile = ../secrets/issued/${service}-mcp-${host-id}.age;
+    rekeyFile = ../secrets/issued/${service}-${host-id}-mcp-token.age;
     # The wrappers run as the login user, not as root.
     mode = "0400";
     owner = "logan";
@@ -20,6 +20,5 @@ in
 {
   age.secrets.gitea-mcp-token = issuedToken "gitea";
   age.secrets.github-mcp-token = issuedToken "github";
-  age.secrets.grafana-mcp-token = issuedToken "grafana";
   home-manager.users.logan.imports = [ ../home-configs/mcp.nix ];
 }

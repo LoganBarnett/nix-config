@@ -9,7 +9,8 @@
 # agnostic-configs/mcp-credentials.nix, which is also what imports this file.
 # The paths resolve through `osConfig`, so a host that imports this file
 # without declaring the secrets fails at evaluation instead of shipping a
-# server that dies at spawn.
+# server that dies at spawn.  Grafana servers are not registered here: they
+# are per instance and come from agnostic-modules/mcp-grafana.nix.
 #
 # The default posture is read-only.  Write access and session elevation are
 # intentionally out of scope for this file.
@@ -22,26 +23,7 @@
 }:
 let
   secrets = osConfig.age.secrets;
-
-  # Emits the preamble that loads a credential file into `token`, failing
-  # loudly rather than proceeding with an empty value.
-  #
-  # The readability test comes before the read on purpose: under `set -e` a
-  # failed command substitution in a plain assignment aborts the script, so a
-  # check placed after the assignment would never run.
-  fileToken = path: ''
-    if [ ! -r ${lib.escapeShellArg path} ]; then
-      printf 'FATAL: credential file %s is missing or unreadable.\n' \
-        ${lib.escapeShellArg path} >&2
-      exit 1
-    fi
-    token="$(${pkgs.coreutils}/bin/cat ${lib.escapeShellArg path})"
-    if [ -z "$token" ]; then
-      printf 'FATAL: credential file %s is empty.\n' \
-        ${lib.escapeShellArg path} >&2
-      exit 1
-    fi
-  '';
+  inherit (pkgs.callPackage ../lib/credential-preamble.nix { }) fileToken;
 
   # gitea-mcp exposes only single-dash flags (it uses Go's `flag` package), so
   # they are documented here: `-t stdio` selects the stdio transport, `-host`
@@ -69,27 +51,6 @@ let
     export GITHUB_PERSONAL_ACCESS_TOKEN="$token"
     exec ${pkgs.github-mcp-server}/bin/github-mcp-server stdio --read-only
   '';
-
-  # mcp-grafana covers the Prometheus need through Grafana's datasource tools
-  # (and additionally exposes dashboards, Loki, and search).  `-disable-write`
-  # and `-disable-admin` keep it read-only; narrow further with `-enabled-tools`
-  # if the surface is too broad.  Only single-dash flags exist (Go `flag`
-  # package): `-t stdio` selects the stdio transport.  The URL is public; the
-  # service-account token is exported under both env names mcp-grafana has
-  # accepted across versions so it works regardless of which this build
-  # honors.  The token should belong to a Viewer-role service account so the
-  # credential itself is read-only, not just the tool flags.
-  grafana-mcp = pkgs.writeShellScript "grafana-mcp-wrapped" ''
-    set -euo pipefail
-    ${fileToken secrets.grafana-mcp-token.path}
-    export GRAFANA_URL=${lib.escapeShellArg "https://grafana.proton"}
-    export GRAFANA_API_KEY="$token"
-    export GRAFANA_SERVICE_ACCOUNT_TOKEN="$token"
-    exec ${pkgs.mcp-grafana}/bin/mcp-grafana \
-      -t stdio \
-      -disable-write \
-      -disable-admin
-  '';
 in
 {
   programs.claude-code.enableMcpIntegration = true;
@@ -112,10 +73,6 @@ in
       github = {
         type = "stdio";
         command = "${github-mcp}";
-      };
-      grafana = {
-        type = "stdio";
-        command = "${grafana-mcp}";
       };
 
       # Pending:

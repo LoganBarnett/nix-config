@@ -38,7 +38,7 @@ A private wrapper's ~flake.nix~ is essentially a one-liner.  Declare
     outputs =
       { self, nix-config, ... }:
       nix-config.lib.mkPrivateWrapper {
-        inherit nix-config;
+        inherit self nix-config;
         hostsDir = ./hosts;
       };
   }
@@ -46,10 +46,47 @@ A private wrapper's ~flake.nix~ is essentially a one-liner.  Declare
 
 The helper returns ~nix-config~'s outputs unchanged except for
 ~darwinConfigurations~ and ~nixosConfigurations~, which get the wrapper's
-host extensions merged in.  ~devShells~, ~packages~, ~agenix-rekey~,
+host extensions merged in, and ~agenix-rekey~, which is re-configured over
+those extended hosts with the wrapper as its ~userFlake~.  See
+[[*Wrapper-owned secrets][Wrapper-owned secrets]].  ~devShells~, ~packages~,
 etc., flow through untouched -- so ~nix flake check~, ~darwin-rebuild~,
 ~nix develop~, all the usual commands keep working from the private
 checkout.
+
+* Wrapper-owned secrets
+
+agenix-rekey decides which flake owns a secret by where its ~rekeyFile~
+lives, and the ~agenix~ CLI runs the ~agenix-rekey~ output of whichever
+flake it is invoked from.  Passing ~self~ to the helper is what makes
+~agenix rekey~ from the wrapper's checkout see and rekey the wrapper's
+secrets.  Secrets whose ~rekeyFile~ is in ~nix-config~ are reported as
+external and left alone.
+
+A secret declared in an extension needs two things:
+
+- An explicit ~rekeyFile~ pointing into the wrapper.  The
+  ~age.rekey.secretsDir~ defaults resolve inside ~nix-config~, which would
+  make the secret public-owned.
+- A storage directory for its rekeyed copy, appended to the ones inherited
+  from ~nix-config~.  Every host needs its own directory: rekeying a host
+  deletes every ~.age~ file in its directory that is not one of its own
+  outputs.
+
+#+begin_src nix
+  { host-id, ... }:
+  {
+    age.rekey.localStorageDirs = [ ../secrets/rekeyed/${host-id} ];
+
+    age.secrets.my-private-token = {
+      rekeyFile = ../secrets/issued/my-private-token-${host-id}.age;
+      mode = "0400";
+      owner = "me";
+    };
+  }
+#+end_src
+
+After adding or changing such a secret, run ~agenix rekey --add-to-git~
+from the wrapper's root and commit the result alongside the declaration.
 
 * Host extension files
 

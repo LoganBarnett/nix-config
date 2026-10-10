@@ -54,6 +54,10 @@ in
   # value will be different per host.  Perhaps hosts stood up after that point
   # won't need it.
   ids.gids.nixbld = 350;
+  services.mcp.grafana.instances.proton = {
+    url = "https://grafana.proton";
+    rekeyFile = ../secrets/issued/grafana-proton-${host-id}-mcp-token.age;
+  };
   imports = [
     ../agnostic-configs/deploy-identity.nix
     ../agnostic-configs/iot-utils.nix

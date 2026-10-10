@@ -93,6 +93,7 @@ in
     ./nixos-modules/unfree-predicates.nix
     ./agnostic-configs/nix-builder-consume.nix
     ./agnostic-configs/nix-cache-consume.nix
+    ./agnostic-modules/mcp-grafana.nix
   ];
   # Global packages that can't be bound to a specific user, such as shells.
   environment = {

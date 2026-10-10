@@ -22,17 +22,25 @@
 # - Throws if any `<hostname>.nix` doesn't name a host that exists in
 #   nix-config -- typos otherwise drop silently and leave the host
 #   unconfigured.
+# - Configures the wrapper's own `agenix-rekey` output over the extended hosts
+#   with the wrapper as `userFlake`.  agenix-rekey decides which flake owns a
+#   secret by where its `rekeyFile` lives.  The `agenix` CLI runs the output
+#   of whichever flake it is invoked from.  Without this the wrapper would run
+#   nix-config's app, which cannot see or rekey secrets declared in the
+#   wrapper.
 #
 # Returns the full flake-outputs shape (`nix-config // overrides`), so the
 # typical call site is just:
 #
 #   outputs = { self, nix-config, ... }:
 #     nix-config.lib.mkPrivateWrapper {
-#       inherit nix-config;
+#       inherit self nix-config;
 #       hostsDir = ./hosts;
 #     };
 ################################################################################
 {
+  # The wrapper flake's own `self`.
+  self,
   nix-config,
   hostsDir,
 }:
@@ -133,4 +141,12 @@ else
     hostSystems =
       lib.mapAttrs (_: _: "darwin") finalDarwin
       // lib.mapAttrs (_: _: "nixos") finalNixos;
+    # Same host-set shape as nix-config's own `configure` call, so the two
+    # flakes label hosts identically.  Secrets whose `rekeyFile` lives in
+    # nix-config are reported as external and left alone from here.
+    agenix-rekey = nix-config.inputs.agenix-rekey.configure {
+      userFlake = self;
+      nixosConfigurations =
+        finalNixos // finalDarwin // (nix-config.containerGuestHosts or { });
+    };
   }
