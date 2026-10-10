@@ -38,7 +38,12 @@ let
       lib.optionals (kmsconCfg.fonts != null) (
         map (f: "font-name=${f.name}") kmsconCfg.fonts
       )
-      ++ [ kmsconCfg.extraConfig ]
+      ++ [
+        kmsconCfg.extraConfig
+        # kmscon 9.3 powers off the display after 600 seconds without input.
+        # A kiosk never receives input.
+        "dpms-timeout=0"
+      ]
     )
   );
   wrapperScript = pkgs.writeShellApplication {
