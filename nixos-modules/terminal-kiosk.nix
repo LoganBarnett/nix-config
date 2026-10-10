@@ -216,6 +216,11 @@ in
     systemd.services."kmsconvt@tty${toString cfg.tty}" = {
       overrideStrategy = "asDropin";
       serviceConfig = {
+        # The nixpkgs kmscon module stops a switch from restarting any
+        # kmsconvt@ unit.  The kiosk has no session to lose.
+        # restartIfChanged = true would emit nothing, so the template's false
+        # would still win.
+        X-RestartIfChanged = true;
         ExecStart = [
           # Clear the inherited ExecStart before setting a new one.
           ""
