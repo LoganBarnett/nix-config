@@ -18,6 +18,13 @@ scratch pad though.
 Conventions for adding to this repo (including where new docs live and how
 they get linked from here) are in [[file:CONTRIBUTING.org][CONTRIBUTING.org]].
 
+* README content
+
+The purpose of this document is to provide a rough outline of how this repo is
+structured and where high level documents can be found.  It doesn't cover
+workarounds or specific subsystems.  Anything else is leftovers from before this
+statement of content was made.
+
 * creating new hosts
 ** create Nix host file
 
@@ -2158,6 +2165,15 @@ timer on silicon pulls GitHub into gitea (fast-forward or rebase) and pages when
 a rebase conflicts.  Mechanics, how its SSH key is registered, and conflict
 resolution are in
 [[file:docs/gitea-github-sync.org][docs/gitea-github-sync.org]].
+
+** Emacs agenda files from Nix
+
+Nix hands Emacs extra ~org-agenda-files~ through a JSON file under
+~~/.config/emacs~, and ~programs.emacs.org-agenda.outlook-calendars~ generates
+some of them from published Outlook calendars on a launchd timer.  The
+contract, how to add a calendar with a wrapper-owned secret, and the log and
+rotation details are in
+[[file:docs/emacs-org-agenda.org][docs/emacs-org-agenda.org]].
 
 ** Cellular tether breaking VPN-routed traffic on the Mac
 

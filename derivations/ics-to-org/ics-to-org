@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+################################################################################
+# Convert a remote ICS calendar feed into an org-mode file.
+#
+# The feed URL is read from a file rather than taken as an argument, because a
+# published Outlook link carries its access token in the URL.  Reading it from
+# a file keeps it out of the process table, and handing it to curl through
+# --config keeps it out of curl's argv too.
+#
+# The output is replaced atomically and only after a successful fetch and
+# conversion.  A failed run leaves the previous output in place, which matters
+# on a roaming laptop where offline runs are routine.
+#
+# Usage:
+#   ics-to-org --url-file PATH --output PATH [--days N]
+#
+#   --url-file  File whose first line is the ICS URL.
+#   --output    The org file to write.  Its directory is created if needed.
+#   --days      Window in days on each side of today within which recurring
+#               events are expanded.  Defaults to 90.
+#
+# CURL_CA_BUNDLE is set by the derivation.  The Darwin curl in nixpkgs has no
+# built-in CA bundle and launchd provides no SSL_CERT_FILE.
+################################################################################
+set -euo pipefail
+# shellcheck source=bash-logging
+source "${BASH_LOGGING:-$HOME/.bash-logging}"
+
+url_file=""
+output=""
+days=90
+
+while (($# > 0)); do
+  case "$1" in
+    --url-file)
+      url_file="$2"
+      shift 2
+      ;;
+    --output)
+      output="$2"
+      shift 2
+      ;;
+    --days)
+      days="$2"
+      shift 2
+      ;;
+    *)
+      slog "Unknown argument: $1"
+      exit 2
+      ;;
+  esac
+done
+
+if [[ -z "$url_file" || -z "$output" ]]; then
+  slog "Both --url-file and --output are required."
+  exit 2
+fi
+
+if [[ ! -r "$url_file" ]]; then
+  slog "URL file $url_file is missing or unreadable."
+  exit 1
+fi
+# read strips the trailing newline an editor leaves behind.  It also exits
+# non-zero on a file with no trailing newline at all, after still filling url,
+# so its status is ignored and the value is checked instead.
+read -r url < "$url_file" || true
+if [[ -z "$url" ]]; then
+  slog "URL file $url_file is empty."
+  exit 1
+fi
+
+work_dir="$(mktemp --directory)"
+trap 'rm --recursive --force "$work_dir"' EXIT
+
+slog "Fetching the feed for $output."
+# The URL goes in through --config so it never appears in curl's argv.
+if ! printf 'url = "%s"\n' "$url" | curl \
+  --config - \
+  --fail \
+  --silent \
+  --show-error \
+  --location \
+  --max-time 60 \
+  --retry 3 \
+  --cacert "$CURL_CA_BUNDLE" \
+  --output "$work_dir/feed.ics"
+then
+  slog "Fetch failed.  Keeping the previous $output."
+  exit 1
+fi
+
+if ! ical2orgpy \
+  --days "$days" \
+  --continue-on-error \
+  "$work_dir/feed.ics" \
+  "$work_dir/out.org"
+then
+  slog "Conversion failed.  Keeping the previous $output."
+  exit 1
+fi
+
+output_dir="$(dirname "$output")"
+mkdir --parents "$output_dir"
+# A sibling temp file keeps the final mv on one filesystem, so it is an atomic
+# rename and Emacs never sees a half-written file.
+staged="$(mktemp "$output_dir/.$(basename "$output").XXXXXX")"
+cp "$work_dir/out.org" "$staged"
+# Read-only, so an edit in Emacs cannot be mistaken for durable.  The next sync
+# would overwrite it.
+chmod 0444 "$staged"
+mv --force "$staged" "$output"
+slog "Wrote $output."
