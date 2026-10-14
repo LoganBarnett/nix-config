@@ -9,7 +9,9 @@ set -e
 # Configuration (can be overridden by environment variables)
 GP_SERVER="${GP_SERVER:-}"
 GP_GATEWAY="${GP_GATEWAY:-}"
-GP_USER="${GP_USER:-$USER}"
+# The portal authenticates through Okta, which wants the email address rather
+# than the local account name, so there is deliberately no $USER fallback.
+GP_USER="${GP_USER:-${GP_USERNAME:-}}"
 GP_BROWSER="${GP_BROWSER:-default}"
 GP_RECONNECT_TIMEOUT="${GP_RECONNECT_TIMEOUT:-300}"
 GP_LOG_DIR="${GP_LOG_DIR:-$HOME/.local/share/gpclient/logs}"
@@ -56,7 +58,7 @@ while [[ $# -gt 0 ]]; do
       echo "Options:"
       echo "  --server TEXT         Portal server URL (required)"
       echo "  --gateway TEXT        Gateway to connect to (optional)"
-      echo "  --user TEXT           Username (default: current user)"
+      echo "  --user TEXT           Username or email (default: \$GP_USER, then \$GP_USERNAME)"
       echo "  --browser TEXT        Browser to use: default, firefox, chrome, chromium, remote"
       echo "                        Use 'remote' for headless/manual authentication"
       echo "  --clean               Clear cached authentication cookies"
@@ -67,7 +69,8 @@ while [[ $# -gt 0 ]]; do
       echo "Environment Variables:"
       echo "  GP_SERVER             Portal server URL"
       echo "  GP_GATEWAY            Gateway to connect to"
-      echo "  GP_USER               Username (default: \$USER)"
+      echo "  GP_USER               Username or email (default: \$GP_USERNAME)"
+      echo "  GP_USERNAME           Username or email, as exported for gp-connect-auto"
       echo "  GP_BROWSER            Browser to use (default: default)"
       echo "  GP_RECONNECT_TIMEOUT  Reconnection timeout in seconds (default: 300)"
       echo "  GP_LOG_DIR            Log directory (default: ~/.local/share/gpclient/logs)"
@@ -83,6 +86,12 @@ done
 
 if [ -z "$GP_SERVER" ]; then
   echo "Error: Portal server is required"
+  echo "Use -h or --help for usage information"
+  exit 1
+fi
+
+if [ -z "$GP_USER" ]; then
+  echo "Error: User is required; pass --user or set GP_USERNAME (or GP_USER)"
   echo "Use -h or --help for usage information"
   exit 1
 fi

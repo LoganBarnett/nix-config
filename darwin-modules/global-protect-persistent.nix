@@ -129,7 +129,8 @@ in
 
       primaryUser = mkOption {
         type = types.str;
-        default = "logan.barnett";
+        default = config.system.primaryUser;
+        defaultText = literalExpression "config.system.primaryUser";
         example = "john.doe";
         description = ''
           The primary user whose gpg keys and pass store will be used.
