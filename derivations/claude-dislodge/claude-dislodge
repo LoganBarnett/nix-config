@@ -14,7 +14,7 @@
 # therefore comes from Claude's own session registry and daemon roster, never
 # from tty state.
 #
-# See docs/claude-code-runaway.org for the runbook.
+# See docs/operations/claude-code-runaway.org for the runbook.
 #
 # Usage: claude-dislodge [--execute] [--all] [--porcelain]
 

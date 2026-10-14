@@ -16,7 +16,7 @@ This is the resolver-layer approach that /subsumes/ the abandoned per-host
 just talks to dnsmasq, which is where the intelligence lives.
 
 This converges with the "dnsmasq as the single resolver" architecture already
-proposed in [[file:globalprotect-rust-rewrite-spec.org]]; see [[*Convergence with the GP Rust spec][Convergence with the GP
+proposed in [[file:../globalprotect-rust-rewrite-spec.org]]; see [[*Convergence with the GP Rust spec][Convergence with the GP
 Rust spec]] for the shared foundation and the two things the tether concern adds.
 
 ** Failure taxonomy -- two distinct tether pathologies
@@ -283,7 +283,7 @@ state.
 
 * Convergence with the GP Rust spec
 
-[[file:globalprotect-rust-rewrite-spec.org]] already proposes *dnsmasq as the
+[[file:../globalprotect-rust-rewrite-spec.org]] already proposes *dnsmasq as the
 single resolver*: the 127.0.0.1 pointer is in place, scoping collapses to
 "write the servers-file, send one signal", and =max-ttl=0= is the flush lever.
 The tether work sits on that same foundation and adds two things the spec does

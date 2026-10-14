@@ -419,6 +419,14 @@
           nix-host-key-install =
             pkgs.callPackage ./derivations/nix-host-key-install.nix
               { };
+          # The shell helper lives in an overlay the host configs apply, and
+          # the devShell pkgs is bare, so apply just that overlay here.
+          pkgs-with-libs = pkgs.extend (
+            import ./overlays/write-shell-application-with-libs.nix
+          );
+          nix-options-org =
+            pkgs-with-libs.callPackage ./derivations/nix-options-org/default.nix
+              { };
           nixfmt-strict-width =
             pkgs.callPackage ./derivations/nixfmt-strict-width/default.nix
               { };
@@ -436,6 +444,7 @@
               fmt-staged
               nix-direnv-add-envrc
               nix-host-key-install
+              nix-options-org
               nixfmt-strict-width
               # On Darwin the stdenv injects raw gnused into PATH, which
               # bypasses our system-wide wrapper.  Including it here ensures the
@@ -472,6 +481,12 @@
       # docs/private-wrapper.org for the call site and contract.
       lib = {
         mkPrivateWrapper = import ./lib/private-wrapper.nix;
+        # Option docs for docs/nix-options.org, rendered by nix-options-org.
+        optionsDocList = import ./lib/options-doc.nix {
+          lib = nixpkgs.lib;
+          configurations =
+            self.darwinConfigurations // self.nixosConfigurations;
+        };
       };
       containerGuestHosts = { };
       packages.aarch64-darwin.nucleus =

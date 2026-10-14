@@ -23,10 +23,18 @@ no one links to don't exist.
 
 ** Where new docs go
 
-- *Focused operational/runbook content* -- one topic per file, narrow
-  scope (a single failure mode, a single service quirk).  Put these in
-  ~docs/~.  Existing examples: ~docs/dns-dhcp.org~,
-  ~docs/notifications.org~, ~docs/cellular-tether-clat.org~.
+- *Runbooks* -- one failure mode or procedure per file.  Put these in
+  ~docs/operations/~ and add a short entry, symptom and cause plus the link,
+  to ~docs/operations.org~, which ~README.org~ links.  Existing examples:
+  ~docs/operations/cellular-tether-clat.org~,
+  ~docs/operations/gitea-github-sync.org~.
+- *Option sets this repository declares* -- one heading per option set in
+  ~docs/nix-options.org~, named after the option prefix, with hand-written
+  sections and a generated final Options section.  Its Authoring section
+  says how.  The module's header comment points at the entry.
+- *Other focused reference* -- one topic per file, narrow scope (a protocol,
+  a service quirk that is not a runbook).  Put these in ~docs/~.  Existing
+  examples: ~docs/dns-dhcp.org~, ~docs/notifications.org~.
 - *Cross-cutting reference material* (architecture overviews, policy,
   meta-conventions) -- root of the repo as a ~.org~ file alongside
   ~README.org~.  Examples: ~troubleshooting-methods.org~,

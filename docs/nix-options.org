@@ -1,0 +1,156 @@
+#+title:     Nix Options
+#+author:    Logan Barnett
+#+email:     logustus@gmail.com
+#+date:      <2026-10-13 Tue>
+#+language:  en
+#+file_tags:
+#+tags:
+
+Documentation for the option sets this repository declares.  The options are
+largely generated, with small amounts of prose outside of the =Options=
+subsection inside them.
+
+* Authoring
+
+** Rendering one option set
+
+~nix-options-org~ evaluates an option prefix on a host through the flake's
+~lib.optionsDocList~ and prints it as an org description list.  The block
+below wraps it so an Options section can call it with ~#+call~.  The result
+lands in a drawer, which org-babel can replace, so ~C-c C-c~ on a ~#+call~
+line refreshes that one section.
+
+The tool comes from the devShell.  direnv provides it in a terminal and envrc
+provides it in Emacs.
+
+#+name: nix-options
+#+begin_src sh :var prefix="" :var host="scandium" :dir .. :results drawer :exports none
+nix-options-org --host "$host" --prefix "$prefix"
+#+end_src
+
+** Regenerating every Options section
+
+~C-c C-c~ here re-runs every ~#+call~ line in this file.
+
+#+begin_src emacs-lisp :results none :exports none
+(org-babel-map-call-lines nil (org-babel-lob-execute-maybe))
+#+end_src
+
+The same thing from a shell in the devShell, for a check that needs no window:
+
+#+begin_src sh :results none :exports code
+emacs --batch -l org \
+  --eval '(setq org-confirm-babel-evaluate nil)' \
+  --eval '(org-babel-do-load-languages (quote org-babel-load-languages) (quote ((shell . t) (emacs-lisp . t))))' \
+  docs/nix-options.org \
+  --eval '(org-babel-map-call-lines nil (org-babel-lob-execute-maybe))' \
+  -f save-buffer
+#+end_src
+
+** Adding an entry
+
+1. Add a heading under Nix Options, lexicographically placed, and named after
+   the option prefix.
+2. Resist the urge to write a lot of prose, since the options document virtually
+   everything you'd want to write here.
+3. End with a ~Options~ subsection holding one line,
+   ~#+call: nix-options(prefix="<prefix>")~.  Add ~host="<host>"~ when the
+   default host does not import the module.
+4. Run the call and commit the drawer it produces.
+
+* Nix Options
+** programs.emacs.org-agenda
+
+Nix hands Emacs extra ~org-agenda-files~, and can generate some of them from
+published ICS calendars.  The Emacs side lives in ~emacs-config~ as
+~lisp/nix-org-agenda-config.el~ and knows nothing about where the files come
+from.
+
+*** ICS calendars
+
+Example:
+
+#+begin_src nix :exports code
+programs.emacs.org-agenda = {
+  user = "me";
+  ics-calendars = {
+    enable = true;
+    outputDirectory = "/Users/me/notes/agenda/generated";
+    calendars.work.rekeyFile =
+      ../secrets/issued/ics-work-${host-id}-url.age;
+  };
+};
+#+end_src
+
+A published ICS link can carry its access token in the URL, so the URL is an
+agenix secret.
+
+**** ICS on Outlook
+
+Outlook on the web issues the link under Settings, Calendar, Shared calendars,
+Publish a calendar.  Take the ICS link, not the HTML one.
+
+*** Options
+
+#+call: nix-options(prefix="programs.emacs.org-agenda")
+
+#+RESULTS:
+:results:
+- ~programs.emacs.org-agenda.files~ ::
+  Absolute paths Emacs appends to =org-agenda-files=.  Written to
+  =~/.config/emacs/nix-org-agenda.json= under the key =org-agenda-files=.
+  - Type: list of string
+  - Default: ~[ ]~
+  - Example: ~[ "/Users/me/notes/agenda/generated/work.org" ]~
+  - Declared in [[file:../agnostic-modules/emacs-org-agenda.nix][agnostic-modules/emacs-org-agenda.nix]]
+
+- ~programs.emacs.org-agenda.ics-calendars.calendars~ ::
+  Calendars to sync, keyed by name.  Each yields the org file
+  =<outputDirectory>/<name>.org=, the agenix secret =ics-<name>-url=,
+  and the launchd agent =ics-<name>-sync=.
+  - Type: attribute set of (submodule)
+  - Default: ~{ }~
+  - Declared in [[file:../darwin-modules/emacs-org-agenda-ics-calendars.nix][darwin-modules/emacs-org-agenda-ics-calendars.nix]]
+
+- ~programs.emacs.org-agenda.ics-calendars.calendars.<name>.days~ ::
+  Window in days on each side of today within which recurring
+  events are expanded into individual entries.
+  - Type: unsigned integer, meaning >=0
+  - Default: ~90~
+  - Declared in [[file:../darwin-modules/emacs-org-agenda-ics-calendars.nix][darwin-modules/emacs-org-agenda-ics-calendars.nix]]
+
+- ~programs.emacs.org-agenda.ics-calendars.calendars.<name>.rekeyFile~ ::
+  The ICS URL, encrypted for agenix-rekey.  By convention
+  =secrets/issued/ics-<name>-<host-id>-url.age= in the flake
+  that owns the calendar.
+  - Type: absolute path
+  - Declared in [[file:../darwin-modules/emacs-org-agenda-ics-calendars.nix][darwin-modules/emacs-org-agenda-ics-calendars.nix]]
+
+- ~programs.emacs.org-agenda.ics-calendars.enable~ ::
+  Whether to enable syncing ICS calendar feeds into org files.
+  - Type: boolean
+  - Default: ~false~
+  - Example: ~true~
+  - Declared in [[file:../darwin-modules/emacs-org-agenda-ics-calendars.nix][darwin-modules/emacs-org-agenda-ics-calendars.nix]]
+
+- ~programs.emacs.org-agenda.ics-calendars.interval~ ::
+  Seconds between syncs of every calendar.
+  - Type: positive integer, meaning >0
+  - Default: ~1800~
+  - Declared in [[file:../darwin-modules/emacs-org-agenda-ics-calendars.nix][darwin-modules/emacs-org-agenda-ics-calendars.nix]]
+
+- ~programs.emacs.org-agenda.ics-calendars.outputDirectory~ ::
+  Absolute directory that receives one =<name>.org= per calendar.  It is
+  created if missing.
+  - Type: string
+  - Example: ~"/Users/me/notes/agenda/generated"~
+  - Declared in [[file:../darwin-modules/emacs-org-agenda-ics-calendars.nix][darwin-modules/emacs-org-agenda-ics-calendars.nix]]
+
+- ~programs.emacs.org-agenda.user~ ::
+  Login user whose Emacs reads the agenda file list.  Producer modules
+  also use this as the owner of their secrets and agents.  NixOS has no
+  =system.primaryUser=, so NixOS hosts must set this explicitly.
+  - Type: string
+  - Default: ~config.system.primaryUser~
+  - Declared in [[file:../agnostic-modules/emacs-org-agenda.nix][agnostic-modules/emacs-org-agenda.nix]]
+:end:

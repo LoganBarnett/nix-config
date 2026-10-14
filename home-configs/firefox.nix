@@ -20,7 +20,8 @@
 # writing anything, which is what the nixpkgs Firefox wrapper does on Linux
 # for the same reason.  No pref in this file can help: prefs are read from
 # the profile, so only after the profile has already been chosen.  See
-# docs/firefox-profile-load-failure.org for the symptoms and what to check.
+# docs/operations/firefox-profile-load-failure.org for the symptoms and what to
+# check.
 #
 # Sideloaded extension auto-disable: home-manager symlinks the extension
 # .xpi files into Profiles/default/extensions/.  Firefox treats anything

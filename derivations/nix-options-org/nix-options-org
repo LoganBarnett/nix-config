@@ -1,0 +1,133 @@
+#!/usr/bin/env bash
+################################################################################
+# Render a Nix option set as an org-mode description list.
+#
+# The option declarations are the single source of truth for option docs.
+# This renders them for docs/nix-options.org, whose Options sections call it
+# through org-babel, so nothing is copied by hand.
+#
+# Usage:
+#   nix-options-org --host HOST --prefix PREFIX [--flake PATH] [--link-prefix PATH]
+#
+#   --host         A host whose configuration declares the option set.
+#   --prefix       The option path to render, e.g. programs.emacs.org-agenda.
+#   --flake        The flake to evaluate.  Defaults to the current directory.
+#   --link-prefix  Path from the document to the repository root, used in the
+#                  "Declared in" links.  Defaults to ../ for files in docs/.
+#
+# nix comes from the ambient PATH rather than runtimeInputs, as in
+# proton-deploy, so the system's own Nix evaluates the flake.
+################################################################################
+set -euo pipefail
+# shellcheck source=bash-logging
+source "${BASH_LOGGING:-$HOME/.bash-logging}"
+
+host=""
+prefix=""
+flake="."
+link_prefix="../"
+
+while (($# > 0)); do
+  case "$1" in
+    --host)
+      host="$2"
+      shift 2
+      ;;
+    --prefix)
+      prefix="$2"
+      shift 2
+      ;;
+    --flake)
+      flake="$2"
+      shift 2
+      ;;
+    --link-prefix)
+      link_prefix="$2"
+      shift 2
+      ;;
+    *)
+      slog "Unknown argument: $1"
+      exit 2
+      ;;
+  esac
+done
+
+if [[ -z "$host" || -z "$prefix" ]]; then
+  slog "Both --host and --prefix are required."
+  exit 2
+fi
+
+# A failed evaluation aborts here, so a caller replacing a drawer with this
+# output never gets a partial list.
+options_json="$(
+  nix eval --json "$flake#lib.optionsDocList" --apply "f: f \"$host\" \"$prefix\""
+)"
+
+field() {
+  jq --raw-output "$2" <<< "$1"
+}
+
+# Option descriptions are nixpkgs-flavoured markdown.  pandoc does the
+# conversion.  The role markers it does not know, such as {option}, are
+# dropped first.  pandoc also collapses the two spaces this repository puts
+# after a sentence, so they are restored wherever a sentence end is followed
+# by a capital or inline markup.
+markdown_to_org() {
+  # The backtick in the pattern is a markdown delimiter, not a command
+  # substitution, which is what SC2016 guards against.
+  # shellcheck disable=SC2016
+  sed --expression 's/{[a-z]*}`/`/g' \
+    | pandoc --from commonmark --to org --wrap=preserve \
+    | sed --expression 's/\([.!?]\) \([A-Z=~[]\)/\1  \2/g'
+}
+
+# Indent every non-empty line by the given prefix.
+indent() {
+  sed --expression "s/^\(.\)/$1\1/"
+}
+
+# One line renders inline.  Anything longer becomes a source block, which
+# org accepts inside a list item.
+render_literal() {
+  local label="$1" text="$2"
+  if [[ "$text" == *$'\n'* ]]; then
+    printf '  - %s:\n    #+begin_src nix\n' "$label"
+    printf '%s\n' "$text" | indent '    '
+    printf '    #+end_src\n'
+  else
+    printf '  - %s: ~%s~\n' "$label" "$text"
+  fi
+}
+
+first=true
+jq --compact-output '.[]' <<< "$options_json" | while IFS= read -r entry; do
+  if [[ "$first" == true ]]; then
+    first=false
+  else
+    printf '\n'
+  fi
+  name="$(field "$entry" '.name')"
+  type="$(field "$entry" '.type')"
+  if [[ "$(field "$entry" '.readOnly')" == true ]]; then
+    type="$type, read only"
+  fi
+  printf -- '- ~%s~ ::\n' "$name"
+  description="$(field "$entry" '.description // ""')"
+  if [[ -n "$description" ]]; then
+    printf '%s\n' "$description" | markdown_to_org | indent '  '
+  fi
+  printf '  - Type: %s\n' "$type"
+  if [[ "$(field "$entry" 'has("default")')" == true ]]; then
+    render_literal Default "$(field "$entry" '.default.text')"
+  fi
+  if [[ "$(field "$entry" 'has("example")')" == true ]]; then
+    render_literal Example "$(field "$entry" '.example.text')"
+  fi
+  links=""
+  while IFS= read -r declaration; do
+    [[ -z "$declaration" ]] && continue
+    link="[[file:${link_prefix}${declaration}][${declaration}]]"
+    links="${links:+$links, }$link"
+  done < <(field "$entry" '.declarations[]')
+  printf '  - Declared in %s\n' "$links"
+done

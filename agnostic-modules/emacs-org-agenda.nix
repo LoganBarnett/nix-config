@@ -5,13 +5,8 @@
 # lisp/nix-org-agenda-config.el, and appends the paths under its
 # `org-agenda-files` key to `org-agenda-files`.  This module writes that file
 # from `programs.emacs.org-agenda.files`.  Producers of generated agenda files,
-# such as darwin-modules/emacs-org-agenda-outlook-calendars.nix, append to that
+# such as darwin-modules/emacs-org-agenda-ics-calendars.nix, append to that
 # option rather than touching the file themselves.
-#
-# The contract is one top-level key, `org-agenda-files`, holding a JSON array
-# of absolute paths.  Nothing is written when the list is empty, so a host that
-# declares nothing looks the same to Emacs as one without this module, and
-# Emacs warns about the missing file.  See docs/emacs-org-agenda.org.
 ################################################################################
 {
   config,

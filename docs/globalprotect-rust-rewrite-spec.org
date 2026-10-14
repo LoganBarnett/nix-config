@@ -513,7 +513,7 @@ before deleting anything.
 ** Adjacent: the tether reconciler (non-GP hosts)
 
 A second use of this same "dnsmasq as the single resolver" foundation, tracked
-in [[file:tether-dns.org]].  It converges on everything above -- the 127.0.0.1
+in [[file:operations/tether-dns.org]].  It converges on everything above -- the 127.0.0.1
 pointer, the servers-file/SIGHUP model, =max-ttl=0= -- and pushes two
 extensions:
 

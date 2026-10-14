@@ -1487,6 +1487,12 @@ imports = [
 #+end_src
 
 ** Options and Config
+
+Option sets this repository declares are documented in
+[[file:docs/nix-options.org][docs/nix-options.org]], one heading per option
+set with a generated Options section, so each module stays the single source
+of truth for its descriptions.
+
 *** Utilities
 
 **** Looking up NixOS config
@@ -2158,99 +2164,9 @@ ssh titanium.proton curl -s http://localhost:11434/api/tags | jq '.models[].name
 
 * Operations
 
-** Gitea repos drifting from GitHub
-
-The private flake deploys from gitea.proton copies of the GitHub repos, so a
-timer on silicon pulls GitHub into gitea (fast-forward or rebase) and pages when
-a rebase conflicts.  Mechanics, how its SSH key is registered, and conflict
-resolution are in
-[[file:docs/gitea-github-sync.org][docs/gitea-github-sync.org]].
-
-** Emacs agenda files from Nix
-
-Nix hands Emacs extra ~org-agenda-files~ through a JSON file under
-~~/.config/emacs~, and ~programs.emacs.org-agenda.outlook-calendars~ generates
-some of them from published Outlook calendars on a launchd timer.  The
-contract, how to add a calendar with a wrapper-owned secret, and the log and
-rotation details are in
-[[file:docs/emacs-org-agenda.org][docs/emacs-org-agenda.org]].
-
-** Cellular tether breaking VPN-routed traffic on the Mac
-
-Symptom: an app on a tethered Mac times out connecting to a ~.proton~ LAN
-host (e.g. Moonlight -> Sunshine on titanium reports "RTSP handshake
-failed") while ~ssh~ / ~ping~ to the same host work fine.
-
-Cause is macOS NAT64 synthesis on IPv6-only carrier tethers steering
-~getaddrinfo()~-using apps out the cellular interface instead of the wg
-tunnel.  Workaround is to disable IPv6 on the tethered Wi-Fi service.
-Full diagnosis, capture commands, and the exact ~networksetup~ command
-are in [[file:docs/cellular-tether-clat.org][docs/cellular-tether-clat.org]].
-
-A separate tether failure -- Nix-built c-ares clients (curl, git,
-nix-daemon) unable to use the tether's scoped link-local nameserver -- has a
-durable resolver-layer fix: the ~services.dns-c-ares-scopeless-fix~
-darwin-module runs a local dnsmasq that all DNS routes through.  Design,
-failure taxonomy, and the deferred filter-AAAA reconciler are in
-[[file:docs/tether-dns.org][docs/tether-dns.org]].
-
-** Claude Code leaving the Mac thrashing
-
-Symptom: many ~.claude-wrapped~ / ~claude bg-spare~ processes in ~ps~, swap
-climbing, everything sluggish, long after the Claude session that started
-them is gone.
-
-Cause is Claude Code not reaping what it spawns: Bash tool shells are their
-own session leaders and survive their session, scratchpad-launched servers
-have no parent link at all, and the transient daemon leaks its pre-warmed
-spares.  ~claude-dislodge~ reports every Claude-related process and, with
-~--execute~, kills the orphans and the daemon while leaving live sessions
-alone.  Process taxonomy, the macOS ~ps~ gotcha, and the procedure are in
-[[file:docs/claude-code-runaway.org][docs/claude-code-runaway.org]].
-
-** Claude Code multi-agent orchestrator
-
-The ~/orchestrate-plan~ and ~/orchestrate-task~ slash commands run a
-planner, plan reviewer, developer, code reviewer, and QA loop from
-[[https://dkoontz/minimal-agent-orchestrator][dkoontz/minimal-agent-orchestrator]].  See [[file:docs/claude-code-orchestrator.org][docs/claude-code-orchestrator.org]] for
-additional info.
-
-** Firefox refusing to start after a deploy
-
-Symptom: Firefox on the Mac exits with "Firefox couldn't load your profile"
-right after a ~proton-deploy switch~ that rebuilt ~firefox-bin~, even at the
-same version.
-
-Cause is Firefox keying per-installation profiles on its store path and then
-failing to record the new installation in the home-manager-owned, read-only
-~profiles.ini~.  The launchd agent in ~home-configs/firefox.nix~ sets
-~MOZ_LEGACY_PROFILES~ so that bookkeeping is skipped.  What to check, the
-emergency workaround, and the leftovers are in
-[[file:docs/firefox-profile-load-failure.org][docs/firefox-profile-load-failure.org]].
-
-** File syncing
-
-Example invocation to sync over my music files.  Note that this preserves the
-directory, so ~music~ is one layer deep (not nested), and ensured to exist.
-
-#+begin_src sh :results none :exports code
-rsync \
-  --archive \
-  --verbose \
-  --human-readable \
-  --iconv=utf-8-mac,utf-8 \
-  --chown=nextcloud:nextcloud \
-  ~/Dropbox/music \
-  --rsync-path='sudo rsync' 'silicon.proton:/tank/data/nextcloud/data/logan/files/'
-#+end_src
-
-Some notable things:
-1. This ensures the files are owned by Nextcloud - required for Nextcloud to manage
-   them.
-2. The ~--iconv~ invocation converts from the macOS (see
-   https://serverfault.com/a/427200 for details).  Basically macOS uses UTF-8
-   NFC and Linux uses UTF-8 NFD.  Linux seems to tolerate it, but the PHP
-   runtime does not.
+Runbooks for recurring failures on this network, each with the symptom, the
+cause, and a link to the full write-up under ~docs/operations/~, are indexed in
+[[file:docs/operations.org][docs/operations.org]].
 
 * Graveyard
 

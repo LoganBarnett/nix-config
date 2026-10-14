@@ -2,10 +2,10 @@
 ################################################################################
 # Convert a remote ICS calendar feed into an org-mode file.
 #
-# The feed URL is read from a file rather than taken as an argument, because a
-# published Outlook link carries its access token in the URL.  Reading it from
-# a file keeps it out of the process table, and handing it to curl through
-# --config keeps it out of curl's argv too.
+# The feed URL is read from a file rather than taken as an argument, because
+# published calendar links usually carry their access token in the URL.
+# Reading it from a file keeps it out of the process table, and handing it to
+# curl through --config keeps it out of curl's argv too.
 #
 # The output is replaced atomically and only after a successful fetch and
 # conversion.  A failed run leaves the previous output in place, which matters

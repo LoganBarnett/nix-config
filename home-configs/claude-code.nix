@@ -614,7 +614,7 @@ in
 
   home.packages = [
     # Recovery tool for when Claude Code leaves orphaned shells, spares, or
-    # its daemon behind; see docs/claude-code-runaway.org.
+    # its daemon behind; see docs/operations/claude-code-runaway.org.
     (pkgs.callPackage ../derivations/claude-dislodge/default.nix { })
   ];
 

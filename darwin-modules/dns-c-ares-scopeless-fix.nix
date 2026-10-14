@@ -9,8 +9,8 @@
 # on 127.0.0.1 -- an address c-ares can always reach -- whose upstreams are
 # kept current by dnsmasq-upstream-sync, which harvests DHCPv4 and DHCPv6
 # nameservers and writes scoped literals that dnsmasq accepts.  See
-# docs/tether-dns.org for the full design; this module is its M1a, lifted
-# from the dormant GlobalProtect module which becomes a consumer in M2.
+# docs/operations/tether-dns.org for the full design; this module is its M1a,
+# lifted from the dormant GlobalProtect module which becomes a consumer in M2.
 #
 # The forwarder also reads drop-in fragments from a conf-dir so reconcilers
 # (e.g. the deferred filter-AAAA tether knob, M1b) can adjust behavior
@@ -155,7 +155,7 @@ in
           services.dns-c-ares-scopeless-fix and
           services.globalprotect-monitor both stand up the dnsmasq daemon;
           keep GlobalProtect dormant until it becomes a consumer
-          (docs/tether-dns.org, M2).
+          (docs/operations/tether-dns.org, M2).
         '';
       }
       {
