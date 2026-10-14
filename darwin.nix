@@ -569,6 +569,8 @@ in
         # FXPreferredViewStyle = "clmv";
         # Disable warning when changing file extension.
         FXEnableExtensionChangeWarning = false;
+        # Delete Trash items after 30 days.
+        FXRemoveOldTrashItems = true;
         # Allow quitting of Finder application
         # QuitMenuItem = true;
       };
