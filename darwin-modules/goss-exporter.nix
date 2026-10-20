@@ -22,8 +22,9 @@ let
   cfg = config.services.goss;
   gossPort = cfg.prometheus.port;
 
+  tempDir = "/var/lib/goss-nginx";
   nginxConf = pkgs.writeText "goss-nginx.conf" ''
-    pid /tmp/goss-nginx.pid;
+    pid /var/run/goss-nginx.pid;
     error_log /var/log/goss-nginx.log warn;
 
     events {
@@ -32,8 +33,16 @@ let
 
     http {
       access_log off;
-      client_body_temp_path /tmp;
-      proxy_temp_path /tmp;
+      # nginx chowns every temp path to its worker user at startup, so each
+      # must be a directory nginx may own.  /tmp is not one.  The unused
+      # fastcgi, uwsgi and scgi paths are set because their compiled-in
+      # defaults also live under /tmp.  All five must keep the same hash
+      # level or nginx rejects the shared directory.
+      client_body_temp_path ${tempDir};
+      proxy_temp_path ${tempDir};
+      fastcgi_temp_path ${tempDir};
+      uwsgi_temp_path ${tempDir};
+      scgi_temp_path ${tempDir};
 
       server {
         listen ${toString gossPort};
@@ -74,7 +83,10 @@ in
     };
   };
 
-  imports = [ ./log-rotation.nix ];
+  imports = [
+    ./launchd-directories.nix
+    ./log-rotation.nix
+  ];
 
   config = lib.mkIf cfg.prometheus.enable {
     services.log-rotation.files.goss-nginx.path = "/var/log/goss-nginx.log";
@@ -104,6 +116,13 @@ in
         '';
 
     launchd.daemons.goss-nginx = {
+      # The owner mirrors nginx's compiled-in default worker user.  A directory
+      # already owned by that user gives nginx nothing to chown.
+      directories.${tempDir} = {
+        owner = "nobody";
+        group = "nobody";
+        mode = "0700";
+      };
       serviceConfig = {
         Label = "org.goss.nginx";
         ProgramArguments = [

@@ -67,6 +67,7 @@ in
     ./darwin-modules/application-firewall.nix
     ./darwin-modules/dns-c-ares-scopeless-fix.nix
     ./darwin-modules/global-protect-persistent.nix
+    ./darwin-modules/launchd-directories.nix
     ./darwin-modules/steam.nix
     ./darwin-modules/microsoft-teams.nix
     ./darwin-modules/blackhole.nix

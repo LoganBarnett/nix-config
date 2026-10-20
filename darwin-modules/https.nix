@@ -42,8 +42,9 @@ let
       }
     }
   '';
+  tempDir = "/var/lib/https-nginx";
   nginxConf = pkgs.writeText "https-nginx.conf" ''
-    pid /tmp/https-nginx.pid;
+    pid /var/run/https-nginx.pid;
     error_log /var/log/https-nginx.log warn;
 
     events {
@@ -52,8 +53,14 @@ let
 
     http {
       access_log off;
-      client_body_temp_path /tmp;
-      proxy_temp_path /tmp;
+      # nginx chowns every temp path to its worker user at startup.  It defaults
+      # to /tmp on Darwin, despite not having ownership there.  All five must
+      # keep the same hash level or nginx rejects the shared directory.
+      client_body_temp_path ${tempDir};
+      proxy_temp_path ${tempDir};
+      fastcgi_temp_path ${tempDir};
+      uwsgi_temp_path ${tempDir};
+      scgi_temp_path ${tempDir};
       ssl_protocols TLSv1.2 TLSv1.3;
       ssl_prefer_server_ciphers off;
 
@@ -79,6 +86,7 @@ in
   imports = [
     ../agnostic-modules/https.nix
     ../agnostic-modules/tls-leaf.nix
+    ./launchd-directories.nix
     ./log-rotation.nix
   ];
 
@@ -86,7 +94,8 @@ in
     assertions = [
       {
         assertion = cfg.domains == { };
-        message = "https (darwin): domains policies (per-address binding, ACME) are unsupported; only the fallback behaviour (all interfaces, internal CA) is implemented.";
+        message =
+          "https (darwin): domains policies (per-address binding, ACME) are unsupported; only the fallback behaviour (all interfaces, internal CA) is implemented.";
       }
     ]
     ++ map (fqdn-cfg: {
@@ -95,7 +104,9 @@ in
         && fqdn-cfg.internalPort != null
         && fqdn-cfg.socket == null
         && fqdn-cfg.serviceNameForSocket == null;
-      message = "https (darwin): ${fqdn-cfg.fqdn} must use internalPort; socket upstreams and proxy = false are unsupported on darwin.";
+      message = "https (darwin): ${
+        fqdn-cfg.fqdn
+      } must use internalPort; socket upstreams and proxy = false are unsupported on darwin.";
     }) fqdns;
 
     tls.tls-leafs = lib.mkMerge (
@@ -131,6 +142,13 @@ in
     '';
 
     launchd.daemons.https-nginx = {
+      # nginx workers are spawned with the Darwin `nobody` special user, so we
+      # give ownership to `nobody`.
+      directories.${tempDir} = {
+        owner = "nobody";
+        group = "nobody";
+        mode = "0700";
+      };
       serviceConfig = {
         Label = "org.https.nginx";
         # nginx has no long-form flags: -c names the configuration file and -g
