@@ -74,6 +74,13 @@ in
       '';
     };
     settings = {
+      # Compacting is about the worst thing a session can do, and compacting
+      # when idle just means if you pause on your session for a little bit, you
+      # lose valuable context.  Turn it off.
+      idleCompact = false;
+      # Default every session to Claude Fable 5, Anthropic's most capable
+      # model.
+      model = "fable";
       # Every session starts read-only in plan mode; nothing is written or
       # executed until a plan is approved.
       permissions = {
@@ -96,13 +103,6 @@ in
       # working.  Set explicitly so we stay on classic even if Claude Code
       # flips the default to fullscreen upstream.
       tui = "default";
-      # Default every session to Claude Fable 5, Anthropic's most capable
-      # model.  `fable` is the moving alias for the newest Fable release
-      # (`claude-fable-5` today), so version bumps arrive without an edit
-      # here.  There is a `fable[1m]` variant, but it is redundant: unlike
-      # the Opus line, Fable's 1M context window is both the default and
-      # the maximum.  `/model` still overrides this within a session.
-      model = "fable";
       # Pin the reasoning effort to the maximum.  The interactive
       # effort selector drifts back down to "high" across sessions;
       # persisting it here is meant to keep every session at "xhigh" so
