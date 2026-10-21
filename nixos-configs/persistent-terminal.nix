@@ -17,7 +17,7 @@
     shellWrapper = true;
   };
 
-  programs.bash.interactiveShellInit = ''
+  environment.interactiveShellInit = ''
     # Convenience function to attach to a Claude session.
     claude-session() {
       pts attach claude-main
