@@ -58,11 +58,7 @@ in
   # ];
   programs.claude-code = {
     enable = true;
-    # Pull the generic, client-neutral MCP registry (programs.mcp.servers,
-    # defined in home-configs/mcp.nix) into Claude Code's own MCP config.  This
-    # is the one Claude-specific line that opts this client in; the registry
-    # itself stays agent-agnostic.  On name collisions, entries under
-    # programs.claude-code.mcpServers would win over the generic ones.
+    # See home-configs/mcp.nix for where these get integrated from.
     enableMcpIntegration = true;
     package = pkgs.symlinkJoin {
       name = "claude-code-wrapped";
@@ -74,10 +70,16 @@ in
       '';
     };
     settings = {
-      # Compacting is about the worst thing a session can do, and compacting
-      # when idle just means if you pause on your session for a little bit, you
-      # lose valuable context.  Turn it off.
-      idleCompact = false;
+      # https://code.claude.com/docs/en/context-window#what-survives-compaction
+      # lists that things like CLAUDE.md are re-injected from disk after
+      # compaction, so there is no loss in fidelity.  So we can allow
+      # compaction.  There's loads of learnings from prior Claude users about
+      # how this wasn't always the case, but it seems to have been addressed (or
+      # a critical bug fixed) at some point.
+      autoCompactEnabled = true;
+      # Try out idle compaction since it saves money of idled sessions by 4x I
+      # guess.
+      idleCompaction = true;
       # Default every session to Claude Fable 5, Anthropic's most capable
       # model.
       model = "fable";
