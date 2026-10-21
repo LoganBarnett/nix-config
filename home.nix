@@ -19,6 +19,7 @@ in
   # home-manager is ahead of nixpkgs to pick up Claude Code features.
   home.enableNixpkgsReleaseCheck = false;
   imports = [
+    ./home-configs/bat.nix
     ./home-configs/btop.nix
     ./home-configs/claude-code.nix
     ./home-configs/claude-code-orchestrator.nix
