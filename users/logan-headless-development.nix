@@ -37,6 +37,9 @@
   home-manager.useGlobalPkgs = true;
   home-manager.useUserPackages = true;
 
+  programs.zsh.enable = true;
+  users.users.logan.shell = pkgs.zsh;
+
   # gnupg is needed on PATH for interactive commit signing.  The systemd
   # import service uses full store paths, but git invokes gpg by name.
   # pass is the interactive password store.  After deploying, clone the store
@@ -65,6 +68,10 @@
       ../home-configs/ssh-config-proton.nix
       ../home-configs/ssh-config-gitea-dev-key.nix
     ];
+    # Hosts generally won't have a passphraseless `id_rsa` key to auto load, so
+    # just empty it out.  You can still do `ssh-add` to bring in other keys with
+    # passphrases.
+    programs.keychain.keys = [ ];
   };
 
   # ── agenix secrets ──────────────────────────────────────────────────────────
@@ -107,8 +114,12 @@
             export GNUPGHOME="/home/logan/.gnupg"
             mkdir -p "$GNUPGHOME"
             chmod 700 "$GNUPGHOME"
-            ${pkgs.gnupg}/bin/gpg --batch --import ${../gpg-keys/logan-gpg-public.asc}
-            ${pkgs.gnupg}/bin/gpg --batch --import ${config.age.secrets.logan-gpg-signing-subkey.path}
+            ${pkgs.gnupg}/bin/gpg --batch --import ${
+              ../gpg-keys/logan-gpg-public.asc
+            }
+            ${pkgs.gnupg}/bin/gpg --batch --import ${
+              config.age.secrets.logan-gpg-signing-subkey.path
+            }
           '';
         in
         "${script}";

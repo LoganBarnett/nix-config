@@ -1,41 +1,5 @@
 # -*- mode: sh -*-
 
-# As charming as the nix installer seems to be, it neglects to mention you must
-# add nix to your PATH. Perhaps that's obvious, but the path to use is not
-# obvious. Taken from
-# https://github.com/NixOS/nix/issues/1727#issuecomment-360355330
-# Also NIX_PATH is taken...
-# This might be a legacy path.  I no longer include it because switching Nix
-# versions (just the runtime) caused issues for me.
-NIX_PATH_ASDF="/nix/var/nix/profiles/default/bin"
-
-# Per the home-manager instructions.
-export NIX_PATH="$HOME/.nix-defexpr/channels${NIX_PATH:+:}$NIX_PATH:\
-nixpkgs-overlays=$HOME/.config/nixpkgs/overlays/"
-export NIX_PATH="darwin-config=$HOME/.nixpkgs/darwin-configuration.nix:\
-$HOME/.nix-defexpr/channels:$NIX_PATH"
-
-
-# Nix will flip out if it sees itself in the PATH, but it needs to be there.
-# Chop up the string to defeat its detection. This allows us to do the install
-# without having to remove it during a reinstallation and then re-add it.
-export PATH="\
-$HOME/.nix""-profile/bin:\
-/etc/profiles/per-user/$USER/bin:\
-/run/current-system/sw/bin:\
-/sbin:\
-/usr/sbin:\
-/usr/local/sbin:\
-/opt/local/sbin:\
-/bin:\
-/usr/local/bin:\
-/opt/local/bin:\
-$HOME/.config/emacs/bin:\
-/Library/TeX/texbin:\
-/usr/bin:\
-/opt/X11/bin:\
-/opt/homebrew/bin"
-
 # prevent emacs tramp from barfing on startup
 [[ "$TERM" == "dumb" ]] &&
   echo "[ZSHRC] Setting as dumb terminal (likely for Tramp)..." &&
@@ -52,11 +16,6 @@ $HOME/.config/emacs/bin:\
   # alias ls='gls' &&
   return
   #
-# Nix
-if [ -e '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh' ]; then
-  . '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh'
-fi
-# End Nix
 # Source home-manager.
 # . $HOME/.nix-profile/etc/profile.d/hm-session-vars.sh
 . /etc/profiles/per-user/$USER/etc/profile.d/hm-session-vars.sh

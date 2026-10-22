@@ -83,11 +83,11 @@ To run Claude in a persistent session:
 pts new claude-main
 
 # Run Claude Code
-claude-code
+claude
 
 # Detach with C-\ to leave it running
 # Reattach later with:
-pts attach claude-main
+claude-session
 #+end_src
 
 * Benefits of This Setup
