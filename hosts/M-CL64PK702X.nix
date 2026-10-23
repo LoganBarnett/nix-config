@@ -84,13 +84,6 @@ in
         ...
       }:
       {
-        age.secrets.llm-coding-agent-ssh = {
-          generator.script = "ssh-ed25519-with-pub";
-          rekeyFile = ../secrets/llm-coding-agent-ssh.age;
-          # Allow the primary user to read this key for SSH client usage.
-          mode = "0400";
-          owner = config.system.primaryUser;
-        };
         home-manager.users."logan.barnett" = {
           imports = [
             # Standard "logan" home-manager defaults (stateVersion, shell,
