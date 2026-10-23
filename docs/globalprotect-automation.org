@@ -49,16 +49,18 @@ gp-connect --server vpn.company.com -v
 
 ** Using Environment Variables
 
-The ~GP_SERVER~ environment variable is automatically set by your system
-configuration.  You can override or set additional variables if needed:
+~GP_SERVER~ and ~GP_USERNAME~ are set by your system configuration.  You can
+override or set additional variables if needed:
 
 #+begin_src bash :exports code
-# GP_SERVER is already set by the system
+# GP_SERVER and GP_USERNAME are already set by the system.
 # Optionally override or set additional variables:
 export GP_GATEWAY="gateway.company.com"  # Optional
-export GP_USER="your.username"           # Optional
 
 gp-connect
+
+# For a one-off run as a different account, override GP_USERNAME:
+gp-connect --user "other.person@example.com"
 #+end_src
 
 ** Disconnecting

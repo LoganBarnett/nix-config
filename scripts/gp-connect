@@ -11,7 +11,7 @@ GP_SERVER="${GP_SERVER:-}"
 GP_GATEWAY="${GP_GATEWAY:-}"
 # The portal authenticates through Okta, which wants the email address rather
 # than the local account name, so there is deliberately no $USER fallback.
-GP_USER="${GP_USER:-${GP_USERNAME:-}}"
+GP_USERNAME="${GP_USERNAME:-}"
 GP_BROWSER="${GP_BROWSER:-default}"
 GP_RECONNECT_TIMEOUT="${GP_RECONNECT_TIMEOUT:-300}"
 GP_LOG_DIR="${GP_LOG_DIR:-$HOME/.local/share/gpclient/logs}"
@@ -31,7 +31,7 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     --user)
-      GP_USER="$2"
+      GP_USERNAME="$2"
       shift 2
       ;;
     --browser)
@@ -58,7 +58,7 @@ while [[ $# -gt 0 ]]; do
       echo "Options:"
       echo "  --server TEXT         Portal server URL (required)"
       echo "  --gateway TEXT        Gateway to connect to (optional)"
-      echo "  --user TEXT           Username or email (default: \$GP_USER, then \$GP_USERNAME)"
+      echo "  --user TEXT           Username or email (default: \$GP_USERNAME)"
       echo "  --browser TEXT        Browser to use: default, firefox, chrome, chromium, remote"
       echo "                        Use 'remote' for headless/manual authentication"
       echo "  --clean               Clear cached authentication cookies"
@@ -69,8 +69,7 @@ while [[ $# -gt 0 ]]; do
       echo "Environment Variables:"
       echo "  GP_SERVER             Portal server URL"
       echo "  GP_GATEWAY            Gateway to connect to"
-      echo "  GP_USER               Username or email (default: \$GP_USERNAME)"
-      echo "  GP_USERNAME           Username or email, as exported for gp-connect-auto"
+      echo "  GP_USERNAME           Username or email (set by the system configuration)"
       echo "  GP_BROWSER            Browser to use (default: default)"
       echo "  GP_RECONNECT_TIMEOUT  Reconnection timeout in seconds (default: 300)"
       echo "  GP_LOG_DIR            Log directory (default: ~/.local/share/gpclient/logs)"
@@ -90,8 +89,8 @@ if [ -z "$GP_SERVER" ]; then
   exit 1
 fi
 
-if [ -z "$GP_USER" ]; then
-  echo "Error: User is required; pass --user or set GP_USERNAME (or GP_USER)"
+if [ -z "$GP_USERNAME" ]; then
+  echo "Error: User is required; pass --user or set GP_USERNAME"
   echo "Use -h or --help for usage information"
   exit 1
 fi
@@ -102,7 +101,7 @@ mkdir -p "$GP_LOG_DIR"
 # Build the gpclient command
 GP_CMD="gpclient connect"
 GP_CMD="$GP_CMD $VERBOSE"
-GP_CMD="$GP_CMD --user \"$GP_USER\""
+GP_CMD="$GP_CMD --user \"$GP_USERNAME\""
 GP_CMD="$GP_CMD --browser \"$GP_BROWSER\""
 GP_CMD="$GP_CMD --reconnect-timeout $GP_RECONNECT_TIMEOUT"
 
@@ -121,7 +120,7 @@ echo "Server: $GP_SERVER"
 if [ -n "$GP_GATEWAY" ]; then
   echo "Gateway: $GP_GATEWAY"
 fi
-echo "User: $GP_USER"
+echo "User: $GP_USERNAME"
 echo "Browser: $GP_BROWSER"
 
 if [ "$GP_BROWSER" = "remote" ]; then
