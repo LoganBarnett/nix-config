@@ -115,7 +115,8 @@ in
                 builtins.baseNameOf cert-path
             );
         profile =
-          pkgs.callPackage ../packages/darwin-tls-certificate-configuration-profile.nix
+          pkgs.callPackage
+            ../packages/darwin-tls-certificate-configuration-profile.nix
             {
               name = "darwin-tls-certificate-configuration-profile.xml";
               # Turn into attrset because it needs names to give the certificates.
@@ -226,9 +227,20 @@ in
       in
       lib.mkBefore (
         ''
-          keychainTrustedCerts="$(sudo security find-certificate -a -Z \
+          keychainCerts="$(security find-certificate -a -Z \
             /Library/Keychains/System.keychain
           )"
+          # Presence in the System Keychain is not trust.  add-trusted-cert
+          # stores the certificate before its authorization prompt, so a
+          # cancelled prompt leaves it present but untrusted.
+          function certIsInKeychain() {
+            printf '%s' "$keychainCerts" | grep --quiet --ignore-case "$1"
+          }
+          # -L stops AIA fetches.  No -R means no revocation check.  The basic
+          # policy matches a CA trusted for every purpose.
+          function certIsTrusted() {
+            security verify-cert -q -L -p basic -c "$1" > /dev/null 2>&1
+          }
           # Note that a lot of advice out there will say to use "trustAsRoot" per
           # newer versions of macOS.  This might be correct advice in the context of
           # the question given, but since we're running _as root_ already, we can
@@ -255,17 +267,30 @@ in
               "$certHash" \
               "$certDomain" \
               "$certFile"
-            if printf '%s' "$keychainTrustedCerts" \
-              | grep --quiet --ignore-case "$certHash" ;
+            # An expired certificate never verifies, so it would prompt on every
+            # switch.
+            if ! ${openssl} x509 -checkend 0 -noout -in "$certFile" > /dev/null;
             then
+              printf "\033[31mExpired, skipping.\033[0m\n"
+            # An intermediate verifies as soon as its root is trusted.  The
+            # presence check keeps it stored for servers that omit it from
+            # their chain.
+            elif certIsInKeychain "$certHash" && certIsTrusted "$certFile"; then
               printf "\033[33mAlready Trusted.\033[0m\n"
-            else
-              security add-trusted-cert \
+            # add-trusted-cert on a stored certificate only applies the trust
+            # settings.  As an if condition, a cancelled prompt does not abort
+            # activation under set -e.  The next switch retries it.
+            elif security add-trusted-cert \
                 -d \
                 -r trustRoot \
                 -k /Library/Keychains/System.keychain \
-                "$certFile"
+                "$certFile" \
+              && certIsTrusted "$certFile";
+            then
               printf "\033[32mTrusted!\033[0m\n"
+            else
+              printf "\033[31m%s\033[0m\n" \
+                "Not trusted.  Prompt cancelled?  Retrying next switch."
             fi
           }
         ''
