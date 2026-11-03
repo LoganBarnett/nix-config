@@ -845,11 +845,11 @@
         "rust-template": "rust-template"
       },
       "locked": {
-        "lastModified": 1792002664,
-        "narHash": "sha256-+fjTZyJlBIjVi1dSM2Ee8F0btPWlNn0A/F6mGWqJ1KM=",
+        "lastModified": 1793667342,
+        "narHash": "sha256-PUMmEaLphh3eYmuo24ErlHyZlGPkBSl3//PUczBCbr8=",
         "owner": "LoganBarnett",
         "repo": "emacs-config",
-        "rev": "fb31c42ad3db6b46f0da5b077a12da261b2dd71c",
+        "rev": "932131e38ea744b4cf96a1476cc3f407f82ec0c9",
         "type": "github"
       },
       "original": {
@@ -2925,17 +2925,17 @@
     "org-dnd": {
       "flake": false,
       "locked": {
-        "lastModified": 1771454919,
-        "narHash": "sha256-pnh5SDj+8owCZcWCQe+NOgT+HujoNpmWU9KGRGkLSYc=",
-        "ref": "refs/heads/main",
-        "rev": "7e941a65a7f7f5b5dc6df40c1665b44d0feac52e",
-        "revCount": 5,
-        "type": "git",
-        "url": "ssh://git@gitea.proton:2222/logan/org-dnd"
+        "lastModified": 1774153835,
+        "narHash": "sha256-J7UKh9lUBG954q653Ee1Fi+D/QKo40cF4nGOx74Vh5M=",
+        "owner": "LoganBarnett",
+        "repo": "org-dnd",
+        "rev": "de400c0eeed2596a0895e5a8e952d04ccfa188a1",
+        "type": "github"
       },
       "original": {
-        "type": "git",
-        "url": "ssh://git@gitea.proton:2222/logan/org-dnd"
+        "owner": "LoganBarnett",
+        "repo": "org-dnd",
+        "type": "github"
       }
     },
     "org-fmt": {

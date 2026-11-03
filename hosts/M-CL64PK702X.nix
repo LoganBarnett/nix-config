@@ -97,10 +97,21 @@ in
             ../home-configs/copilot.nix
             ../home-configs/ssh-config-general.nix
             ../home-configs/ssh-config-container-vm.nix
+            flake-inputs.emacs-config.homeModules.org-agenda
             flake-inputs.emacs-config.homeModules.ssh-config-emacs
             ../home-configs/ssh-config-proton.nix
             ../home-configs/tea.nix
           ];
+          programs.emacs.org-agenda = {
+            directories = [
+              "/Users/${username}/work-notes"
+            ];
+            excludes = [
+              "_archive\\.org\\'"
+              "old-notes"
+              "/SE\\.org\\'"
+            ];
+          };
         };
         environment.systemPackages = [
           pkgs.awscli

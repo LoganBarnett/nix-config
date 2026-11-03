@@ -95,8 +95,6 @@ in
     ./agnostic-configs/nix-builder-consume.nix
     ./agnostic-configs/nix-cache-consume.nix
     ./agnostic-modules/mcp-grafana.nix
-    ./agnostic-modules/emacs-org-agenda.nix
-    ./darwin-modules/emacs-org-agenda-ics-calendars.nix
   ];
   # Global packages that can't be bound to a specific user, such as shells.
   environment = {

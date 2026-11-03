@@ -157,11 +157,24 @@ in
             ../home-configs/ghostty.nix
             ../home-configs/ssh-config-general.nix
             ../home-configs/ssh-config-container-vm.nix
+            flake-inputs.emacs-config.homeModules.org-agenda
             flake-inputs.emacs-config.homeModules.ssh-config-emacs
             ../home-configs/ssh-config-proton.nix
             ../home-configs/dasht.nix
             ../home-configs/tea.nix
           ];
+          programs.emacs.org-agenda = {
+            directories = [
+              "/Users/${username}/notes"
+              "/Users/${username}/work-notes"
+            ];
+            excludes = [
+              "_archive\\.org\\'"
+              "old-notes"
+              "journal/"
+              "/SE\\.org\\'"
+            ];
+          };
         };
         # Steam via the macOS programs.steam analogue: a login LaunchAgent
         # installs the Steam.app bootstrapper into /Applications and lets

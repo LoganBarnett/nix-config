@@ -59,98 +59,35 @@ emacs --batch -l org \
 4. Run the call and commit the drawer it produces.
 
 * Nix Options
-** programs.emacs.org-agenda
 
-Nix hands Emacs extra ~org-agenda-files~, and can generate some of them from
-published ICS calendars.  The Emacs side lives in ~emacs-config~ as
-~lisp/nix-org-agenda-config.el~ and knows nothing about where the files come
-from.
 
-*** ICS calendars
-
-Example:
 
 #+begin_src nix :exports code
-programs.emacs.org-agenda = {
-  user = "me";
-  ics-calendars = {
-    enable = true;
-    outputDirectory = "/Users/me/notes/agenda/generated";
-    calendars.work.rekeyFile =
-      ../secrets/issued/ics-work-${host-id}-url.age;
   };
 };
 #+end_src
 
-A published ICS link can carry its access token in the URL, so the URL is an
-agenix secret.
 
-**** ICS on Outlook
 
-Outlook on the web issues the link under Settings, Calendar, Shared calendars,
-Publish a calendar.  Take the ICS link, not the HTML one.
 
 *** Options
 
-#+call: nix-options(prefix="programs.emacs.org-agenda")
 
 #+RESULTS:
 :results:
-- ~programs.emacs.org-agenda.files~ ::
-  Absolute paths Emacs appends to =org-agenda-files=.  Written to
-  =~/.config/emacs/nix-org-agenda.json= under the key =org-agenda-files=.
-  - Type: list of string
-  - Default: ~[ ]~
-  - Example: ~[ "/Users/me/notes/agenda/generated/work.org" ]~
-  - Declared in [[file:../agnostic-modules/emacs-org-agenda.nix][agnostic-modules/emacs-org-agenda.nix]]
-
-- ~programs.emacs.org-agenda.ics-calendars.calendars~ ::
-  Calendars to sync, keyed by name.  Each yields the org file
-  =<outputDirectory>/<name>.org=, the agenix secret =ics-<name>-url=,
-  and the launchd agent =ics-<name>-sync=.
   - Type: attribute set of (submodule)
   - Default: ~{ }~
-  - Declared in [[file:../darwin-modules/emacs-org-agenda-ics-calendars.nix][darwin-modules/emacs-org-agenda-ics-calendars.nix]]
 
-- ~programs.emacs.org-agenda.ics-calendars.calendars.<name>.days~ ::
-  Window in days on each side of today within which recurring
-  events are expanded into individual entries.
-  - Type: unsigned integer, meaning >=0
-  - Default: ~90~
-  - Declared in [[file:../darwin-modules/emacs-org-agenda-ics-calendars.nix][darwin-modules/emacs-org-agenda-ics-calendars.nix]]
 
-- ~programs.emacs.org-agenda.ics-calendars.calendars.<name>.rekeyFile~ ::
-  The ICS URL, encrypted for agenix-rekey.  By convention
-  =secrets/issued/ics-<name>-<host-id>-url.age= in the flake
-  that owns the calendar.
-  - Type: absolute path
-  - Declared in [[file:../darwin-modules/emacs-org-agenda-ics-calendars.nix][darwin-modules/emacs-org-agenda-ics-calendars.nix]]
 
-- ~programs.emacs.org-agenda.ics-calendars.enable~ ::
-  Whether to enable syncing ICS calendar feeds into org files.
   - Type: boolean
   - Default: ~false~
-  - Example: ~true~
-  - Declared in [[file:../darwin-modules/emacs-org-agenda-ics-calendars.nix][darwin-modules/emacs-org-agenda-ics-calendars.nix]]
 
-- ~programs.emacs.org-agenda.ics-calendars.interval~ ::
-  Seconds between syncs of every calendar.
   - Type: positive integer, meaning >0
   - Default: ~1800~
-  - Declared in [[file:../darwin-modules/emacs-org-agenda-ics-calendars.nix][darwin-modules/emacs-org-agenda-ics-calendars.nix]]
 
-- ~programs.emacs.org-agenda.ics-calendars.outputDirectory~ ::
-  Absolute directory that receives one =<name>.org= per calendar.  It is
-  created if missing.
   - Type: string
-  - Example: ~"/Users/me/notes/agenda/generated"~
-  - Declared in [[file:../darwin-modules/emacs-org-agenda-ics-calendars.nix][darwin-modules/emacs-org-agenda-ics-calendars.nix]]
 
-- ~programs.emacs.org-agenda.user~ ::
-  Login user whose Emacs reads the agenda file list.  Producer modules
-  also use this as the owner of their secrets and agents.  NixOS has no
-  =system.primaryUser=, so NixOS hosts must set this explicitly.
   - Type: string
   - Default: ~config.system.primaryUser~
-  - Declared in [[file:../agnostic-modules/emacs-org-agenda.nix][agnostic-modules/emacs-org-agenda.nix]]
 :end:
