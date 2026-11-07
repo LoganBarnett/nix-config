@@ -1900,6 +1900,26 @@
         "type": "github"
       }
     },
+    "nixfmt-strict-width": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1793942950,
+        "narHash": "sha256-lB88rKX7LYek62V85rV7ajYhqOfAtAxWnSdWUZeKrAE=",
+        "owner": "LoganBarnett",
+        "repo": "nixfmt-strict-width",
+        "rev": "26245b24733849c5e7974a3aac1bbfdf1f410403",
+        "type": "github"
+      },
+      "original": {
+        "owner": "LoganBarnett",
+        "repo": "nixfmt-strict-width",
+        "type": "github"
+      }
+    },
     "nixlib": {
       "locked": {
         "lastModified": 1736643958,
@@ -3350,6 +3370,7 @@
         "nix-hapi-provider-porkbun": "nix-hapi-provider-porkbun",
         "nix-option-search": "nix-option-search",
         "nix-remote-builder-doctor": "nix-remote-builder-doctor",
+        "nixfmt-strict-width": "nixfmt-strict-width",
         "nixos-anywhere": "nixos-anywhere",
         "nixos-generators": "nixos-generators",
         "nixos-hardware": "nixos-hardware",

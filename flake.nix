@@ -167,6 +167,10 @@
       url = "github:LoganBarnett/nix-remote-builder-doctor";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    nixfmt-strict-width = {
+      url = "github:LoganBarnett/nixfmt-strict-width";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     nur = {
       url = "github:nix-community/NUR";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -428,8 +432,7 @@
             pkgs-with-libs.callPackage ./derivations/nix-options-org/default.nix
               { };
           nixfmt-strict-width =
-            pkgs.callPackage ./derivations/nixfmt-strict-width/default.nix
-              { };
+            flake-inputs.nixfmt-strict-width.packages.${system}.default;
           gnused-wrapper =
             pkgs.callPackage ./derivations/gnused-wrapper.nix
               { };
