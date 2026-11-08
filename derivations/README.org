@@ -79,5 +79,6 @@ this over the files in question, and it will reformat them to be pleasing to
 ~nixpkgs~.
 
 The dev shell of this repository puts ~nixfmt-strict-width~ first on ~PATH~.
-Its output is not what ~nixpkgs~ expects.  Format a contribution from outside
-this shell, where ~nixfmt~ is the stock one.
+It comes from the [[https://github.com/LoganBarnett/nixfmt-strict-width][nixfmt-strict-width]] flake input.  Its output is not what
+~nixpkgs~ expects.  Format a contribution from outside this shell, where
+~nixfmt~ is the stock one.
