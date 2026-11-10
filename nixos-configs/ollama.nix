@@ -36,6 +36,15 @@
       OLLAMA_LOG_LEVEL = "debug";
       # Want to see why you're getting a 403?  This isn't deep enough.
       OLLAMA_DEBUG = "30";
+      # One resident model per host.  garage-queue hands a worker one item at
+      # a time, so a second resident model only takes VRAM from the one that
+      # is working and pushes its layers onto the CPU.  Seen on titanium: a
+      # 12B model left with 3 GB of its 8 GB on the card.  Reloading on a
+      # model switch costs about ten seconds and is the lesser evil.
+      OLLAMA_MAX_LOADED_MODELS = "1";
+      # Each parallel slot allocates its own context.  The queue never sends
+      # a second request, so the slots are pure VRAM cost.
+      OLLAMA_NUM_PARALLEL = "1";
     };
   };
   # ollama-model-loader starts after ollama.service reaches exec, but CUDA

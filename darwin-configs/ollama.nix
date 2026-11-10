@@ -38,6 +38,12 @@ in
   services.ollama = {
     enable = true;
     host = "0.0.0.0";
+    # Same policy as nixos-configs/ollama.nix: one resident model and one
+    # request slot, so the job the queue sent has the whole GPU.
+    environment = {
+      OLLAMA_MAX_LOADED_MODELS = "1";
+      OLLAMA_NUM_PARALLEL = "1";
+    };
   };
 
   services.webhook = {
