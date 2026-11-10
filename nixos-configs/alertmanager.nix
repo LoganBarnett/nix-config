@@ -78,9 +78,9 @@
                   severity = "page";
                 };
                 annotations = {
-                  summary = "{{ $labels.alias }}: Node is down.";
+                  summary = "{{ $labels.host }}: Node is down.";
                   description = ''
-                    {{ $labels.alias }} has been down for more than 5 minutes.
+                    {{ $labels.host }} has been down for more than 5 minutes.
                   '';
                 };
               }
@@ -92,9 +92,9 @@
                   severity = "page";
                 };
                 annotations = {
-                  summary = "{{ $labels.alias }}: Systemd unit is down.";
+                  summary = "{{ $labels.host }}: Systemd unit is down.";
                   description = ''
-                    {{ $labels.alias }} has been down for more than 5 minutes.
+                    {{ $labels.host }} has been down for more than 5 minutes.
                   '';
                 };
               }
@@ -271,8 +271,8 @@
   #     severity="page"
   #   }
   #   ANNOTATIONS {
-  #     summary = "{{$labels.alias}}: Node is down.",
-  #     description = "{{$labels.alias}} has been down for more than 5 minutes."
+  #     summary = "{{$labels.host}}: Node is down.",
+  #     description = "{{$labels.host}} has been down for more than 5 minutes."
   #   }
   # ''
   # Goss health checks for Alertmanager.

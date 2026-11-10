@@ -9,6 +9,7 @@
 # 6. Service health (systemd status and goss health checks).
 ################################################################################
 {
+  instance-from-host,
   without-socket-port,
   height,
   width,
@@ -20,6 +21,24 @@ let
   # PromQL takes \\d in an indented string but \\\\d in a double-quoted one,
   # which is an easy trap when a binding is spliced into a query.  Digit classes
   # are therefore spelled [0-9] throughout this file.
+
+  # One zero per expected host, for the Service Health Issues terms to add to.
+  expected-hosts-zero = ''
+    sum by (instance) (
+      ${instance-from-host ''scrape_target_expected{job="node"}''}
+    ) * 0
+  '';
+  # An exporter Prometheus cannot scrape on a host that still answers.  A host
+  # that is down entirely yields one row, for node, rather than one per
+  # exporter.
+  dark-exporters = instance-from-host ''
+    (up == 0 unless on (host) (up{job="node"} == 0))
+    or (up{job="node"} == 0)
+  '';
+  # A host and job facts expects that is not in the scrape set at all.
+  unscraped-targets = instance-from-host ''
+    scrape_target_expected unless on (host, job) up
+  '';
 
   # Ephemeral, virtual, and network filesystems excluded from disk
   # usage accounting.
@@ -310,39 +329,43 @@ in
           # whole expression, copper:9558 and copper:8080 would both rename to
           # copper after the + on(instance) join, producing duplicate label sets
           # that PromQL rejects.
+          #
+          # The zero rows come from scrape_target_expected rather than from any
+          # exporter's own metrics.  A host whose exporters are all dark has no
+          # metrics to zero-fill from and would otherwise drop off the panel,
+          # which is the one case the panel most needs to show.  Dark exporters
+          # and unscraped targets count as issues for the same reason.
           expr = ''
             (
               sum by (instance) (
                 ${without-socket-port ''systemd_unit_state{state="failed"}''}
               )
               or on(instance)
-              sum by (instance) (
-                ${without-socket-port
-                  ''systemd_unit_state{name="basic.target",state="active"}''
-                }
-              ) * 0
-              or on(instance)
-              sum by (instance) (
-                ${without-socket-port "goss_tests_run_outcomes_total"}
-              ) * 0
+              ${expected-hosts-zero}
             )
             + on(instance)
             (
               count by (instance) (
-                ${without-socket-port
-                  ''increase(goss_tests_outcomes_total{outcome="fail"}[2m]) > 0''
-                }
+                ${without-socket-port ''
+                  increase(
+                    goss_tests_outcomes_total{outcome="fail"}[2m]
+                  ) > 0
+                ''}
               )
               or on(instance)
-              sum by (instance) (
-                ${without-socket-port
-                  ''systemd_unit_state{name="basic.target",state="active"}''
-                }
-              ) * 0
+              ${expected-hosts-zero}
+            )
+            + on(instance)
+            (
+              count by (instance) (${dark-exporters})
               or on(instance)
-              sum by (instance) (
-                ${without-socket-port "goss_tests_run_outcomes_total"}
-              ) * 0
+              ${expected-hosts-zero}
+            )
+            + on(instance)
+            (
+              count by (instance) (${unscraped-targets})
+              or on(instance)
+              ${expected-hosts-zero}
             )
           '';
           format = "time_series";
@@ -413,6 +436,42 @@ in
           '';
           format = "table";
           refId = "B";
+          instant = true;
+        }
+        {
+          # Shaped like a goss row: the job name stands in for resource_id and
+          # the type says where the failure sits.
+          expr = ''
+            label_replace(
+              label_replace(
+                label_replace(
+                  ${dark-exporters},
+                  "resource_id", "$1", "job", "(.*)"
+                ),
+                "type", "scrape", "", ""
+              ),
+              "outcome", "fail", "", ""
+            )
+          '';
+          format = "table";
+          refId = "C";
+          instant = true;
+        }
+        {
+          expr = ''
+            label_replace(
+              label_replace(
+                label_replace(
+                  ${unscraped-targets},
+                  "resource_id", "$1", "job", "(.*)"
+                ),
+                "type", "unscraped", "", ""
+              ),
+              "outcome", "fail", "", ""
+            )
+          '';
+          format = "table";
+          refId = "D";
           instant = true;
         }
       ];
@@ -508,7 +567,19 @@ in
       datasource = "Prometheus";
       targets = [
         {
-          expr = without-socket-port ''up{job="node"}'';
+          # A host that is expected but has no node series would otherwise be
+          # missing from the panel, which reads as fine.  It shows as -1 here.
+          expr = ''
+            ${without-socket-port ''up{job="node"}''}
+            or (
+              ${
+                instance-from-host ''
+                  scrape_target_expected{job="node"}
+                    unless on (host) up{job="node"}
+                ''
+              } - 2
+            )
+          '';
           format = "time_series";
           legendFormat = "{{instance}}";
         }
@@ -534,6 +605,25 @@ in
               }
             ];
           };
+          mappings = [
+            {
+              type = "value";
+              options = {
+                "-1" = {
+                  text = "UNSCRAPED";
+                  index = 0;
+                };
+                "0" = {
+                  text = "DOWN";
+                  index = 1;
+                };
+                "1" = {
+                  text = "UP";
+                  index = 2;
+                };
+              };
+            }
+          ];
         };
         overrides = [ ];
       };

@@ -195,6 +195,8 @@
       arsenic = {
         blockProfiles = [ "kid-gaming-rig" ];
         controlledHost = true;
+        # Powered off for now.
+        expectedOnline = false;
         ipv4 = 7;
         system = "x86_64-linux";
       };
@@ -268,6 +270,8 @@
       lithium = {
         blockProfiles = [ "kid-gaming-rig" ];
         controlledHost = true;
+        # Powered off for now.
+        expectedOnline = false;
         ipv4 = 8;
         # Only one of these MACs may hold the reservation at a time.  dnsmasq
         # accepts several MACs on a single dhcp-host entry, but it abandons the
@@ -328,6 +332,8 @@
       };
       nickel = {
         controlledHost = true;
+        # Powered off for now.
+        expectedOnline = false;
         ipv4 = 1;
         system = "aarch64-linux";
       };
@@ -905,6 +911,13 @@
             ''label_replace(${
               query
             }, "instance", "$1", "instance", "^(.*):[0-9]+$")'';
+          # The exact form of without-socket-port.  host is a target label that
+          # prometheus-server.nix stamps on every scraped series, so this holds
+          # where the port strip does not, such as the garage-queue jobs whose
+          # instance is an FQDN.
+          instance-from-host =
+            query:
+            ''label_replace(${query}, "instance", "$1", "host", "(.+)")'';
         in
         {
           active-alerts = import ../nixos-configs/grafana-active-alerts.nix { };
@@ -915,7 +928,12 @@
             inherit height width without-socket-port;
           };
           system-monitoring = import ../nixos-configs/grafana-host-monitor.nix {
-            inherit height width without-socket-port;
+            inherit
+              height
+              instance-from-host
+              width
+              without-socket-port
+              ;
           };
           garage-queue = import ../nixos-configs/grafana-garage-queue.nix {
             inherit without-socket-port;

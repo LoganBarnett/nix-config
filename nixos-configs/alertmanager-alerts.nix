@@ -24,6 +24,7 @@
     ./goss-alertmanager-alerts.nix
     ./kodi-alertmanager-alerts.nix
     ./rtc-alertmanager-alerts.nix
+    ./scrape-alertmanager-alerts.nix
     ./zwave-alertmanager-alerts.nix
   ];
 }

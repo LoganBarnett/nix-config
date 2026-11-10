@@ -42,6 +42,98 @@ let
   inherit (lib) pipe;
   inherit (lib.attrsets) filterAttrs mapAttrsToList;
   inherit (lib.lists) fold;
+  # Resolve monitors for a single hostname from three sources:
+  #  1. This host reads its own config directly to avoid infinite
+  #     recursion through nodes.${host-id}.
+  #  2. Other Nix-managed hosts expose monitors via their module.
+  #  3. Non-Nix hosts fall back to the facts monitors field verbatim.
+  host-monitors =
+    hostname:
+    if hostname == host-id then
+      config.networking.monitors
+    else if builtins.hasAttr hostname nodes then
+      (nodes.${hostname}.config.networking.monitors or [ ])
+    else
+      (facts.network.hosts.${hostname}.monitors or [ ]);
+  monitors = pipe facts.network.hosts [
+    (mapAttrsToList (host: _: host-monitors host))
+    lib.lists.flatten
+    lib.lists.unique
+  ];
+  # Ports for monitors that aren't standard Prometheus exporters.
+  hardcoded-ports = {
+    goss = 8080;
+    ncps = 8501;
+    garage-queue-server = 443;
+    garage-queue-worker = 443;
+  };
+  # Target hostname overrides for monitors that use FQDN-based
+  # virtual hosts instead of bare hostnames.
+  target-name = {
+    garage-queue-server = _host: "ollama.${facts.network.domain}";
+    garage-queue-worker = host: "${host}-ollama-worker.${facts.network.domain}";
+  };
+  # Hosts Prometheus is expected to reach at all.
+  eligible-hosts = filterAttrs (
+    _host: settings:
+    (settings.controlledHost or false)
+    && !(settings.roaming or false)
+    && (settings.expectedOnline or true)
+  ) facts.network.hosts;
+  # The scrape targets for one monitor, each paired with its bare host name.
+  host-targets =
+    monitor:
+    pipe eligible-hosts [
+      (filterAttrs (
+        host: _: lib.lists.any (m: m == monitor) (host-monitors host)
+      ))
+      (mapAttrsToList (
+        host: _:
+        let
+          hostname = (target-name.${monitor} or (h: h)) host;
+          port = toString (
+            if builtins.hasAttr monitor hardcoded-ports then
+              hardcoded-ports.${monitor}
+            else
+              nodes.${host}.config.services.prometheus.exporters.${pkgs.lib.custom.monitor-to-exporter-name monitor}.port
+          );
+        in
+        {
+          inherit host;
+          target = "${hostname}:${port}";
+        }
+      ))
+    ];
+  # One static_configs entry per target so each carries a host label.  The
+  # instance label is not usable for joins across jobs.  It is host:port for
+  # ordinary exporters and an FQDN for the garage-queue virtual hosts.
+  static-configs =
+    monitor:
+    map (t: {
+      targets = [ t.target ];
+      labels.host = t.host;
+    }) (host-targets monitor);
+  # The one monitor every eligible host must expose, whatever it declares.  A
+  # host with no node target cannot be judged up or down, so it would vanish
+  # from every rule and panel without a trace.  Everything else is opt in: a
+  # host that lists a monitor in networking.monitors is thereby saying it
+  # cares that the monitor is scraped.
+  required-monitors = [ "node" ];
+  # Every host and job pair Prometheus should have an up series for.  Declared
+  # monitors catch runtime drift between config and scrape state.  The node
+  # requirement catches a host whose monitors list is empty.
+  expected-targets = lib.lists.unique (
+    lib.lists.concatMap (
+      monitor:
+      map (t: {
+        inherit (t) host;
+        job = monitor;
+      }) (host-targets monitor)
+    ) monitors
+    ++ lib.lists.concatMap (
+      host: map (job: { inherit host job; }) required-monitors
+    ) (builtins.attrNames eligible-hosts)
+  );
 in
 {
   imports = [ ];
@@ -55,137 +147,79 @@ in
     extraFlags = [ "--web.enable-admin-api" ];
     # "1m" is another valid value.
     globalConfig.scrape_interval = "10s";
-    scrapeConfigs =
-      let
-        # Resolve monitors for a single hostname from three sources:
-        #  1. This host reads its own config directly to avoid infinite
-        #     recursion through nodes.${host-id}.
-        #  2. Other Nix-managed hosts expose monitors via their module.
-        #  3. Non-Nix hosts fall back to the facts monitors field verbatim.
-        host-monitors =
-          hostname:
-          if hostname == host-id then
-            config.networking.monitors
-          else if builtins.hasAttr hostname nodes then
-            (nodes.${hostname}.config.networking.monitors or [ ])
-          else
-            (facts.network.hosts.${hostname}.monitors or [ ]);
-        monitors = lib.pipe facts.network.hosts [
-          (lib.attrsets.mapAttrsToList (host: _: host-monitors host))
-          lib.lists.flatten
-          lib.lists.unique
-        ];
-        # Ports for monitors that aren't standard Prometheus exporters.
-        hardcoded-ports = {
-          goss = 8080;
-          ncps = 8501;
-          garage-queue-server = 443;
-          garage-queue-worker = 443;
-        };
-        # Target hostname overrides for monitors that use FQDN-based
-        # virtual hosts instead of bare hostnames.
-        target-name = {
-          garage-queue-server = _host: "ollama.${facts.network.domain}";
-          garage-queue-worker = host: "${host}-ollama-worker.${facts.network.domain}";
-        };
-        host-targets =
-          monitor:
-          lib.pipe facts.network.hosts [
-            (lib.attrsets.filterAttrs (
-              host: settings:
-              (settings.controlledHost or false)
-              && !(settings.roaming or false)
-              && (settings.expectedOnline or true)
-              && (lib.lists.any (m: m == monitor) (host-monitors host))
-            ))
-            (lib.attrsets.mapAttrsToList (
-              host: settings:
-              let
-                hostname = (target-name.${monitor} or (h: h)) host;
-                port = toString (
-                  if builtins.hasAttr monitor hardcoded-ports then
-                    hardcoded-ports.${monitor}
-                  else
-                    nodes.${host}.config.services.prometheus.exporters.${pkgs.lib.custom.monitor-to-exporter-name monitor}.port
-                );
-              in
-              "${hostname}:${port}"
-            ))
-          ];
-      in
-      lib.lists.map (
-        monitor:
-        (
+    scrapeConfigs = lib.lists.map (
+      monitor:
+      (
+        {
+          job_name = monitor;
+          static_configs = static-configs monitor;
+        }
+        // (
           {
-            job_name = monitor;
-            static_configs = [
-              {
-                targets = host-targets monitor;
-              }
-            ];
+            blackbox-ping = {
+              # metrics_path = "/probe/blackbox-ping";
+              # scrape_interval = "10s";
+              params = {
+                modules = [ "icmp" ];
+              };
+              # relabel_configs = [
+              #   {
+              #     source_labels = [ "target" ];
+              #     target_label = "__param_target";
+              #   }
+              # ];
+            };
+            systemd = {
+              # Reduce frequency for systemd because it can cause a dbus clog.
+              # It doesn't need to be that fast anyways.
+              scrape_interval = "60s";
+            };
+            goss = {
+              metrics_path = "/healthz";
+              scrape_interval = "15s";
+            };
+            garage-queue-server = {
+              scheme = "https";
+              tls_config = {
+                insecure_skip_verify = true;
+              };
+              metrics_path = "/metrics";
+            };
+            garage-queue-worker = {
+              scheme = "https";
+              tls_config = {
+                insecure_skip_verify = true;
+              };
+              metrics_path = "/metrics";
+            };
           }
-          // (
-            {
-              node = {
-                static_configs = [
-                  {
-                    targets = host-targets monitor;
-                  }
-                ];
-              };
-              blackbox-ping = {
-                # metrics_path = "/probe/blackbox-ping";
-                # scrape_interval = "10s";
-                params = {
-                  modules = [ "icmp" ];
-                };
-                static_configs = [
-                  {
-                    targets = host-targets monitor;
-                  }
-                ];
-                # relabel_configs = [
-                #   {
-                #     source_labels = [ "target" ];
-                #     target_label = "__param_target";
-                #   }
-                # ];
-              };
-              systemd = {
-                # Reduce frequency for systemd because it can cause a dbus clog.  It
-                # doesn't need to be that fast anyways.
-                scrape_interval = "60s";
-              };
-              wireguard = {
-                static_configs = [
-                  {
-                    targets = host-targets monitor;
-                  }
-                ];
-              };
-              goss = {
-                metrics_path = "/healthz";
-                scrape_interval = "15s";
-              };
-              garage-queue-server = {
-                scheme = "https";
-                tls_config = {
-                  insecure_skip_verify = true;
-                };
-                metrics_path = "/metrics";
-              };
-              garage-queue-worker = {
-                scheme = "https";
-                tls_config = {
-                  insecure_skip_verify = true;
-                };
-                metrics_path = "/metrics";
-              };
-            }
-            .${monitor} or { }
-          )
+          .${monitor} or { }
         )
-      ) monitors;
+      )
+    ) monitors;
+    # A constant series per expected target.  A target that is absent from the
+    # scrape set leaves no up series behind, so nothing keyed on up == 0 can
+    # see it.  Joining this series against up finds the gap.  Alerts live in
+    # nixos-configs/scrape-alertmanager-alerts.nix and the radiator reads it
+    # in nixos-configs/grafana-host-monitor.nix.
+    ruleFiles = [
+      (pkgs.writeText "scrape-expected-rules.yaml" (
+        builtins.toJSON {
+          groups = [
+            {
+              name = "scrape_expected";
+              rules = map (t: {
+                record = "scrape_target_expected";
+                expr = "vector(1)";
+                labels = {
+                  inherit (t) host job;
+                };
+              }) expected-targets;
+            }
+          ];
+        }
+      ))
+    ];
   };
   # Goss health checks for Prometheus.
   services.goss.checks = {
