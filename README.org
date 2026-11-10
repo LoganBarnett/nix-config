@@ -576,12 +576,12 @@ If the service does not accept secret files, and filing a PR to change that
 seems implausible, look into adding an ~ExecStartPre~ which maps these over to
 environment variables.
 
-If environment variables cannot be supported, then look to
-[[./agenix/secret-template-file.nix]] which can generate arbitrary files which have
-secrets.  You will also need to setup a ~restartTriggers~ to include the secret,
-so changes to the secret provoke a restart of the service.
+If environment variables cannot be supported, then look to the ~template-file~
+generator from [[https://github.com/LoganBarnett/agenix-rekey-generators][agenix-rekey-generators]], which can generate arbitrary files
+which have secrets.  You will also need to setup a ~restartTriggers~ to include
+the secret, so changes to the secret provoke a restart of the service.
 
-There is also [[./agenix/environment-file-secret.nix]] if the service accepts an
+There is also its ~environment-file~ generator if the service accepts an
 environment-file.
 
 ** Generations

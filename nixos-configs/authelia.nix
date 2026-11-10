@@ -156,29 +156,14 @@ in
     ];
   };
 
-  # RSA-4096 private key generator for Authelia's OIDC JWKS.
-  #
-  # Authelia requires the key as inline PEM in the YAML config; there is no
-  # file-path reference syntax and no supported _FILE env var for this field.
-  # The template-file substitution is a literal string replace, so multi-line
-  # PEM content would break the YAML indentation.
-  #
-  # Workaround: store the PEM with literal \n sequences (two chars: backslash
-  # then n) instead of real newlines, then embed it in a YAML double-quoted
-  # string in clientYaml.  The YAML parser converts \n -> newline, giving
-  # Authelia a valid PEM.
-  age.generators.rsa-private-key =
-    { pkgs, ... }:
-    ''
-      set -euo pipefail
-      ${pkgs.openssl}/bin/openssl genpkey \
-        -algorithm RSA \
-        -pkeyopt rsa_keygen_bits:4096 \
-        2>/dev/null \
-        | ${pkgs.gnused}/bin/sed ':a;N;$!ba;s/\n/\\n/g'
-    '';
-
   age.secrets = {
+    # Authelia requires the OIDC JWKS key as inline PEM in the YAML config.
+    # There is no file-path reference syntax and no supported _FILE env var for
+    # this field.  The template-file substitution is a literal string replace,
+    # so multi-line PEM would break the YAML indentation.  rsa-private-key
+    # emits the PEM with literal \n sequences, and clientYaml embeds it in a
+    # YAML double-quoted string, which the YAML parser turns back into
+    # newlines.
     "${host-id}-authelia-oidc-private-key" = {
       generator.script = "rsa-private-key";
     };

@@ -31,27 +31,6 @@ in
     # This lets us include the agenix-rekey package.
     flake-inputs.agenix-rekey.overlays.default
   ];
-  # Grants us the "long-passphrase" generator.
-  # TODO: Help document pre-existing generators listed here:
-  # https://github.com/oddlama/agenix-rekey/blob/85df729446fca1b9f22097b03e0ae2427c3246e2/modules/agenix-rekey.nix#L557
-  age.generators.long-passphrase =
-    { pkgs, ... }:
-    "${pkgs.xkcdpass}/bin/xkcdpass --numwords=10 --delimiter=' '";
-  age.generators.long-passphrase-hashed =
-    {
-      decrypt,
-      deps,
-      file,
-      name,
-      pkgs,
-      secret,
-      ...
-    }:
-    ''
-      ${decrypt} ${(lib.escapeShellArg (builtins.elemAt deps 0).file)} | \
-         ${pkgs.openssl}/bin/openssl passwd -6 -stdin
-    '';
-
   age.rekey = {
     # TODO:  This is the host key, and we should call it that instead of the pub
     # key.  The .pub is the pub key, but we also have a private key and having
@@ -82,33 +61,6 @@ in
     # nodes = flake-inputs.self.nixosConfigurations;
     storageMode = "local";
   };
-
-  age.generators.ssh-ed25519-with-pub =
-    {
-      file,
-      gitAdd,
-      lib,
-      name,
-      pkgs,
-      ...
-    }:
-    ''
-      mkdir -p "$(dirname "${file}")"
-      (exec 3>&1;
-      ${pkgs.openssh}/bin/ssh-keygen \
-        -q \
-        -t ed25519 \
-        -N "" \
-        -C ${lib.escapeShellArg "${name}"} \
-        -f ${name} \
-        <<<y >/dev/null 2>&1;
-        cp "${name}.pub" "$(dirname "${file}")"
-        ${gitAdd} "$(dirname "${file}")/${name}.pub"
-        echo copied public key ${name}.pub to "$(dirname "${file}")" 1>&2
-        cat "${name}"
-        rm "${name}"{,.pub}
-      true)
-    '';
 
   # TODO: This doesn't quite work as expected.  We need something to sync up
   # with the /etc/ssh/ssh_host_ed25519_key and its .pub sibling.  This will
@@ -190,20 +142,10 @@ in
     # The installSecretFn fork (flake input agenix) makes this unnecessary.
     # Re-enable if the fork is dropped and MAX_ARG_STRLEN problems return.
     # ../nixos-modules/agenix-compact-activation.nix
+    flake-inputs.agenix-rekey-generators.nixosModules.default
+    # Runs a derivation from this repository, so it cannot move out with the
+    # rest.
     ../agenix/agenix-rekey-generator-mosquitto-password-file.nix
-    ../agenix/attic-server-jwt-environment-file.nix
-    ../agenix/slapd-hashed.nix
-    ../agenix/stalwart-dkim-key.nix
-    ../agenix/base64-configurable-secret.nix
-    ../agenix/environment-file-secret.nix
-    ../agenix/htpasswd.nix
-    ../agenix/hex-configurable-secret.nix
-    ../agenix/nix-cache-signing-key.nix
-    ../agenix/openhab-pbkdf2.nix
-    ../agenix/secret-template-file.nix
-    ../agenix/tls-secret.nix
-    ../agenix/wireguard-priv.nix
-    ../agenix/yaml-secret.nix
   ];
   environment.systemPackages = [
     # This should remain out because agenix-rekey brings in a replacement

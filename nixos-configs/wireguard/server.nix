@@ -37,9 +37,7 @@ in
     generator.script = "wireguard-priv";
     rekeyFile = ../../secrets/${host-id}-wireguard-server.age;
   };
-  imports = (builtins.map wireguard-client-peer peers) ++ [
-    ../../agenix/wireguard-priv.nix
-  ];
+  imports = builtins.map wireguard-client-peer peers;
   environment.systemPackages = [
     # Allow us to run Wireguard commands to show configuration and diagnose
     # issues.
@@ -64,7 +62,8 @@ in
           MTUBytes = "1300";
         };
         wireguardConfig = {
-          PrivateKeyFile = config.age.secrets."${host-id}-wireguard-server".path;
+          PrivateKeyFile =
+            config.age.secrets."${host-id}-wireguard-server".path;
           ListenPort = wireguard-port;
           # wg-quick creates routing entries automatically but we must use use
           # this option in systemd.

@@ -9,7 +9,6 @@
 {
   imports = [
     ../../nixos-modules/lib-custom.nix
-    ../../agenix/wireguard-priv.nix
   ];
   age.secrets."${host-id}-wireguard-client" = {
     generator.script = "wireguard-priv";
@@ -76,10 +75,13 @@
               # age rather than waiting for the next outbound packet.
               persistentKeepalive = 25;
               presharedKeyFile = null;
-              publicKey = builtins.readFile ../../secrets/silicon-wireguard-server.pub;
+              publicKey =
+                builtins.readFile
+                  ../../secrets/silicon-wireguard-server.pub;
             }
           ];
-          privateKeyFile = config.age.secrets."${host-id}-wireguard-client".path;
+          privateKeyFile =
+            config.age.secrets."${host-id}-wireguard-client".path;
         };
         proton-only = {
           autostart = false;
@@ -104,10 +106,13 @@
               # age rather than waiting for the next outbound packet.
               persistentKeepalive = 25;
               presharedKeyFile = null;
-              publicKey = builtins.readFile ../../secrets/silicon-wireguard-server.pub;
+              publicKey =
+                builtins.readFile
+                  ../../secrets/silicon-wireguard-server.pub;
             }
           ];
-          privateKeyFile = config.age.secrets."${host-id}-wireguard-client".path;
+          privateKeyFile =
+            config.age.secrets."${host-id}-wireguard-client".path;
         };
       };
     };

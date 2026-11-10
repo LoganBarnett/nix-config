@@ -114,7 +114,7 @@ join all change together.
 
 Newer OpenSSL (we run 3.6.0) and other consumers have tightened X.509 spec
 enforcement.  The currently-deployed ~proton-ca~ root predates the fix in the
-~tls-ca-root~ / ~tls-signed-certificate~ generators (~agenix/tls-secret.nix~)
+~tls-ca-root~ / ~tls-signed-certificate~ generators (now in agenix-rekey-generators)
 and lacks the extensions a CA needs to be accepted as a leaf issuer under the
 stricter validators -- so it can effectively no longer mint usable leaf certs.
 The generators themselves are already fixed; the deployed chain is not.  Since

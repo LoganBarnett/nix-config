@@ -10,8 +10,8 @@
   # imports = [];
 
   age.secrets.sample-foo-secret = {
-    # Find generators in ../agenix/.  "hex" in particular has been overridden to
-    # be configurable.
+    # Generators come from agenix-rekey-generators.  "hex" in particular takes
+    # a length.
     generator.script = "hex";
     # Our deviation from agenix-rekey:  You can have settings!
     settings.length = 16;

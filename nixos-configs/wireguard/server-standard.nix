@@ -46,7 +46,9 @@ let
       name = host-id;
       # This demands the actual key and not a path.  Use the ./. idiom to get the
       # path but also put this file in the nix store where we can get to it.
-      publicKey = builtins.readFile ../../secrets/${host-id}-wireguard-client.pub;
+      publicKey =
+        builtins.readFile
+          ../../secrets/${host-id}-wireguard-client.pub;
       allowedIPs = [ "${vpn-subnet-prefix}.${ip}/32" ];
     };
   wireguard-client-secret = host-id: {
@@ -73,7 +75,8 @@ in
         + "blackholing one peer's return traffic.  Collisions:\n"
         + lib.concatStringsSep "\n" (
           lib.mapAttrsToList (
-            ip: hosts: "  ${vpn-subnet-prefix}.${ip} -> ${lib.concatStringsSep ", " hosts}"
+            ip: hosts:
+            "  ${vpn-subnet-prefix}.${ip} -> ${lib.concatStringsSep ", " hosts}"
           ) vpnIpCollisions
         );
     }
@@ -87,9 +90,6 @@ in
   // (lib.attrsets.mergeAttrsList (
     builtins.map wireguard-client-secret (builtins.map (p: p.host-id) peers)
   ));
-  imports = [
-    ../../agenix/wireguard-priv.nix
-  ];
   environment.systemPackages = [
     # Allow us to run Wireguard commands to show configuration and diagnose
     # issues.
@@ -144,12 +144,16 @@ in
       # and hence be like a VPN For this to work you have to set the dnsserver
       # IP of your router (or dnsserver of choice) in your clients.
       postSetup = ''
-        ${pkgs.iptables}/bin/iptables -t nat -A POSTROUTING -s ${vpn-subnet-prefix}.0/24 -o ${config.networking.nat.externalInterface} -j MASQUERADE
+        ${pkgs.iptables}/bin/iptables -t nat -A POSTROUTING -s ${
+          vpn-subnet-prefix
+        }.0/24 -o ${config.networking.nat.externalInterface} -j MASQUERADE
       '';
 
       # This undoes the above command.
       postShutdown = ''
-        ${pkgs.iptables}/bin/iptables -t nat -D POSTROUTING -s ${vpn-subnet-prefix}.0/24 -o ${config.networking.nat.externalInterface} -j MASQUERADE
+        ${pkgs.iptables}/bin/iptables -t nat -D POSTROUTING -s ${
+          vpn-subnet-prefix
+        }.0/24 -o ${config.networking.nat.externalInterface} -j MASQUERADE
       '';
 
       privateKeyFile = config.age.secrets."${host-id}-wireguard-server".path;

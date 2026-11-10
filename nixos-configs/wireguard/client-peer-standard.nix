@@ -12,9 +12,6 @@
   }:
   { config, lib, ... }:
   {
-    imports = [
-      ../../agenix/wireguard-priv.nix
-    ];
     age.secrets."${host-id}-wireguard-client" = {
       generator.script = "wireguard-priv";
       rekeyFile = ../../secrets/${host-id}-wireguard-client.age;

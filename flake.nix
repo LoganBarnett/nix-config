@@ -34,6 +34,13 @@
       # agenix-rekey's README for details.
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # https://github.com/LoganBarnett/agenix-rekey-generators
+    # Secret generators for agenix-rekey, shared across flakes.
+    agenix-rekey-generators = {
+      url = "github:LoganBarnett/agenix-rekey-generators";
+      inputs.nixfmt-strict-width.follows = "nixfmt-strict-width";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     attic = {
       # Fork with a fix for the watch-store panic in zhaofengli/attic issue
       # #226.  Lix unlinks store lock files for paths that never became valid,
