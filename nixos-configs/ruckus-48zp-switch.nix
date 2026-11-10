@@ -17,13 +17,7 @@
 { pkgs, ... }:
 {
   # FastIron local-user passwords cap at 48 characters and the CLI cannot
-  # accept spaces, so the standard long-passphrase generator (10
-  # space-delimited words) does not fit.  Five hyphen-delimited words of at
-  # most 7 characters tops out at 39 characters.
-  age.generators.cli-safe-passphrase =
-    { pkgs, ... }:
-    "${pkgs.xkcdpass}/bin/xkcdpass --numwords=5 --min=4 --max=7 --delimiter=-";
-
+  # accept spaces, so long-passphrase does not fit.
   age.secrets.ruckus-48zp-admin-password = {
     generator.script = "cli-safe-passphrase";
   };
