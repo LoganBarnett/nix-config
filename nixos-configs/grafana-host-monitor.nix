@@ -568,7 +568,8 @@ in
       targets = [
         {
           # A host that is expected but has no node series would otherwise be
-          # missing from the panel, which reads as fine.  It shows as -1 here.
+          # missing from the panel, which reads as fine.  It shows as 0 here,
+          # since a host that cannot be scraped is down.
           expr = ''
             ${without-socket-port ''up{job="node"}''}
             or (
@@ -577,7 +578,7 @@ in
                   scrape_target_expected{job="node"}
                     unless on (host) up{job="node"}
                 ''
-              } - 2
+              } - 1
             )
           '';
           format = "time_series";
@@ -605,25 +606,6 @@ in
               }
             ];
           };
-          mappings = [
-            {
-              type = "value";
-              options = {
-                "-1" = {
-                  text = "UNSCRAPED";
-                  index = 0;
-                };
-                "0" = {
-                  text = "DOWN";
-                  index = 1;
-                };
-                "1" = {
-                  text = "UP";
-                  index = 2;
-                };
-              };
-            }
-          ];
         };
         overrides = [ ];
       };
