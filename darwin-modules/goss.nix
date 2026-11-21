@@ -89,6 +89,17 @@ in
     ];
 
     launchd.daemons.goss = {
+      # `command` makes nix-darwin wrap the daemon in `/bin/wait4path
+      # /nix/store`.  Raw ProgramArguments can spawn before the Nix store
+      # volume mounts at boot.  launchd then fails with EX_CONFIG and waits on
+      # an executable-appeared watch that never fires for the /nix mount.
+      command = lib.escapeShellArgs (
+        [
+          "${cfg.package}/bin/goss"
+          "serve"
+        ]
+        ++ cfg.extraArgs
+      );
       serviceConfig = {
         Label = "org.goss.goss";
         # GOSS_USE_ALPHA is required on macOS: goss treats the serve subcommand
@@ -98,11 +109,6 @@ in
           GOSS_USE_ALPHA = "1";
         }
         // cfg.environment;
-        ProgramArguments = [
-          "${cfg.package}/bin/goss"
-          "serve"
-        ]
-        ++ cfg.extraArgs;
         RunAtLoad = true;
         KeepAlive = true;
         StandardOutPath = "/var/log/goss.log";

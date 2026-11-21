@@ -1,13 +1,122 @@
 #!/usr/bin/env bash
-################################################################################
-# This is the executable checklist for creating a new host that is Nix managed.
-# This can also apply to a fresh macOS system.  This differs from the
-# nix-install scripts I have in that this is for any host and ensures all
-# secrets needed are generated and in the correct location.
-################################################################################
+##
+# Provision the SSH host keypair for a new Nix-managed host before the host
+# exists.  The public half is committed.  The private half is encrypted to the
+# agenix master key and committed.  Every secret is then rekeyed against the
+# new key, so the very first boot decrypts all of them.  Delivering the private
+# half to the host differs per platform and is printed at the end.
+#
+# Run it from the checkout of the flake that declares the host.  The key paths
+# and the master recipient come from the host's own agenix-rekey options.
+##
 
+set -euo pipefail
 
-# At the moment, I don't have anything.  Add to this as I make new hosts.
-# At the very least, the host SSH key (not to be confused with a user's SSH key)
-# must be generated.  This is then copied to the right place via
-# nix-host-key-install.
+host="${1:-}"
+if [[ -z "$host" ]]; then
+  echo "Usage: $0 <host>" >&2
+  exit 1
+fi
+if ! flake_src="$(nix flake metadata --json | jq --raw-output '.path')"; then
+  echo "error: $PWD is not a flake checkout." >&2
+  exit 1
+fi
+host_attr=""
+for configurations in nixosConfigurations darwinConfigurations; do
+  if [[ "$(nix eval ".#$configurations" --apply "s: s ? \"$host\"")" == true ]]
+  then
+    host_attr=".#$configurations.\"$host\""
+    break
+  fi
+done
+if [[ -z "$host_attr" ]]; then
+  echo "error: this flake declares no host named '$host'." >&2
+  exit 1
+fi
+# `options.age.hostPubkey` gives us the text of the key.  Going deeper into
+# `definitions` gives us the file paths.
+host_pub_src="$(
+  nix eval --raw "$host_attr.options.age.rekey.hostPubkey.definitions" \
+    --apply 'definitions: toString (builtins.head definitions)'
+)"
+
+# Normalize the public key's path.  The public key can come from the input flake
+# or the current flake.  Input flakes are already in the Nix store.  That is
+# stripped to provide a current-flake-relative path.
+if [[ "$host_pub_src" != "$flake_src/"* ]]; then
+  # `jq` can read our variables even though it's in single quotes.  It's not
+  # bash substitution, so we can ignore the warning about us making the
+  # substitution-intended-in-single-quotes mistake.
+  # shellcheck disable=SC2016
+  owner="$(
+    nix flake archive --json --dry-run \
+      | jq --raw-output --arg src "$host_pub_src" '
+          [
+            .inputs
+            | to_entries[]
+            | select(.value.path != null)
+            | .value.path as $path
+            | select($src | startswith($path + "/"))
+            | .key
+          ]
+          | first // empty
+        '
+  )"
+  echo "error: $host keeps its host key in ${owner:-$host_pub_src}, not in" >&2
+  echo "error: this flake.  Run from that checkout." >&2
+  exit 1
+fi
+host_pub="${host_pub_src#"$flake_src/"}"
+host_key_age="$(dirname "$host_pub")/$host-host-key.age"
+# Encrypting to the master key needs only its public half.  Without it the
+# master identity would have to be decrypted first, prompting for the
+# passphrase.
+master_pubkey="$(
+  nix eval --json "$host_attr.config.age.rekey.masterIdentities" \
+    | jq --raw-output \
+      '[.[].pubkey | select(. != null)] | first // empty | rtrimstr("\n")'
+)"
+if [[ -z "$master_pubkey" ]]; then
+  echo "error: no master identity of $host declares a pubkey.  See the master" >&2
+  echo "error: key section of secrets.org for the one-time generation." >&2
+  exit 1
+fi
+# The keypair is generated outside of the repository so the current input never
+# exists unencrypted in the working tree, where it could be accidentally
+# committed or swept into the Nix store by a flake evaluation.
+key_dir="$(mktemp --directory)"
+trap 'rm --recursive --force "$key_dir"' EXIT
+# -t indicates the type of cipher to use.
+# -N indicates the passphrase.
+# -C indicates the comment embedded in the public key.
+# -f indicates the path of the file to write to.
+ssh-keygen -t ed25519 -N "" -C "$host" -f "$key_dir/host-key"
+mkdir --parents "$(dirname "$host_pub")"
+cp "$key_dir/host-key.pub" "$host_pub"
+# rage refuses to overwrite an existing output file, so clear any artifact from
+# a prior rotation first.
+rm --force "$host_key_age"
+rage \
+  --encrypt \
+  --recipient "$master_pubkey" \
+  --output "$host_key_age" \
+  "$key_dir/host-key"
+# Nix flakes only see tracked files, so these must be added before any
+# evaluation can use them.
+git add "$host_pub" "$host_key_age"
+agenix rekey generate --add-to-git
+agenix rekey --add-to-git
+cat <<EOM
+
+Host key for '$host' is provisioned.  Commit the changes under
+$(dirname "$host_pub")/, then deliver the private half with the step for the
+platform:
+
+  Raspberry Pi:  image-deploy --host $host
+  PC (UEFI):     push, then in the private lens run
+                 nix flake update nix-config and
+                 caffeinate proton-deploy install $host
+  macOS:         nix-host-key-install, run on the host itself
+
+The full sequence is in docs/operations/new-host-install.org.
+EOM

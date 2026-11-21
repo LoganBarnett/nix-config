@@ -1,4 +1,5 @@
 {
+  config,
   flake-inputs,
   pkgs,
   system,
@@ -23,11 +24,12 @@ let
   nix-host-key-install =
     pkgs.callPackage ../derivations/nix-host-key-install.nix
       { };
-  nix-host-new = pkgs.callPackage ../derivations/nix-host-new.nix { };
-  remote-deploy = pkgs.callPackage ../derivations/remote-deploy.nix { };
-  rpi-host-new = pkgs.callPackage ../derivations/rpi-host-new.nix {
-    inherit image-create;
+  nix-host-new = pkgs.callPackage ../derivations/nix-host-new.nix {
+    # The system's Nix, so the script does not pull a second implementation
+    # onto its PATH.
+    nix = config.nix.package;
   };
+  remote-deploy = pkgs.callPackage ../derivations/remote-deploy.nix { };
   secret-server-token-get =
     pkgs.callPackage ../derivations/secret-server-token-get.nix
       { };
@@ -86,12 +88,12 @@ in
     nix-direnv-add-envrc
     # Install the host SSH key from the secrets store via rage.
     nix-host-key-install
-    # Checklist entrypoint for creating a new Nix-managed host.
+    # Provision a new host's SSH host key and rekey its secrets, before the
+    # host exists.
     nix-host-new
-    # Copy the flake to a remote host and run nixos-rebuild switch.
+    # Break-glass deploy: rsync the flake to a host and run nixos-rebuild
+    # switch there.  proton-deploy is the normal path.
     remote-deploy
-    # Generate keys and build a disk image for a new Raspberry Pi host.
-    rpi-host-new
     # Obtain an OAuth2 bearer token from a Secret Server instance.
     secret-server-token-get
     # Convert a WebP image to PNG.

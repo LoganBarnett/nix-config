@@ -62,22 +62,6 @@ in
     storageMode = "local";
   };
 
-  # TODO: This doesn't quite work as expected.  We need something to sync up
-  # with the /etc/ssh/ssh_host_ed25519_key and its .pub sibling.  This will
-  # break for new hosts trying to get secrets.  To fix it, overwrite the .pub
-  # file in this repository for the host in question with
-  # /etc/ssh/ssh_host_ed25519_key.pub and run `agenix rekey -a` to rekey the
-  # files.
-  # age.secrets."${host-id}-pub-key" = {
-  #   generator.script = "ssh-ed25519-with-pub";
-  #   rekeyFile = ../secrets/${host-id}-pub-key.age;
-  # };
-
-  # This is a catch22.  This is needed at build time but isn't available until
-  # activation time.  See bin/nix-host-new in this repository as well as
-  # bin/nix-host-key-install for putting this file in the right place.
-  # environment.etc."ssh/ssh_host_ed25519_key".file = config.age.secrets."${host-id}-pub-key".file;
-
   age.secrets.proton-ca = {
     intermediary = true;
     rekeyFile = ../secrets/proton-ca.age;
@@ -112,16 +96,13 @@ in
   };
 
   # If you're here because you can't find /run/agenix, you're probably on
-  # darwin/macOS and you don't have any host keys in /etc/ssh.  You will have to
-  # generate them for this host (which can be done with `agenix-rekey
-  # generate`), and then have them copied to the correct location by running
-  # `nix-host-key-install` on the host in question, with this repository in
-  # place (which you have to have cloned to make the executable available
-  # anyways).  Then you should find a /run/agenix.  Additional notes can be
-  # found in the nix-host-key-install script.
+  # darwin/macOS and you don't have any host keys in /etc/ssh.  Provision them
+  # with `nix-host-new <host>` from the nix-config checkout, then copy them into
+  # place by running `nix-host-key-install` on the host in question, with this
+  # repository in place (which you have to have cloned to make the executable
+  # available anyways).  Then you should find a /run/agenix.
   #
   # This value is left to help me find it again when I forget all of this again.
-  # I have a checklist executable started in nix-host-new.
   age.secretsDir = "/run/agenix";
 
   imports = [

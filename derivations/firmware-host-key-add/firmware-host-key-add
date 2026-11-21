@@ -61,7 +61,7 @@ host_key_file="${FLAKE_ROOT:?FLAKE_ROOT must be set - \
 enter the devShell}/secrets/$host-host-key.age"
 if [[ ! -f "$host_key_file" ]]; then
   echo "ERROR: No pre-generated host key at '$host_key_file'." >&2
-  echo "Generate one with rpi-host-new, which also rekeys all of the host's" >&2
+  echo "Generate one with nix-host-new, which also rekeys all of the host's" >&2
   echo "secrets against it." >&2
   exit 1
 fi

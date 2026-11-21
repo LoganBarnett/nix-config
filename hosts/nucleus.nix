@@ -2,12 +2,9 @@
 # The installer for NixOS.  The installer is a minimal NixOS configuration
 # itself to be copied to a bootable drive.
 #
-# It gets its own unique hostname so we can treat it like its own machine.  This
-# allows us to bootstrap a machine with a running NixOS (from a detachable
-# drive), and then run bin/remote-deploy to apply the real settings to the
-# machine.  This way we have a consistent hostname for whatever machine is being
-# stood up.  It gives us a launching point with which to apply things like
-# disko to create our partitions for us.
+# It gets its own unique hostname so we can treat it like its own machine.  Boot
+# it on a fresh machine, then run `proton-deploy install <host>` from the
+# workstation.
 ################################################################################
 {
   config,
@@ -23,10 +20,14 @@ let
 in
 {
   imports = [
-    (import "${flake-inputs.nixpkgs}/nixos/modules/installer/cd-dvd/iso-image.nix")
+    (import
+      "${flake-inputs.nixpkgs}/nixos/modules/installer/cd-dvd/iso-image.nix"
+    )
     (import "${flake-inputs.nixpkgs}/nixos/modules/profiles/minimal.nix")
     (import "${flake-inputs.nixpkgs}/nixos/modules/profiles/base.nix")
-    (import "${flake-inputs.nixpkgs}/nixos/modules/profiles/installation-device.nix")
+    (import
+      "${flake-inputs.nixpkgs}/nixos/modules/profiles/installation-device.nix"
+    )
     ../users/logan-server.nix
     ../nixos-configs/sshd.nix
     ../nixos-configs/nix-store-tools.nix
@@ -63,8 +64,6 @@ in
     pkgs.rsync
     # Give us vim in case we need to make some quick edits.
     pkgs.vim
-    # Make disko available for partitioning operations.
-    flake-inputs.disko.packages.${system}.disko
   ];
 
   # Disable building documentation.  We don't it, we don't need to build it,

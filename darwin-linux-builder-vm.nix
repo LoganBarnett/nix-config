@@ -127,8 +127,7 @@ in
   # ];
   # environment.systemPackages = [
   #   pkgs.lsof
-  #   # Allow us to do a "bootstrapped" remote deploy - see bin/remote-deploy for
-  #   # details on why this is needed.
+  #   # git is needed for Nix flake operations on the builder.
   #   linux-builder-pkgs.git
   #   # Gives us a utility for inspecting binary meta-data.
   #   linux-builder-pkgs.file

@@ -119,8 +119,6 @@
     ../nixos-modules/terminal-kiosk.nix
     ../nixos-configs/nix-store-optimize.nix
     ../nixos-configs/restic-shim.nix
-    # Haven't gotten this working yet.
-    # ./server-host-pub-key.nix
     ../nixos-configs/sshd.nix
     ../nixos-configs/tls-trust.nix
     ../nixos-modules/unfree-predicates.nix

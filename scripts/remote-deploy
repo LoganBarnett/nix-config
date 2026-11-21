@@ -6,7 +6,9 @@
 # derivation should use pkgs.rsync explicitly.
 #
 # This script aims at faking some of the remote build stuff Nix claims to
-# support.
+# support.  It is the break-glass fallback for proton-deploy.  Installing a new
+# host is not one of those cases.  That is `proton-deploy install`, which wraps
+# nixos-anywhere.
 #
 # The problem:
 # I can't figure out how to get Nix to deploy to another machine.  I've tried:
@@ -18,7 +20,8 @@
 # 3. Praying to the machine god.  Offerings made according to specifications.
 #    Prayers have gone unanswered, or a long journey of discovery awaits.
 # 4. Using deploy-rs.  Same cross-build issues.
-# 5. Using nixos-anywhere.  Same cross-build issues.
+# 5. Using nixos-anywhere.  Same cross-build issues at the time.  It works now
+#    that silicon serves as the x86_64-linux builder.
 # 6. Using nixos-generate.  Same cross-build issues.
 #
 # The common theme seems to be cross compiling from aarch64 to x86_64, which is
@@ -50,21 +53,24 @@ if [[ -z "${FLAKE_ROOT:-}" ]] || [[ ! -f "$FLAKE_ROOT/flake.nix" ]]; then
 fi
 cd "$FLAKE_ROOT"
 
-bootstrap_host=''
 build=false
 cleanup=true
-efi=false
 switch=true
-enter_via_host=''
 
 cleanup_remote() {
   # With --no-switch the user intends to run the deployment manually, so the
   # working tree must remain.
-  $switch && $cleanup || return 0
+  if [[ "$switch" != true || "$cleanup" != true ]]; then
+    return 0
+  fi
   # sudo is required because nixos-rebuild claims one or more of the .git
   # files, leaving them root-owned.
   # || true prevents a transient SSH failure here from masking the exit code
   # of a successful deployment.
+  #
+  # We intend that this expands on the client side of our SSH invocation, so
+  # disable the warning.
+  # shellcheck disable=SC2029
   ssh "$ssh_user@$host" "sudo rm -rf ~$ssh_user/proton-nix" || true
 }
 
@@ -74,52 +80,26 @@ while true; do
       cat <<EOH
 Usage: $0 [opts] <hostname>
 
-  --bootstrap <host>   Put this on a host first, then attempt to build it.
-                       Normally remote-deploy assumes the remote to deploy to
-                       and the build target are the same.  This allows for a
-                       different deployment.  This can be helpful when Nix
-                       cannot build on macOS because it still uses a case
-                       insensitive file system (see
-                       https://github.com/tstat/raspberry-pi-nix/issues/2 and
-                       https://github.com/NixOS/nix/issues/2415 for open issues
-                       on these as of 2024-06-03).
-
-  --build              Indicate we should do a `nix build` instead of `nixos
-                       rebuild switch`. Default: false.
-
-  --enter-via <host>   SSH to this host instead of assuming the build machine
-                       and target machine are the same.  This will also involve
-                       a nixos-enter and mounting the disks found in
-                       fileSystems.
+  --build              Indicate we should do a \`nix build\` instead of \`nixos
+                       rebuild switch\`. Default: false.
 
   --no-cleanup         Do not remove ~/proton-nix from the remote after
                        deployment.  Sensitive files from the repo may be
                        present there.  Default: remove after deployment.
 
-  --no-switch          Do not `nixos-rebuild switch` - just copy the files.
+  --no-switch          Do not \`nixos-rebuild switch\` - just copy the files.
                        This can be helpful for running this session over tmux.
                        Skips cleanup so the working tree remains for manual
                        use.
 
-  --efi                Write EFI boot entries when formatting with disko.
+  --user <user>        SSH as this user instead of the one ssh_config resolves
+                       for the host.
 
 Copies nix files to a host via rsync over SSH, and attempts to do a
-`nixos-rebuild switch`.
+\`nixos-rebuild switch\`.
 
 EOH
       exit
-      ;;
-    --bootstrap)
-      bootstrap_host="${2:-}"
-      shift 2
-      ;;
-    --efi)
-      efi=true
-      shift 1
-      ;;
-    --enter-via)
-      enter_via_host="${2:-}"
-      shift 2
       ;;
     --no-cleanup)
       cleanup=false
@@ -140,19 +120,11 @@ EOH
     * ) break ;;
   esac
 done
-# I can't bash well enough to simplify this.
-if [[ "${bootstrap_host:-}" != "" ]]; then
-  host=$bootstrap_host
-elif [[ "$enter_via_host" != '' ]]; then
-  echo "Setting host to $enter_via_host"
-  host="$enter_via_host"
-else
-  host="${1:-}.proton"
-fi
+host="${1:-}.proton"
 target="${1:-}"
 shift
-if [[ ! -n ${ssh_user-} ]]; then
-  ssh_user="$(ssh -G $host | awk '$1 == "user" { print $2 }')"
+if [[ -z "${ssh_user-}" ]]; then
+  ssh_user="$(ssh -G "$host" | awk '$1 == "user" { print $2 }')"
 fi
 echo "Deploying $target to $ssh_user@$host..."
 trap cleanup_remote EXIT
@@ -174,77 +146,24 @@ rsync \
   --exclude='result' \
   --exclude='.git' \
   ./ "$host"':~/proton-nix'
-echo $build
-if [[ "$enter_via_host" == '' ]]; then
-  # No, you can't simplify this because $build is a boolean.
-  nix_command=$(
-    [[ $build == true ]] \
-      && echo 'nix build' \
-      || echo 'nixos-rebuild switch --accept-flake-config')
-  command="set -x; cd proton-nix ;
-  sudo $nix_command --flake '.#$target' --show-trace --impure"
+if [[ "$build" == true ]]; then
+  nix_command='nix build'
 else
-  efiBooted=$(
-    if ssh $ssh_user@ $host \
-           "bootctl 2>/dev/null | grep -q 'Not booted with EFI'"; then
-      echo "false"
-    else
-      echo "true"
-    fi
-  )
-  if [[ "$efi" == true && "$efiBooted" != true ]]; then
-     echo "Did not boot with EFI, but --efi supplied.  This will result in error.  Exiting."
-     exit 1
-  fi
-  command="set -x; set -euo pipefail;
-cd proton-nix
-# bootstrap/bootstrap-disk.sh
-# disko-install
-# Ugh, we can't just declare what the main disk is and let disko handle it.  So
-# we need to either parameterize this or perhaps extend disko.
-# Perhaps we can query the disko configuration and build this command.
-# This argument should be conditionally enabled for EFI enabled machines:
-# --write-efi-boot-entries
-# --yes-wipe-all-disks \
-#
-sudo nix run '.#disko' -- --help
-sudo nix run '.#disko' -- \
-  --flake '.#$target' \
-  --mode destroy,format,mount \
-  $( [[ "$efi" == true ]] && echo '--write-efi-boot-entries' || echo '' ) \
-  --show-trace \
-  ;
-# 4. Run nixos-install.  Disko 'could' do this, but --no-bootloader disables it.
-# We need to run this separately because (at time of writing), Disko isn't smart
-# enough to use configured boot disks in the host config.
-sudo nixos-install --flake '.#$target'
-"
-  echo 'The boot seed warning above (if present) can be worked around with the following setting:
-
-  fileSystems."/boot".options = [ "umask=0077" "defaults" ];
-
-And this should be present on any of your hosts.  The copper host has a sample
-configuration if you need it.  Some day I should unify the UEFI host settings.
-'
+  nix_command='nixos-rebuild switch --accept-flake-config'
 fi
-# This creates a bunch of noise, but as far as I can tell there's no problems
-# had.  Some of the history is probably borked, but I just need the working tree
-# to be intact, and by all observations that is the case.  I have heard about
-# "git bundle" that might help here.  It packs and unpacks a git blob that more
-# safely can traverse the wire, and wouldn't require rsync as badly.
-# scp -r $HOME/dev/dotfiles/nix/ $host':~/proton-nix' > /dev/null
-ssh $ssh_user@$host "\
+remote_command="set -x; cd proton-nix ;
+  sudo $nix_command --flake '.#$target' --show-trace --impure"
+ssh "$ssh_user@$host" "\
 set -e; \
 set -x; \
 cd proton-nix && \
 git init && \
 git add . \
 "
-if $switch ; then
-  ssh $host "\
-  $command \
-"
+if [[ "$switch" == true ]]; then
+  # shellcheck disable=SC2029
+  ssh "$ssh_user@$host" "$remote_command"
 else
   echo "Switch skipped.  You can run manually:"
-  echo "$command"
+  echo "$remote_command"
 fi

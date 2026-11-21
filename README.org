@@ -35,6 +35,8 @@ Look up the next element in the periodic table, and then create that under
 
 ~proton-deploy~ is vastly preferred for all deployments.  It uses Nix's
 copy-closure mechanism to transfer store paths to the remote host securely.
+Its ~install~ verb stands up a brand new host through ~nixos-anywhere~.  The
+runbook is [[file:docs/operations/new-host-install.org][docs/operations/new-host-install.org]].
 
 ~remote-deploy~ is a break-glass script for working around limitations of the
 copy-closure mechanism.  Known cases where it may be necessary are documented
@@ -55,8 +57,16 @@ workstation where the credentials live.
 
 ** by machine type
 
-Instructions across various kinds of machines are not consistent due to
-bootstrapping.  See also [[All Machine Types]].
+Create a new host with:
+
+#+begin_src sh :results none :exports code
+nix-host-new $host
+#+end_src
+
+This prepares the secrets for the host against a bootstrapped SSH key.
+
+See also [[All Machine Types]] once you are complete going through the various
+system types below.
 
 *** BIOS systems
 
@@ -71,20 +81,15 @@ Unfortunately you cannot create a bootable image and simply slap it into a UEFI
 system, because that UEFI system has to be told where to boot.  I've read that
 one can simply create a boot partition and put certain files in the right place.
 Nix does this, or can be taught to do this.  In any case, I have verified the
-magic files went into the magic locations, but still no joy.
+magic files went into the magic locations, but still no joy.  UEFI support isn't
+perfect across firmwares.
 
 Instead, boot into the system using the detachable USB drive.  The host is
-called ~nucleus.proton~ on boot.  From there, you should be able to do a remote
-deployment.  Unfortunately ~proton-deploy~ does not accommodate this activity
-yet.  Until that feature is supported, you can use ~remote-deploy --enter-via
-nucleus.proton ...~.  It would be desirable to use ~proton-deploy~ though, due
-to security concerns.
+called ~nucleus.proton~ on boot.  Then:
 
-Once the machine state has been written, remove the USB drive and reboot the
-system.
-
-The full UEFI/PC bootstrap runbook, from disk partitioning through the first
-agenix rekey, lives at [[file:bootstrap/bootstrap.org][bootstrap/bootstrap.org]].
+#+begin_src shell-script :results none :exports code
+caffeinate proton-deploy install $host
+#+end_src
 
 *** Raspberry Pi
 
@@ -95,61 +100,33 @@ something called ~uboot~, which may or may not be proprietary.
 
 **** rpi: initial deployment steps
 
-For these, use the following invocation:
+Use ~image-deploy~ thusly, with your SD card plugged in:
 
 #+begin_src shell-script :results none :exports code
-rpi-host-new $host
+image-deploy --host $host
 #+end_src
 
-This generates the host's real SSH keypair up front: the public half lands in
-~secrets/$host-pub-key.pub~, while the private half is kept encrypted to the
-master key as ~secrets/$host-host-key.age~ (requires the committed master public
-half - see [[file:secrets.org][secrets.org]] for the one-time setup).  Commit the new and changed
-files under ~secrets/~ before deploying.
-
-Once that's complete, use ~image-deploy~ thusly, with your SD card plugged in:
-
-#+begin_src shell-script :results none :exports code
-image-deploy --host $host --image tmp/images/host/sd-image/*.img.zst
-#+end_src
-
-Once it's done, and the partition table looks fleshed out, remove the SD card
-(no eject/unmount needed).  Plug it into the Pi and boot the Pi.
+It builds the image, writes it, and injects the host key.  Once it's done,
+remove the SD card (no eject/unmount needed).  Plug it into the Pi and boot the
+Pi.  Once the Pi has joined the network:
 
 #+begin_src shell-script :results none :exports code
 caffeinate proton-deploy switch $host
 #+end_src
 
-If secrets are missing on the freshly booted host (an empty ~/run/agenix~),
-see the triage steps in [[file:bootstrap/bootstrap.org::*Bootstrap Pis][bootstrap.org -> Bootstrap Pis]].
-
-
 *** Container Guests
 
 #+begin_src sh :results none :exports code
-host='my-host'; ssh-keygen -t ed25519 -N "" -f secrets/$host-pub-key
+nix-host-new $host
 #+end_src
+
+Deliver the private half by hand: decrypt ~secrets/$host-host-key.age~ with
+the master key into the guest's ~/etc/ssh/ssh_host_ed25519_key~.
 
 *** All Machine Types
 
-You will need to deploy to ~nickel~ to have it pull in the new host for both its
+You will need to deploy to ~silicon~ to have it pull in the new host for both its
 DNS settings, DHCP, and Prometheus exporting.
-
-** public key
-
-You'll need a public key to do rekeying of secrets.  Unfortunately due to
-bootstrapping, you'll need to generate a dummy key.
-
-Raspberry Pi should see [[rpi: initial deployment steps]] instead.
-
-#+begin_src shell-script :results none :exports code
-host='host'; ssh-keygen -t ed25519 -N "" -f secrets/$host-pub-key
-git add secrets/$host-pub-key*
-#+end_src
-
-#+begin_src shell-script :results none :exports code
-host='host'; ssh-keyscan $host.proton | grep -o 'ssh-ed25519.*' > secrets/$host-pub-key.pub
-#+end_src
 
 * devices
 

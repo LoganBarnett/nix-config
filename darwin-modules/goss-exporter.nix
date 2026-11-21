@@ -123,15 +123,17 @@ in
         group = "nobody";
         mode = "0700";
       };
+      # Same boot race guard as the goss daemon in goss.nix.  nginx has only
+      # short options.
+      command = lib.escapeShellArgs [
+        "${pkgs.nginx}/bin/nginx"
+        "-c"
+        "${nginxConf}"
+        "-g"
+        "daemon off;"
+      ];
       serviceConfig = {
         Label = "org.goss.nginx";
-        ProgramArguments = [
-          "${pkgs.nginx}/bin/nginx"
-          "-c"
-          "${nginxConf}"
-          "-g"
-          "daemon off;"
-        ];
         RunAtLoad = true;
         KeepAlive = true;
         StandardErrorPath = "/var/log/goss-nginx.log";

@@ -5,12 +5,6 @@ set -euo pipefail
 # See some quirks to this process here:
 # https://discourse.nixos.org/t/remote-nixos-rebuild-works-with-build-but-not-with-switch/34741
 #
-# The derivation that wraps this script patches nixos-rebuild to copy the build
-# closure using ssh-ng:// rather than ssh://.  The legacy ssh:// protocol pipes
-# NAR data through nix-store --import over SSH, which fails intermittently with
-# "Bad file descriptor" when transferring many paths.  ssh-ng:// uses the Nix
-# daemon protocol and is persistent and reliable.
-#
 # --use-substitutes passes -s to nix copy, instructing the build host to fetch
 # paths it's missing from its own substituters (cache.nixos.org) rather than
 # requiring this machine to push every path.  Without this, any path not
@@ -22,10 +16,12 @@ set -euo pipefail
 # the system derivation, but won't add it to the bootloader.  This means the
 # derivation will be not be loaded on reboot - the prior activation will be used
 # instead.  There is also "boot", which just installs the boot loader.
+# "install" is this script's own verb for a brand new host and is handled
+# below.
 verb="$1"
 host="$2"
 shift 2
-
+main_host='silicon'
 # Look up the deploy type for this host from the flake's hostSystems output.
 # This maps every host identifier to "darwin" or "nixos" without evaluating any
 # full system configuration.  Let errors propagate (set -e) so misconfiguration
@@ -38,6 +34,165 @@ deploy_type=$(nix eval --raw ".#hostSystems.\"${host}\"")
 # unnecessarily (and fail outright when the VPN is down).  `hostname -s`
 # returns the nix-darwin / NixOS host-id on these machines.
 local_host=$(hostname -s)
+
+# "install" formats the host's disks from its disko config and installs the
+# system through nixos-anywhere, placing the pre-generated host key before
+# nixos-install runs so the first boot decrypts every secret.  It is a verb the
+# operator types and is never inferred.  The disko phase destroys filesystems
+# and runs without a confirmation prompt, so the guards below are the only
+# safety net.
+if [ "$verb" = "install" ]; then
+  if [ "$deploy_type" != "nixos" ]; then
+    echo "error: install applies to NixOS hosts only ($host is $deploy_type)" >&2
+    exit 1
+  fi
+  target_host="$USER@nucleus.proton"
+  force=false
+  noop=false
+  passthrough=()
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --target-host)
+        target_host="${2:?--target-host needs a value}"
+        shift 2
+        ;;
+      --force)
+        force=true
+        shift
+        ;;
+      --noop)
+        noop=true
+        shift
+        ;;
+      --)
+        shift
+        passthrough+=("$@")
+        break
+        ;;
+      *)
+        passthrough+=("$1")
+        shift
+        ;;
+    esac
+  done
+
+  # Only hosts whose disks are declared with disko can be formatted.  Hosts
+  # still mounting by label through lvm-uefi-disk.nix fail here until they get a
+  # disko layout at their next reinstall.
+  if ! disks=$(nix eval --json \
+      ".#nixosConfigurations.\"$host\".config.disko.devices.disk" \
+      --apply builtins.attrNames 2>/dev/null) \
+    || [ "$(jq 'length' <<<"$disks")" -eq 0 ]; then
+    echo "error: $host declares no disko.devices.disk, so there is nothing" >&2
+    echo "error: to format.  See docs/operations/new-host-install.org." >&2
+    exit 1
+  fi
+
+  # The host key lives in nix-config's secrets directory.  From the private lens
+  # that directory is reached through the locked nix-config input, so a key
+  # provisioned but not yet pulled in by `nix flake update nix-config` shows up
+  # as missing.
+  if [ -f "secrets/$host-host-key.age" ]; then
+    secrets_dir="$PWD/secrets"
+  else
+    secrets_dir="$(
+      nix flake archive --json --dry-run \
+        | jq --raw-output '.inputs."nix-config".path // empty'
+    )/secrets"
+  fi
+  host_key_age="$secrets_dir/$host-host-key.age"
+  host_pub="$secrets_dir/$host-pub-key.pub"
+  if [ ! -f "$host_key_age" ]; then
+    echo "error: no pre-generated host key at $host_key_age." >&2
+    echo "error: Run nix-host-new $host from the nix-config checkout, commit," >&2
+    echo "error: push, then nix flake update nix-config here." >&2
+    exit 1
+  fi
+  # The flake only sees tracked files at the locked revision.  A public key on
+  # disk that differs from what the configuration evaluates to means the key
+  # was rotated without a commit or without bumping the input.
+  evaluated_pub=$(
+    nix eval --raw \
+      ".#nixosConfigurations.\"$host\".config.age.rekey.hostPubkey" \
+      | cut --delimiter=' ' --fields=1,2
+  )
+  committed_pub=$(cut --delimiter=' ' --fields=1,2 "$host_pub")
+  if [ "$evaluated_pub" != "$committed_pub" ]; then
+    echo "error: $host_pub does not match the evaluated age.rekey.hostPubkey." >&2
+    echo "error: Commit the key in nix-config, then nix flake update nix-config" >&2
+    echo "error: here." >&2
+    exit 1
+  fi
+
+  # A host answering SSH with the committed key is already installed.  No
+  # answer is the expected case for a new host, since $main_host has not learned
+  # its name yet.  ssh-keyscan prints "<host> <type> <key>".
+  scanned=$(
+    ssh-keyscan -t ed25519 -T 5 "$host.proton" 2>/dev/null \
+      | cut --delimiter=' ' --fields=2,3 || true
+  )
+  if [ -n "$scanned" ] && [ "$scanned" = "$committed_pub" ]; then
+    if [ "$force" != true ]; then
+      echo "error: $host.proton already answers SSH with its committed host" >&2
+      echo "error: key, so it is installed.  Pass --force to reinstall, which" >&2
+      echo "error: destroys its disks." >&2
+      exit 1
+    fi
+    echo "warning: reinstalling $host over a live installation (--force)." >&2
+  fi
+
+  master_identity="$secrets_dir/$(
+    nix eval --raw --file "$secrets_dir/master-identity.nix" identity
+  )"
+  # Modes propagate into /mnt through nixos-anywhere's tar pipe, which runs as
+  # root.  The directories must be 0755, the key 0600, and its .pub 0644.  sshd
+  # never backfills a missing .pub.
+  staging=$(mktemp --directory)
+  trap 'rm --recursive --force "$staging"' EXIT
+  install --directory --mode 755 "$staging/etc" "$staging/etc/ssh"
+  echo "Decrypting the host key for $host (master key passphrase)..." >&2
+  (
+    umask 077
+    rage --decrypt --identity "$master_identity" \
+      --output "$staging/etc/ssh/ssh_host_ed25519_key" "$host_key_age"
+  )
+  ssh-keygen -y -f "$staging/etc/ssh/ssh_host_ed25519_key" \
+    > "$staging/etc/ssh/ssh_host_ed25519_key.pub"
+  chmod 644 "$staging/etc/ssh/ssh_host_ed25519_key.pub"
+
+  # Use `--build-on local` to prevent building on the installer, which doesn't
+  # have a lot of space (tmpfs) and has to do a big build.  When we specify this
+  # workstation via those arguments, that means the build starts on that
+  # workstation, but isn't where it ends.  The remote builder configuration is
+  # still honored.  It goes first so a trailing `--build-on remote` to this
+  # script will win when no builder is reachable.
+  cmd=(
+    nixos-anywhere
+    --flake ".#$host"
+    --target-host "$target_host"
+    --extra-files "$staging"
+    --build-on local
+  )
+  if [ ${#passthrough[@]} -gt 0 ]; then
+    cmd+=("${passthrough[@]}")
+  fi
+  if [ "$noop" = true ]; then
+    echo "noop: would run:" >&2
+    printf ' %q' "${cmd[@]}" >&2
+    echo >&2
+    exit 0
+  fi
+  "${cmd[@]}"
+  cat >&2 <<EOM
+
+Installed $host.  Deploy $main_host so DNS, DHCP, and Prometheus learn about it:
+
+  caffeinate proton-deploy switch $main_host
+
+The installed closure is complete, so $host itself needs no switch now.
+EOM
+  exit 0
+fi
 
 if [ "$deploy_type" = "darwin" ]; then
   # darwin-rebuild does not support --target-host (PR #1631 pending upstream).

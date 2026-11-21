@@ -13,8 +13,5 @@ writeShellApplication {
     openssh
     rsync
   ];
-  # The script has several unquoted variable expansions and non-standard
-  # constructs that shellcheck rejects.
-  checkPhase = "";
   text = builtins.readFile ../scripts/remote-deploy;
 }
