@@ -56,9 +56,13 @@ in
   services.dnsmasq = {
     enable = true;
     settings = {
-      # Use non-standard DNS port to avoid conflict with blocky on port 53.
-      # Blocky will query this port for local hostname resolution.
-      port = 5353;
+      # Blocky owns port 53 and forwards the local zone here.  Blocky and the
+      # dnsmasq exporter read this value, so change it only here.  5353 is
+      # out because it is the mDNS port.  zwave-js-ui and openHAB bind UDP
+      # 5353 with address reuse for service discovery, and the kernel hands
+      # them the unicast queries meant for dnsmasq.  5355 is out as LLMNR for
+      # the same reason.  5335 is unassigned and otherwise arbitrary.
+      port = 5335;
       # Private addresses that don't resolve anything should return NXDOMAIN
       # lest we get record pollution elsewhere, I guess?
       bogus-priv = true;
@@ -190,9 +194,8 @@ in
       enabled = true;
       running = true;
     };
-    # Verify dnsmasq is on non-standard DNS port 5353 (not 53 which is used by
-    # blocky).
-    port."udp:5353" = {
+    # Verify dnsmasq is on its own DNS port.  Port 53 belongs to blocky.
+    port."udp:${toString config.services.dnsmasq.settings.port}" = {
       listening = true;
     };
     # Verify dnsmasq is on DHCP port.

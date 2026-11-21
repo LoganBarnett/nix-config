@@ -44,6 +44,9 @@ let
 
   host-ip = hostname: host: "${subnet}.${toString host.ipv4}";
   my-ip = host-ip host-id facts.network.hosts.${host-id};
+  # dnsmasq as a blocky upstream.  dhcp-server.nix owns the port.
+  dnsmasq-upstream =
+    "127.0.0.1:${toString config.services.dnsmasq.settings.port}";
   # This is because the names vary.  Instead of trying to guess, just set them
   # all.
   forced-ip-interface-config = {
@@ -82,14 +85,18 @@ in
       # resolver IP instead of a shared public one.  See
       # nixos-configs/unbound.nix.
       upstream.default = [ "127.0.0.1:5354" ];
-      # Conditional forwarding: Forward .proton domain queries to dnsmasq for
-      # local hostname resolution. Dnsmasq runs on port 5353 to avoid conflict
-      # with blocky on port 53.
-      conditional.mapping."proton" = "127.0.0.1:5353";
+      # Forward the local zone and its reverse zone to dnsmasq.  dnsmasq serves
+      # a PTR record for every host-record, but a reverse query that is not
+      # mapped here never reaches it.  Blocky answers NXDOMAIN itself for the
+      # RFC 1918 reverse zones, and unbound would do the same.
+      conditional.mapping = {
+        ${facts.network.domain} = dnsmasq-upstream;
+        ${pkgs.lib.custom.inAddrArpa subnet} = dnsmasq-upstream;
+      };
       # Look up client hostnames (reverse DNS for identifying who is making
       # requests) from dnsmasq.
       clientLookup = {
-        upstream = "127.0.0.1:5353";
+        upstream = dnsmasq-upstream;
         singleNameOrder = [ 1 ];
         # You actually want `blocking.denylists` instead of `clients`.
         # clients = [];
@@ -238,7 +245,10 @@ in
                       if profileGroups ? ${p} then
                         profileGroups.${p}
                       else
-                        throw "blocky: unknown block profile '${p}' on host '${name}'"
+                        throw
+                          "blocky: unknown block profile '${p}' on host '${
+                            name
+                          }'"
                     ))
                     flatten
                     unique
@@ -256,7 +266,9 @@ in
                 ]
                 ++ (optionals (data.ipv4 or null != null) [
                   {
-                    name = "${facts.network.subnets.barnett-main}.${toString data.ipv4}";
+                    name = "${facts.network.subnets.barnett-main}.${
+                      toString data.ipv4
+                    }";
                     value = blockLists;
                   }
                 ])
@@ -282,7 +294,8 @@ in
                 # Secondary addresses are the same machine, so they answer to
                 # the same profile.  Only `ipv4` is already covered above.
                 ++ (mapAttrsToList (_: octet: {
-                  name = "${facts.network.subnets.barnett-main}.${toString octet}";
+                  name =
+                    "${facts.network.subnets.barnett-main}.${toString octet}";
                   value = blockLists;
                 }) (data.extraAddresses or { }))
               ))
@@ -306,13 +319,14 @@ in
   # poll it from ExecStartPost so systemd holds activation until DNS is
   # serving.
   systemd.services.blocky.serviceConfig.ExecStartPost =
-    pkgs.writeShellScript "blocky-wait-ready" ''
-      for i in {1..60}; do
-        ${pkgs.blocky}/bin/blocky healthcheck && exit 0
-        sleep 1
-      done
-      exit 1
-    '';
+    pkgs.writeShellScript "blocky-wait-ready"
+      ''
+        for i in {1..60}; do
+          ${pkgs.blocky}/bin/blocky healthcheck && exit 0
+          sleep 1
+        done
+        exit 1
+      '';
   # Announce blocky as this host's NSS DNS provider, so DNS-dependent units
   # can `After=nss-lookup.target` and stay agnostic to which resolver
   # (blocky/unbound/dnsmasq/etc.) is in play.  Reaches `active` only after

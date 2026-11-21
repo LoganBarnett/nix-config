@@ -4,7 +4,7 @@
 # Sits north of blocky in the DNS chain (closer to the public internet):
 #
 #   clients --> blocky:53 --> unbound:5354 --> root/TLD/authoritative servers
-#                       \--> dnsmasq:5353 (for .proton local zone)
+#                       \--> dnsmasq (.proton zone, port in dhcp-server.nix)
 #
 # Motivation: DNSBL spam-filter zones (Spamhaus dbl/zen, etc.) block queries
 # from shared public resolvers because they cannot rate-limit per user.  The

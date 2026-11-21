@@ -15,7 +15,10 @@
 
           # Trace with a message prefix and pretty-printed value.
           traceMsg =
-            msg: val: builtins.trace "${msg}: ${final.lib.generators.toPretty { } val}" val;
+            msg: val:
+            builtins.trace "${msg}: ${
+              final.lib.generators.toPretty { } val
+            }" val;
 
           # Returns the full IPv4 address of the home network DNS host by
           # combining the barnett-main subnet prefix with the dns-host's ipv4
@@ -35,8 +38,18 @@
           networkGatewayMacs =
             facts:
             map final.lib.toLower (
-              facts.network.hosts.${facts.network.gateway-host}.macAddresses or [ ]
+              facts.network.hosts.${facts.network.gateway-host}.macAddresses
+                or [ ]
             );
+
+          # Returns the in-addr.arpa name of a dotted IPv4 prefix or address.
+          # "192.168.254" becomes "254.168.192.in-addr.arpa".
+          inAddrArpa =
+            prefix:
+            final.lib.concatStringsSep "." (
+              final.lib.reverseList (final.lib.splitString "." prefix)
+            )
+            + ".in-addr.arpa";
 
           monitor-to-exporter-name =
             monitor:
@@ -114,7 +127,9 @@
                 concatStringsSep
                 stringLength
                 ;
-              lookup = stringToCharacters "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+              lookup =
+                stringToCharacters
+                  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
               sliceN =
                 size: list: n:
                 sublist (n * size) size list;
@@ -129,7 +144,8 @@
                 f: g: x:
                 f (g x);
               intToChar = elemAt lookup;
-              convertTripletInt = sliceInt: concatMapStrings intToChar (intSextets sliceInt);
+              convertTripletInt =
+                sliceInt: concatMapStrings intToChar (intSextets sliceInt);
               sliceToInt = foldl' (acc: val: acc * 256 + val) 0;
               convertTriplet = compose convertTripletInt sliceToInt;
               join = concatStringsSep "";
@@ -139,9 +155,13 @@
                   len = length slice;
                 in
                 if len == 1 then
-                  (substring 0 2 (convertTripletInt ((sliceToInt slice) * 256 * 256))) + "=="
+                  (substring 0 2 (
+                    convertTripletInt ((sliceToInt slice) * 256 * 256)
+                  ))
+                  + "=="
                 else if len == 2 then
-                  (substring 0 3 (convertTripletInt ((sliceToInt slice) * 256))) + "="
+                  (substring 0 3 (convertTripletInt ((sliceToInt slice) * 256)))
+                  + "="
                 else
                   "";
               len = stringLength text;

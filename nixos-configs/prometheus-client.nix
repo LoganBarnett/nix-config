@@ -29,16 +29,17 @@ let
               "systemd"
             ];
             # TODO: Always use long arguments if possible, or document that they
-            # don't exist for the involved tool.  This was yanked directly from the
-            # docs, which could possibly use expansion.
+            # don't exist for the involved tool.  This was yanked directly from
+            # the docs, which could possibly use expansion.
             # firewallFilter = "-i br0 -p tcp -m tcp --dport ${port}";
           };
-        # Query dnsmasq directly on port 5353 instead of the default port 53,
-        # which is Blocky.  Without this, the exporter's CHAOS class queries
+        # Query dnsmasq.  Without this, the exporter's CHAOS class queries
         # (.bind. domains) get forwarded by Blocky to upstream resolvers that
-        # refuse them.
+        # refuse them.  The exporter speaks UDP only, so it is the first thing
+        # to break when another socket shares dnsmasq's port.
         dnsmasq = {
-          dnsmasqListenAddress = "localhost:5353";
+          dnsmasqListenAddress =
+            "localhost:${toString config.services.dnsmasq.settings.port}";
         };
         # The blackbox exporter is too simplistic for multi-tenant HTTPS services.
         # It does only one check.  So we leave it out and favor Gatus instead.  It
