@@ -196,8 +196,13 @@ readers know where to find the rest.
 * Adding a new host
 
 1. Declare the host in ~nixos-modules/facts.nix~ as usual.
-2. Add ~hosts/<hostname>.nix~ in the public repo with the generic stub.
-3. In the wrapper, add ~hosts/<hostname>.nix~ with the private extension.
-4. ~nix flake update nix-config~ in the wrapper, then deploy from there.
+2. Add ~hosts/<hostname>.nix~ in the public repo with the generic stub,
+   including its disko layout.
+3. Run ~nix-host-new <hostname>~ from the public repo root, where the host
+   key is declared.  Commit and push.
+4. In the wrapper, add ~hosts/<hostname>.nix~ with the private extension.
+5. ~nix flake update nix-config~ in the wrapper, then
+   ~caffeinate proton-deploy install <hostname>~ from there.  Later changes
+   deploy with ~proton-deploy switch~.
 
 That's it -- no flake.nix edits in the wrapper, no plumbing per host.

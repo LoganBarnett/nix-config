@@ -71,6 +71,10 @@ failing to record the new installation in the home-manager-owned, read-only
 emergency workaround, and the leftovers are in
 [[file:operations/firefox-profile-load-failure.org][docs/operations/firefox-profile-load-failure.org]].
 
+* Standing up a new host
+
+See [[file://../README.org::*creating new hosts][README.org#creating new hosts]].
+
 * File syncing
 
 Example invocation to sync over my music files.  Note that this preserves the
