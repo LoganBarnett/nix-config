@@ -443,7 +443,13 @@
           gnused-wrapper =
             pkgs.callPackage ./derivations/gnused-wrapper.nix
               { };
-          proton-deploy = pkgs.callPackage ./derivations/proton-deploy.nix { };
+          proton-deploy = pkgs.callPackage ./derivations/proton-deploy.nix {
+            # The flake input is pinned for the systems it publishes.  nixpkgs
+            # covers the rest of flakeExposed.
+            nixos-anywhere =
+              flake-inputs.nixos-anywhere.packages.${system}.nixos-anywhere
+                or pkgs.nixos-anywhere;
+          };
           sonification-test =
             pkgs.callPackage ./derivations/sonification-test/default.nix
               { };
@@ -517,14 +523,6 @@
       #     ./hosts/nucleus.nix
       #   ];
       # };
-
-      # Just expose Disko in some ways - used by ../bin/remote-deploy.
-      packages.x86_64-linux.disko =
-        flake-inputs.disko.packages.x86_64-linux.disko
-          or flake-inputs.disko.packages.x86_64-linux.default;
-      packages.aarch64-linux.disko =
-        flake-inputs.disko.packages.aarch64-linux.disko
-          or flake-inputs.disko.packages.aarch64-linux.default;
 
       agenix-rekey = agenix-rekey.configure {
         userFlake = self;
