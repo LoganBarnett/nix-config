@@ -13,6 +13,12 @@
 # default can be resolved; otherwise a stacked branch checked out on top of
 # another would tidy its own foundation away.
 #
+# A branch checked out in a linked worktree is deleted together with that
+# worktree, provided the worktree holds no staged, unstaged, or untracked
+# files.  Ignored files do not count and are removed with it.  A worktree
+# with changes, a locked worktree, the main worktree, and the worktree the
+# command runs from all keep their branch.
+#
 # Usage: git tidy [--dry-run] [--no-fetch] [<remote>...]
 
 set -euo pipefail
@@ -23,9 +29,13 @@ Usage: git tidy [--dry-run] [--no-fetch] [<remote>...]
 
 Fetch and prune the given remotes (every remote when none are given), then
 delete local branches whose changes have already landed on each remote's
-default branch, including squash and rebase merges.
+default branch, including squash and rebase merges.  A branch checked out
+in a linked worktree is deleted along with that worktree when the worktree
+has no staged, unstaged, or untracked files.  Worktrees with changes or a
+lock are kept, as are the main worktree and the one the command runs from.
 
-  --dry-run   Report what would be deleted without deleting anything.
+  --dry-run   Report what would be removed or deleted without changing
+              anything.
   --no-fetch  Skip the network entirely and use the remote-tracking refs
               as they are.
 USAGE
@@ -166,12 +176,40 @@ if (( ${#bases[@]} == 0 )); then
   add_base HEAD
 fi
 
+# A branch checked out in a worktree can only go once that worktree is gone.
+# The main worktree is never removed.  Every other worktree on a branch is
+# remembered so the branch can go with it.
+declare -A worktree_of
+declare -A worktree_state
+if current="$(git symbolic-ref --quiet HEAD)"; then
+  protected["${current#refs/heads/}"]=1
+fi
 worktrees="$(git worktree list --porcelain)"
+is_main=1
+path=''
+branch=''
+state=''
+# The appended newline keeps the blank line that closes the final record.
 while IFS= read -r line; do
-  if [[ "$line" == "branch refs/heads/"* ]]; then
-    protected["${line#branch refs/heads/}"]=1
-  fi
-done <<< "$worktrees"
+  case "$line" in
+    'worktree '*) path="${line#worktree }" ;;
+    'branch refs/heads/'*) branch="${line#branch refs/heads/}" ;;
+    locked|'locked '*) state=locked ;;
+    prunable|'prunable '*) state=missing ;;
+    '')
+      if [[ -n "$branch" ]] && (( is_main )); then
+        protected["$branch"]=1
+      elif [[ -n "$branch" ]]; then
+        worktree_of["$branch"]="$path"
+        worktree_state["$branch"]="$state"
+      fi
+      is_main=0
+      path=''
+      branch=''
+      state=''
+      ;;
+  esac
+done <<< "${worktrees}"$'\n'
 
 candidates=()
 heads="$(git for-each-ref --format='%(refname)' refs/heads/)"
@@ -291,12 +329,41 @@ for name in "${candidates[@]}"; do
     kept+=("$name")
     continue
   fi
-  if (( dry_run )); then
-    printf 'would delete %s (%s)\n' "$name" "$reason"
-  else
-    git branch --delete --force --quiet "$name"
-    printf 'deleted %s (%s)\n' "$name" "$reason"
+  path="${worktree_of["$name"]:-}"
+  state="${worktree_state["$name"]:-}"
+  if [[ "$state" == locked ]]; then
+    kept+=("${name} (worktree ${path} is locked)")
+    continue
   fi
+  if [[ -n "$path" && "$state" != missing ]]; then
+    # The untracked mode is explicit on purpose.  A config of
+    # status.showUntrackedFiles=no would hide new files from this check and
+    # from git worktree remove alike.
+    changes="$(git -C "$path" status --porcelain --untracked-files=normal \
+      --ignore-submodules=none)"
+    if [[ -n "$changes" ]]; then
+      kept+=("${name} (worktree ${path} has changes)")
+      continue
+    fi
+  fi
+  if (( dry_run )); then
+    if [[ -n "$path" ]]; then
+      printf 'would remove worktree %s\n' "$path"
+    fi
+    printf 'would delete %s (%s)\n' "$name" "$reason"
+    continue
+  fi
+  # The worktree must go first.  Git refuses to delete a checked out branch.
+  if [[ -n "$path" ]]; then
+    if ! git worktree remove "$path"; then
+      warn "could not remove worktree ${path}; keeping ${name}"
+      kept+=("${name} (worktree ${path} remains)")
+      continue
+    fi
+    printf 'removed worktree %s\n' "$path"
+  fi
+  git branch --delete --force --quiet "$name"
+  printf 'deleted %s (%s)\n' "$name" "$reason"
 done
 for name in "${kept[@]}"; do
   printf 'kept %s\n' "$name"
