@@ -2,6 +2,7 @@
 # Make this host an X server based desktop.
 ################################################################################
 {
+  config,
   flake-inputs,
   lib,
   pkgs,
@@ -61,8 +62,30 @@
     # Keyboard settings.
     xkb = {
       layout = "us";
+      # Caps Lock acts as Control.  This matches the macOS remap in darwin.nix.
+      options = "caps:ctrl_modifier";
       variant = "";
     };
+  };
+  # The virtual consoles follow the xkb layout and options above.
+  console.useXkbConfig = true;
+  # GNOME reads keyboard options from dconf rather than from the xkb settings
+  # above.  The lock keeps a user's own dconf value from overriding them.
+  programs.dconf.profiles.user.databases = [
+    {
+      settings."org/gnome/desktop/input-sources".xkb-options =
+        lib.splitString ","
+          config.services.xserver.xkb.options;
+      locks = [ "/org/gnome/desktop/input-sources/xkb-options" ];
+    }
+  ];
+  # ydotool injects input at the uinput layer.  That works over SSH under both
+  # X11 and Wayland.  Its main job here is clearing a stuck Caps Lock.  Every
+  # normal user already belongs to the users group.  No per-user group
+  # membership is needed.
+  programs.ydotool = {
+    enable = true;
+    group = "users";
   };
   # TODO: Move this to separate module.
   # Enable sound with pipewire.
