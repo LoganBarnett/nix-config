@@ -43,6 +43,11 @@ in
   # value is proven out.
   services.grafana-kiosk = {
     enable = true;
+    # Two kiosks at this cap take 2.4 GB of the Pi's 4 GB.  A fresh boot runs
+    # the whole host at about 0.75 GB of anonymous memory, so the cap is a
+    # backstop behind the daily restart rather than a working limit.  The
+    # number is round, not measured.
+    memoryMax = "1200M";
     displays = {
       "HDMI-1" = {
         url = grafana-url "system-monitoring";

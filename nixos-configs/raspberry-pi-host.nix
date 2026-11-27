@@ -44,11 +44,29 @@
       fsType = "vfat";
     };
   };
-  # Disable swap devices for these.  They have little SD cards with abysmal
-  # write speeds.  Perhaps if we have a permanently connected disk with some
-  # speed to it, we can change this up.  We can also destroy the SD cards
-  # quickly with a swap device.
+  # No disk swap.  These boot from SD cards or USB sticks with abysmal write
+  # speeds, and a swap device would wear them out.  zram below is the
+  # substitute.
   swapDevices = lib.mkForce [ ];
+  # Compressed swap in RAM.  It gives the kernel somewhere to put idle anonymous
+  # pages, so a host under pressure degrades into swapping and then an OOM kill
+  # instead of the swapless livelock that took bromine down on 2026-11-24.  It
+  # writes nothing to the card.
+  zramSwap.enable = true;
+  # The Pi firmware prepends cgroup_disable=memory to the kernel command line.
+  # Without the memory controller a unit's MemoryMax is accepted and ignored.
+  # cgroup_memory=1 stops the firmware adding the disable, and
+  # cgroup_enable=memory wins over it when it is added anyway.
+  boot.kernelParams = [
+    "cgroup_enable=memory"
+    "cgroup_memory=1"
+  ];
+  # Reboot through the SoC watchdog when PID 1 stops responding.  A memory
+  # livelock starves PID 1 along with everything else.  The BCM2835 watchdog
+  # counts at most 15 seconds.  The kernel rejects a longer timeout with EINVAL
+  # and systemd then runs with no watchdog at all, so this value is the hardware
+  # maximum rather than a choice.
+  systemd.settings.Manager.RuntimeWatchdogSec = "15s";
   # By default, Raspberry Pis are disallowed from doing their own builds.  We
   # have a single Raspberry Pi build host - a host with sufficient memory and no
   # other services on it.  This prevents any local builds from occurring.

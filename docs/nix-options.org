@@ -59,29 +59,122 @@ emacs --batch -l org \
 4. Run the call and commit the drawer it produces.
 
 * Nix Options
+** services.grafana-kiosk
 
-
-
-#+begin_src nix :exports code
-  };
-};
-#+end_src
-
-
-
+One fullscreen chromium per monitor, each a systemd user unit, laid out from
+the same geometry that positions the browsers.  Set ~memoryMax~ on hosts with
+little RAM.  The runbook is
+[[file:operations/memory-livelock.org][docs/operations/memory-livelock.org]].
 
 *** Options
 
+#+call: nix-options(prefix="services.grafana-kiosk", host="bromine")
 
 #+RESULTS:
 :results:
+- ~services.grafana-kiosk.displays~ ::
+  Kiosk instances keyed by RandR output name (e.g. "HDMI-1").  One
+  systemd user unit named grafana-kiosk-.service is generated
+  per entry, and the monitor layout is assembled from the entries'
+  geometry into a single xrandr invocation.
   - Type: attribute set of (submodule)
   - Default: ~{ }~
+  - Declared in [[file:../nixos-modules/grafana-kiosk.nix][nixos-modules/grafana-kiosk.nix]]
 
+- ~services.grafana-kiosk.displays.<name>.brightness~ ::
+  Optional software brightness multiplier passed to xrandr.
+  Values above 1.0 brighten at the cost of clipping highlights.
+  - Type: null or floating point number
+  - Default: ~null~
+  - Declared in [[file:../nixos-modules/grafana-kiosk.nix][nixos-modules/grafana-kiosk.nix]]
 
+- ~services.grafana-kiosk.displays.<name>.height~ ::
+  Vertical resolution of the RandR mode to select.
+  - Type: positive integer, meaning >0
+  - Declared in [[file:../nixos-modules/grafana-kiosk.nix][nixos-modules/grafana-kiosk.nix]]
 
+- ~services.grafana-kiosk.displays.<name>.primary~ ::
+  Mark this output as the RandR primary.
   - Type: boolean
   - Default: ~false~
+  - Declared in [[file:../nixos-modules/grafana-kiosk.nix][nixos-modules/grafana-kiosk.nix]]
+
+- ~services.grafana-kiosk.displays.<name>.url~ ::
+  The URL of the Grafana dashboard to display on this output.
+  - Type: string
+  - Declared in [[file:../nixos-modules/grafana-kiosk.nix][nixos-modules/grafana-kiosk.nix]]
+
+- ~services.grafana-kiosk.displays.<name>.width~ ::
+  Horizontal resolution of the RandR mode to select.
+  - Type: positive integer, meaning >0
+  - Declared in [[file:../nixos-modules/grafana-kiosk.nix][nixos-modules/grafana-kiosk.nix]]
+
+- ~services.grafana-kiosk.displays.<name>.x~ ::
+  Horizontal position of this output in the virtual screen.
+  Also used as the kiosk browser's window position, which is
+  how each browser lands on its monitor.
+  - Type: signed integer
+  - Default: ~0~
+  - Declared in [[file:../nixos-modules/grafana-kiosk.nix][nixos-modules/grafana-kiosk.nix]]
+
+- ~services.grafana-kiosk.displays.<name>.y~ ::
+  Vertical position of this output in the virtual screen.  Also
+  used as the kiosk browser's window position, which is how
+  each browser lands on its monitor.
+  - Type: signed integer
+  - Default: ~0~
+  - Declared in [[file:../nixos-modules/grafana-kiosk.nix][nixos-modules/grafana-kiosk.nix]]
+
+- ~services.grafana-kiosk.enable~ ::
+  Whether to enable Use Grafana-kiosk to display Grafana dashboards in kiosk mode..
+  - Type: boolean
+  - Default: ~false~
+  - Example: ~true~
+  - Declared in [[file:../nixos-modules/grafana-kiosk.nix][nixos-modules/grafana-kiosk.nix]]
+
+- ~services.grafana-kiosk.maxRuntime~ ::
+  RuntimeMaxSec for each kiosk unit.  The unit stops after running
+  this long and Restart=always starts it again, so chromium gets a
+  fresh process tree before a slow leak reaches memoryMax. null
+  disables the periodic restart.
+  - Type: null or string
+  - Default: ~"1d"~
+  - Example: ~"12h"~
+  - Declared in [[file:../nixos-modules/grafana-kiosk.nix][nixos-modules/grafana-kiosk.nix]]
+
+- ~services.grafana-kiosk.memoryMax~ ::
+  MemoryMax for each kiosk unit, in systemd size syntax.  Chromium
+  leaks slowly over long uptimes, and a Pi with no swap livelocks
+  before the kernel OOM killer acts.  At the cap the kernel kills one
+  process in the unit, OOMPolicy=kill takes the rest of the browser
+  tree, and Restart=always brings the kiosk back.  Swap is denied to
+  a capped unit so the cap is a kill, not a spill into swap.
+  Multiply by the number of displays and leave room for X, the
+  exporters, and the kernel.  Needs the memory cgroup controller,
+  which the Pi firmware disables unless the kernel command line
+  enables it. null sets no cap.
+  - Type: null or string
+  - Default: ~null~
+  - Example: ~"1200M"~
+  - Declared in [[file:../nixos-modules/grafana-kiosk.nix][nixos-modules/grafana-kiosk.nix]]
+
+- ~services.grafana-kiosk.package~ ::
+  - Type: package
+  - Default: ~<derivation grafana-kiosk-1.0.12>~
+  - Declared in [[file:../nixos-modules/grafana-kiosk.nix][nixos-modules/grafana-kiosk.nix]]
+
+- ~services.grafana-kiosk.systemGroup~ ::
+  The group of the auto-login user.
+  - Type: string
+  - Default: ~"kiosk"~
+  - Declared in [[file:../nixos-modules/grafana-kiosk.nix][nixos-modules/grafana-kiosk.nix]]
+
+- ~services.grafana-kiosk.systemUser~ ::
+  The user to auto-login as.
+  - Type: string
+  - Default: ~"kiosk"~
+  - Declared in [[file:../nixos-modules/grafana-kiosk.nix][nixos-modules/grafana-kiosk.nix]]
+:end:
 
   - Type: positive integer, meaning >0
   - Default: ~1800~

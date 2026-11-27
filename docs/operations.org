@@ -71,6 +71,19 @@ failing to record the new installation in the home-manager-owned, read-only
 emergency workaround, and the leftovers are in
 [[file:operations/firefox-profile-load-failure.org][docs/operations/firefox-profile-load-failure.org]].
 
+* Raspberry Pi answering pings but running nothing
+
+Symptom: a Pi answers ~ping~ and accepts TCP connections, ~ssh~ hangs before
+the banner, and every exporter on it is dark.  Prometheus shows memory used
+climbing in a straight line for days before the gap.
+
+Cause is a slow leak on a host with no swap.  The kernel has nothing left to
+reclaim and no swap to fall back on, so it livelocks instead of killing
+anything.  Recovery is a power cycle.  The kiosk units now carry a memory cap
+and a daily restart, the Pis run zram and the hardware watchdog, and
+~host_memory_high~ warns first.  Details are in
+[[file:operations/memory-livelock.org][docs/operations/memory-livelock.org]].
+
 * Standing up a new host
 
 See [[file://../README.org::*creating new hosts][README.org#creating new hosts]].

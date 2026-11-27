@@ -15,6 +15,10 @@
 # probe's unit result to Prometheus.  This is the active failure signal for
 # the degraded states this module tolerates by design (see the setupCommands
 # comment below).
+#
+# Options are documented in docs/nix-options.org under
+# services.grafana-kiosk.  The runbook for a kiosk host that runs out of
+# memory is docs/operations/memory-livelock.org.
 ################################################################################
 {
   config,
@@ -198,6 +202,33 @@ in
           }
         );
       };
+      memoryMax = mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        example = "1200M";
+        description = ''
+          MemoryMax for each kiosk unit, in systemd size syntax.  Chromium leaks
+          slowly over long uptimes, and a Pi with no swap livelocks before the
+          kernel OOM killer acts.  At the cap the kernel kills one process in
+          the unit, OOMPolicy=kill takes the rest of the browser tree, and
+          Restart=always brings the kiosk back.  Swap is denied to a capped unit
+          so the cap is a kill, not a spill into swap.  Multiply by the number
+          of displays and leave room for X, the exporters, and the kernel.
+          Needs the memory cgroup controller, which the Pi firmware disables
+          unless the kernel command line enables it.  null sets no cap.
+        '';
+      };
+      maxRuntime = mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = "1d";
+        example = "12h";
+        description = ''
+          RuntimeMaxSec for each kiosk unit.  The unit stops after running this
+          long and Restart=always starts it again, so chromium gets a fresh
+          process tree before a slow leak reaches memoryMax.  null disables the
+          periodic restart.
+        '';
+      };
       systemUser = mkOption {
         type = lib.types.str;
         default = "kiosk";
@@ -315,6 +346,8 @@ in
         description = "Grafana kiosk on ${output}";
         after = [ "network.target" ];
         wantedBy = [ "graphical-session.target" ];
+        # Resource control works in a user unit because user@.service delegates
+        # the memory controller to the user manager.
         serviceConfig = {
           ExecStart = lib.escapeShellArgs [
             "${cfg.package}/bin/grafana-kiosk"
@@ -324,11 +357,25 @@ in
             "${toString display.x},${toString display.y}"
           ];
           Restart = "always";
+          # The kernel OOM killer takes one process in the cgroup, which leaves
+          # chromium alive with a dead renderer and an error page on the
+          # monitor.  Kill the whole tree so Restart brings back a working
+          # kiosk.
+          OOMPolicy = "kill";
           Environment = [
             "XDG_RUNTIME_DIR=%t"
             # Disable GPU to reduce memory usage.
             "KIOSK_GPU_ENABLED=false"
           ];
+        }
+        // lib.optionalAttrs (cfg.memoryMax != null) {
+          MemoryMax = cfg.memoryMax;
+          # The cap exists to kill a leaking browser.  Without this a zram swap
+          # device absorbs the leak and the cap never bites.
+          MemorySwapMax = "0";
+        }
+        // lib.optionalAttrs (cfg.maxRuntime != null) {
+          RuntimeMaxSec = cfg.maxRuntime;
         };
         # Restart the kiosks when dashboards change, using the same hash
         # that grafana.nix uses, so both services restart together on

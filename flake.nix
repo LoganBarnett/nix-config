@@ -90,6 +90,19 @@
       url = "github:LoganBarnett/hash-color?ref=main";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # https://github.com/LoganBarnett/hodix
+    # The modules proton moves onto, one service at a time.
+    hodix = {
+      url = "github:LoganBarnett/hodix";
+      inputs.agenix.follows = "agenix";
+      inputs.agenix-rekey.follows = "agenix-rekey";
+      inputs.agenix-rekey-generators.follows = "agenix-rekey-generators";
+      inputs.nix-darwin.follows = "nix-darwin";
+      inputs.nix-hapi.follows = "nix-hapi";
+      inputs.nix-hapi-provider-ldap.follows = "nix-hapi-provider-ldap";
+      inputs.nixfmt-strict-width.follows = "nixfmt-strict-width";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
 
     loku = {
       url = "github:LoganBarnett/loku";

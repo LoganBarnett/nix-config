@@ -1,0 +1,79 @@
+#+title:     Host answering pings but running nothing
+#+language:  en
+
+A host that runs out of memory with no disk swap does not crash.  It
+livelocks.  The kernel keeps answering the network while no process gets to
+run.  Bromine did this on 2026-11-24 after 32 days of a slow Chromium leak.
+
+* Symptom
+
+1. ~ping~ answers and ~nc -z <host> 22~ succeeds.
+2. ~ssh~ fails with "Connection timed out during banner exchange".
+3. HTTP on the host never answers.
+4. Every exporter on the host goes dark at once, so ~node_down~ and
+   ~exporter_down~ fire together.
+5. A kiosk host shows a frozen dashboard.
+6. The metrics before the gap show memory used climbing in a straight line
+   for days or weeks.
+
+* Cause
+
+The host ran out of memory and had no swap.  The kernel reclaimed every file
+page it could and then had nothing left to give back.  It never reached the
+OOM killer because reclaim never failed outright.  It only took forever.
+PID 1 and every daemon starved on page faults.  The network stack runs in
+the kernel, so it kept answering.
+
+Bromine on 2026-11-24:
+
+| Boot                      | Oct 23 11:30 PST  |
+| Last good scrape          | Nov 24 11:38 PST  |
+| Memory used at boot       | 36%               |
+| Memory used at death      | 98.6%             |
+| Growth                    | about 75 MB a day |
+| Anonymous memory at death | 3.44 GB of 3.96   |
+| OOM kills since boot      | 0                 |
+| Swap                      | none              |
+
+* What to check
+
+Prometheus queries, shown for bromine:
+
+1. ~node_memory_AnonPages_bytes{host="bromine"}~ over 30 days.  A straight
+   line is a leak.  A daily sawtooth is the kiosk restart doing its job.
+2. ~node_vmstat_oom_kill{host="bromine"}~.  Zero across the climb means the
+   kernel never got to kill anything.
+3. ~rate(node_vmstat_pgmajfault{host="bromine"}[10m])~.  A rise in the last
+   hours is the thrash.
+4. ~ALERTS{alertname="host_memory_high"}~ to see whether the warning fired
+   and was missed.
+
+On the host, while SSH still works, ~systemd-cgtop -m~ names the unit that
+holds the memory and ~ps -eo pid,rss,comm --sort=-rss | head~ names the
+process.  Restart that unit.
+
+* Recovery
+
+Pull the plug.  There is no software path in and no remote power.  Pis
+running ~nixos-configs/raspberry-pi-host.nix~ arm the SoC watchdog, so a
+repeat reboots itself about 15 seconds after PID 1 stalls.
+
+* Prevention
+
+1. Each kiosk unit carries ~MemoryMax~ and ~MemorySwapMax=0~, so a leaking
+   browser is killed at its cap and restarted.  The cap is
+   ~services.grafana-kiosk.memoryMax~, set per host.
+2. Each kiosk unit carries ~RuntimeMaxSec~ of one day, so the leak never
+   reaches the cap in normal operation.  That is
+   ~services.grafana-kiosk.maxRuntime~.
+3. Every Pi runs zram swap, enables the memory cgroup controller the Pi
+   firmware turns off, and arms the hardware watchdog.  All three live in
+   ~nixos-configs/raspberry-pi-host.nix~.
+4. ~host_memory_high~ warns at 90% used for two hours.  It lives in
+   ~nixos-configs/memory-alertmanager-alerts.nix~.
+
+* Leftovers
+
+An OOM kill is a SIGKILL, so grafana-kiosk cannot remove its
+~/tmp/chromedp-kiosk*~ profile directory on that path.  The daily SIGTERM
+restart does clean up.  Check ~/tmp~ after an ~oom-kill~ result.
